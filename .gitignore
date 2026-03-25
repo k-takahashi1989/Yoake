@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Android build
+android/app/build/
+android/app/.cxx/
+android/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/app/src/main/assets/index.android.bundle
+
+# iOS build
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+
+# Metro
+.metro-health-check*
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+yarn-error.log
+*.key
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# Claude Code local settings
+.claude/
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# App config (contains API keys)
+src/config.ts
+
+# Environment
+.env
+.env.local
+.env.*
+functions/.env
+functions/lib/
+
+# IDE
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
