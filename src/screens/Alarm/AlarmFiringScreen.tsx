@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { useTranslation } from '../../i18n';
+import { getDateFnsLocale } from '../../utils/dateUtils';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import { useAlarmStore, PREMIUM_MAX_SNOOZE } from '../../stores/alarmStore';
@@ -19,6 +20,7 @@ import { FREE_LIMITS } from '../../constants';
 type Props = NativeStackScreenProps<RootStackParamList, 'AlarmFiring'>;
 
 export default function AlarmFiringScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const [now, setNow] = useState(new Date());
   const { snoozeCount, handleSnooze, handleDismiss } = useAlarmStore();
   const { isPremium } = useAuthStore();
@@ -55,7 +57,7 @@ export default function AlarmFiringScreen({ navigation }: Props) {
         {/* 上部：挨拶 */}
         <View style={styles.topSection}>
           <Text style={styles.greetingIcon}>🌅</Text>
-          <Text style={styles.greeting}>おはようございます</Text>
+          <Text style={styles.greeting}>{t('alarmFiring.greeting')}</Text>
         </View>
 
         {/* 中央：時計 */}
@@ -63,7 +65,7 @@ export default function AlarmFiringScreen({ navigation }: Props) {
           <Text style={styles.clockTime}>{format(now, 'HH:mm')}</Text>
           <Text style={styles.clockSec}>{format(now, 'ss')}</Text>
           <Text style={styles.clockDate}>
-            {format(now, 'M月d日（EEE）', { locale: ja })}
+            {format(now, 'M/d（EEE）', { locale: getDateFnsLocale() })}
           </Text>
         </View>
 
@@ -75,7 +77,7 @@ export default function AlarmFiringScreen({ navigation }: Props) {
             activeOpacity={0.85}
           >
             <Text style={styles.dismissIcon}>🔕</Text>
-            <Text style={styles.dismissText}>止める</Text>
+            <Text style={styles.dismissText}>{t('alarmFiring.dismiss')}</Text>
           </TouchableOpacity>
 
           {snoozesLeft > 0 ? (
@@ -85,18 +87,20 @@ export default function AlarmFiringScreen({ navigation }: Props) {
               activeOpacity={0.8}
             >
               <Text style={styles.snoozeText}>
-                スヌーズ +{FREE_LIMITS.SNOOZE_INTERVAL_MIN}分
+                {t('alarmFiring.snooze', { minutes: FREE_LIMITS.SNOOZE_INTERVAL_MIN })}
               </Text>
               <Text style={[
                 styles.snoozeRemain,
                 snoozesLeft === 1 && styles.snoozeRemainWarning,
               ]}>
-                あと{snoozesLeft}回{snoozesLeft === 1 ? '（最後）' : ''}
+                {snoozesLeft === 1
+                  ? t('alarmFiring.snoozeRemainLast', { count: snoozesLeft })
+                  : t('alarmFiring.snoozeRemain', { count: snoozesLeft })}
               </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.snoozeExhausted}>
-              <Text style={styles.snoozeExhaustedText}>スヌーズ回数の上限です</Text>
+              <Text style={styles.snoozeExhaustedText}>{t('alarmFiring.snoozeExhausted')}</Text>
             </View>
           )}
         </View>

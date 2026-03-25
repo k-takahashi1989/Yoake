@@ -13,6 +13,7 @@ import {
   ProfileStackParamList,
 } from '../types';
 import { useAuthStore } from '../stores/authStore';
+import { useTranslation } from '../i18n';
 
 import HomeScreen from '../screens/Home/HomeScreen';
 import ScoreDetailScreen from '../screens/Home/ScoreDetailScreen';
@@ -55,6 +56,7 @@ const HEADER_OPTS = {
 };
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const { t } = useTranslation();
   const icons: Record<string, string> = {
     Home: '🌙',
     Diary: '📔',
@@ -62,17 +64,17 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     Alarm: '⏰',
     Profile: '👤',
   };
-  const labels: Record<string, string> = {
-    Home: 'ホーム',
-    Diary: '日記',
-    Report: 'レポート',
-    Alarm: 'アラーム',
-    Profile: 'マイページ',
+  const labelKeys: Record<string, string> = {
+    Home: 'nav.home',
+    Diary: 'nav.diary',
+    Report: 'nav.report',
+    Alarm: 'nav.alarm',
+    Profile: 'nav.profile',
   };
   return (
     <Text
       style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}
-      accessibilityLabel={labels[name]}
+      accessibilityLabel={t(labelKeys[name])}
     >
       {icons[name] ?? '?'}
     </Text>
@@ -80,24 +82,26 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 function HomeStackNavigator() {
+  const { t } = useTranslation();
   return (
     <HomeStack.Navigator screenOptions={HEADER_OPTS}>
       <HomeStack.Screen name="HomeScreen" component={HomeScreen} options={{ headerShown: false }} />
       <HomeStack.Screen
         name="ScoreDetail"
         component={ScoreDetailScreen}
-        options={{ title: 'スコア詳細', headerBackTitle: '' }}
+        options={{ title: t('nav.scoreDetail'), headerBackTitle: '' }}
       />
       <HomeStack.Screen
         name="AiChat"
         component={AiChatScreen}
-        options={{ title: 'AIチャット', headerBackTitle: '' }}
+        options={{ title: t('nav.aiChat'), headerBackTitle: '' }}
       />
     </HomeStack.Navigator>
   );
 }
 
 function DiaryStackNavigator() {
+  const { t } = useTranslation();
   return (
     <DiaryStack.Navigator screenOptions={HEADER_OPTS}>
       <DiaryStack.Screen
@@ -108,18 +112,19 @@ function DiaryStackNavigator() {
       <DiaryStack.Screen
         name="RecordDetail"
         component={RecordDetailScreen}
-        options={{ title: '記録詳細', headerBackTitle: '' }}
+        options={{ title: t('nav.recordDetail'), headerBackTitle: '' }}
       />
       <DiaryStack.Screen
         name="RecordEdit"
         component={RecordEditScreen}
-        options={{ title: '記録を編集', headerBackTitle: '' }}
+        options={{ title: t('nav.recordEdit'), headerBackTitle: '' }}
       />
     </DiaryStack.Navigator>
   );
 }
 
 function ProfileStackNavigator() {
+  const { t } = useTranslation();
   return (
     <ProfileStack.Navigator screenOptions={HEADER_OPTS}>
       <ProfileStack.Screen
@@ -130,33 +135,34 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen
         name="EditProfile"
         component={EditProfileScreen}
-        options={{ title: 'プロフィール編集', headerBackTitle: '' }}
+        options={{ title: t('nav.editProfile'), headerBackTitle: '' }}
       />
       <ProfileStack.Screen
         name="SubscriptionManage"
         component={SubscriptionManageScreen}
-        options={{ title: 'サブスク管理', headerBackTitle: '' }}
+        options={{ title: t('nav.subscriptionManage'), headerBackTitle: '' }}
       />
       <ProfileStack.Screen
         name="HealthConnectSettings"
         component={HealthConnectSettingsScreen}
-        options={{ title: 'Health Connect', headerBackTitle: '' }}
+        options={{ title: t('nav.healthConnectSettings'), headerBackTitle: '' }}
       />
       <ProfileStack.Screen
         name="NotificationSettings"
         component={NotificationSettingsScreen}
-        options={{ title: '通知設定', headerBackTitle: '' }}
+        options={{ title: t('nav.notificationSettings'), headerBackTitle: '' }}
       />
       <ProfileStack.Screen
         name="DataManagement"
         component={DataManagementScreen}
-        options={{ title: 'データ管理', headerBackTitle: '' }}
+        options={{ title: t('nav.dataManagement'), headerBackTitle: '' }}
       />
     </ProfileStack.Navigator>
   );
 }
 
 function MainTabs() {
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -168,11 +174,11 @@ function MainTabs() {
         tabBarLabelStyle: { fontSize: 10 },
       })}
     >
-      <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: 'ホーム' }} />
-      <Tab.Screen name="Diary" component={DiaryStackNavigator} options={{ title: '日記' }} />
-      <Tab.Screen name="Report" component={ReportScreen} options={{ title: 'レポート' }} />
-      <Tab.Screen name="Alarm" component={AlarmScreen} options={{ title: 'アラーム' }} />
-      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: 'マイページ' }} />
+      <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: t('nav.home') }} />
+      <Tab.Screen name="Diary" component={DiaryStackNavigator} options={{ title: t('nav.diary') }} />
+      <Tab.Screen name="Report" component={ReportScreen} options={{ title: t('nav.report') }} />
+      <Tab.Screen name="Alarm" component={AlarmScreen} options={{ title: t('nav.alarm') }} />
+      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: t('nav.profile') }} />
     </Tab.Navigator>
   );
 }

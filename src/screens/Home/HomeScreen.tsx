@@ -10,8 +10,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format, subDays } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from '../../i18n';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSleepStore } from '../../stores/sleepStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -31,6 +31,7 @@ type HomeNav = NativeStackNavigationProp<HomeStackParamList>;
 const DISMISSED_BANNER_KEY = '@yoake:dismissed_banner_date';
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<HomeNav>();
   const { todayLog, recentLogs, loadToday, loadRecent } = useSleepStore();
   const { isPremium } = useAuthStore();
@@ -45,7 +46,7 @@ export default function HomeScreen() {
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  const dateLabel = format(new Date(), 'M月d日（EEE）', { locale: ja });
+  const dateLabel = format(new Date(), 'M月d日（EEE）');
 
   useEffect(() => {
     loadToday();
@@ -114,7 +115,7 @@ export default function HomeScreen() {
       setAiAdvice(report.content);
     } catch (e) {
       console.error('AI生成失敗:', e);
-      setAiAdvice('AIアドバイスを取得できませんでした。');
+      setAiAdvice(t('home.aiAdviceFailed'));
     } finally {
       setIsLoadingAi(false);
     }
@@ -148,7 +149,7 @@ export default function HomeScreen() {
         {/* ヘッダー */}
         <View style={styles.header}>
           <Text style={styles.dateText}>{dateLabel}</Text>
-          <Text style={styles.headerTitle}>おはようございます 🌅</Text>
+          <Text style={styles.headerTitle}>{t('home.greeting')}</Text>
         </View>
 
         {/* スコアリング */}
@@ -160,32 +161,30 @@ export default function HomeScreen() {
             <ScoreRing
               score={todayLog?.score ?? null}
               scoreColor={scoreColor}
-              label={scoreInfo?.label ?? null}
+              label={scoreInfo ? t(scoreInfo.labelKey) : null}
             />
           </TouchableOpacity>
 
           {todayLog && (
-            <Text style={styles.tapHint}>タップで詳細を見る</Text>
+            <Text style={styles.tapHint}>{t('home.tapHint')}</Text>
           )}
 
           {todayLog && (scoreDiff !== null || weekLogs.length > 0) && (
             <Text style={styles.scoreContext}>
               {scoreDiff !== null
-                ? `前日比 ${scoreDiff >= 0 ? '+' : ''}${scoreDiff}点`
+                ? t('home.scoreDiff', { value: `${scoreDiff >= 0 ? '+' : ''}${scoreDiff}` })
                 : ''}
               {scoreDiff !== null && weekLogs.length > 0 ? '　／　' : ''}
               {weekLogs.length > 0
-                ? `今週平均 ${Math.round(weekLogs.reduce((s, l) => s + l.score, 0) / weekLogs.length)}点`
+                ? t('home.weekAvg', { score: Math.round(weekLogs.reduce((s, l) => s + l.score, 0) / weekLogs.length) })
                 : ''}
             </Text>
           )}
 
           {!todayLog && recentLogs.length === 0 && (
             <View style={styles.firstTimeCard}>
-              <Text style={styles.firstTimeTitle}>YOAKEへようこそ！</Text>
-              <Text style={styles.firstTimeDesc}>
-                まず昨夜の睡眠を記録してみましょう。{'\n'}スコアや改善点が一目でわかります。
-              </Text>
+              <Text style={styles.firstTimeTitle}>{t('home.welcomeTitle')}</Text>
+              <Text style={styles.firstTimeDesc}>{t('home.welcomeDesc')}</Text>
             </View>
           )}
 
@@ -194,7 +193,7 @@ export default function HomeScreen() {
               style={styles.recordButton}
               onPress={() => { setModalTargetDate(today); setShowInputModal(true); }}
             >
-              <Text style={styles.recordButtonText}>今日の睡眠を記録する</Text>
+              <Text style={styles.recordButtonText}>{t('home.recordButton')}</Text>
             </TouchableOpacity>
           )}
 
@@ -203,7 +202,7 @@ export default function HomeScreen() {
               style={styles.editButton}
               onPress={() => { setModalTargetDate(today); setShowInputModal(true); }}
             >
-              <Text style={styles.editButtonText}>記録を編集</Text>
+              <Text style={styles.editButtonText}>{t('home.editButton')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -212,11 +211,11 @@ export default function HomeScreen() {
         {yesterdayMissed && !dismissedYesterday && (
           <View style={styles.missedBanner}>
             <View style={styles.missedBannerContent}>
-              <Text style={styles.missedBannerText}>昨日の記録がありません</Text>
+              <Text style={styles.missedBannerText}>{t('home.missedBanner')}</Text>
               <TouchableOpacity
                 onPress={() => { setModalTargetDate(yesterday); setShowInputModal(true); }}
               >
-                <Text style={styles.missedBannerAction}>記録する</Text>
+                <Text style={styles.missedBannerAction}>{t('home.missedBannerAction')}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={handleDismissBanner}>
@@ -238,14 +237,14 @@ export default function HomeScreen() {
           onPress={() => navigation.navigate('AiChat')}
         >
           <Text style={styles.chatButtonText}>
-            {isPremium ? '💬 AIに質問する' : '🔒 AIチャット（プレミアム）'}
+            {isPremium ? t('home.aiChatButton') : t('home.aiChatLocked')}
           </Text>
         </TouchableOpacity>
 
         {/* 今日のサマリー */}
         {todayLog && (
           <View style={styles.summaryCard}>
-            <Text style={styles.cardTitle}>今日の睡眠</Text>
+            <Text style={styles.cardTitle}>{t('home.todaySleep')}</Text>
             <View style={styles.summaryRow}>
               <SummaryItem
                 label="睡眠時間"
@@ -266,7 +265,7 @@ export default function HomeScreen() {
         {/* 今週の目標進捗 */}
         {goal && (
           <View style={styles.goalCard}>
-            <Text style={styles.cardTitle}>今週の目標達成</Text>
+            <Text style={styles.cardTitle}>{t('home.weeklyGoal')}</Text>
             <View style={styles.goalProgress}>
               {Array.from({ length: 7 }).map((_, i) => (
                 <View
@@ -279,7 +278,7 @@ export default function HomeScreen() {
               ))}
             </View>
             <Text style={styles.goalText}>
-              {achievedDays}/7日　目標スコア{goal.targetScore}点以上
+              {t('home.goalText', { achieved: achievedDays, target: goal.targetScore })}
             </Text>
           </View>
         )}

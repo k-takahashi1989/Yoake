@@ -8,12 +8,14 @@ import {
   Platform,
 } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   onNext: (granted: boolean) => void;
 }
 
 export default function NotificationStep({ onNext }: Props) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
 
   const requestPermission = async () => {
@@ -43,16 +45,20 @@ export default function NotificationStep({ onNext }: Props) {
     }
   };
 
+  const notifications = [
+    { emoji: '🤖', label: t('onboarding.notification.notif1Label'), desc: t('onboarding.notification.notif1Desc') },
+    { emoji: '🌙', label: t('onboarding.notification.notif2Label'), desc: t('onboarding.notification.notif2Desc') },
+    { emoji: '📊', label: t('onboarding.notification.notif3Label'), desc: t('onboarding.notification.notif3Desc') },
+  ];
+
   return (
     <View style={styles.container}>
       <Text style={styles.icon}>🔔</Text>
-      <Text style={styles.title}>通知を許可する</Text>
-      <Text style={styles.description}>
-        毎朝AIアドバイスをお届けし、{'\n'}睡眠の質を継続的に改善します。
-      </Text>
+      <Text style={styles.title}>{t('onboarding.notification.title')}</Text>
+      <Text style={styles.description}>{t('onboarding.notification.desc')}</Text>
 
       <View style={styles.notifList}>
-        {NOTIFICATIONS.map(n => (
+        {notifications.map(n => (
           <View key={n.label} style={styles.notifRow}>
             <Text style={styles.notifEmoji}>{n.emoji}</Text>
             <View style={styles.notifContent}>
@@ -65,14 +71,14 @@ export default function NotificationStep({ onNext }: Props) {
 
       {status === 'granted' && (
         <View style={styles.successBanner}>
-          <Text style={styles.successText}>✅ 通知を許可しました</Text>
+          <Text style={styles.successText}>{t('onboarding.notification.grantedBanner')}</Text>
         </View>
       )}
 
       {status === 'denied' && (
         <View style={styles.warningBanner}>
           <Text style={styles.warningText}>
-            通知が拒否されました。設定アプリから後で変更できます。
+            {t('onboarding.notification.deniedBanner')}
           </Text>
         </View>
       )}
@@ -80,13 +86,13 @@ export default function NotificationStep({ onNext }: Props) {
       <View style={styles.buttonGroup}>
         {status === 'idle' && (
           <TouchableOpacity style={styles.buttonPrimary} onPress={requestPermission}>
-            <Text style={styles.buttonTextPrimary}>通知を許可する</Text>
+            <Text style={styles.buttonTextPrimary}>{t('onboarding.notification.allowBtn')}</Text>
           </TouchableOpacity>
         )}
 
         {status === 'requesting' && (
           <TouchableOpacity style={[styles.buttonPrimary, styles.buttonDisabled]} disabled>
-            <Text style={styles.buttonTextPrimary}>確認中...</Text>
+            <Text style={styles.buttonTextPrimary}>{t('onboarding.notification.checkingBtn')}</Text>
           </TouchableOpacity>
         )}
 
@@ -95,19 +101,13 @@ export default function NotificationStep({ onNext }: Props) {
           onPress={() => onNext(status === 'granted')}
         >
           <Text style={status === 'granted' ? styles.buttonTextPrimary : styles.buttonTextSecondary}>
-            {status === 'granted' ? '次へ' : 'スキップ'}
+            {status === 'granted' ? t('onboarding.notification.nextBtn') : t('onboarding.notification.skipBtn')}
           </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-const NOTIFICATIONS = [
-  { emoji: '🤖', label: '毎朝AIアドバイス', desc: '起床後にその日の睡眠を分析してお届け' },
-  { emoji: '🌙', label: '就寝リマインダー（有料）', desc: '設定した目標就寝時刻の30分前に通知' },
-  { emoji: '📊', label: '週次レポート（有料）', desc: '月曜日に先週の睡眠サマリーをお届け' },
-];
 
 const styles = StyleSheet.create({
   container: {

@@ -9,6 +9,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { isHCAvailable, hasHCSleepPermission } from '../../../services/healthConnect';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   onNext: () => void;
@@ -17,6 +18,7 @@ interface Props {
 type Status = 'idle' | 'checking' | 'connected' | 'denied' | 'unavailable';
 
 export default function HealthConnectStep({ onNext }: Props) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<Status>('idle');
   const appStateRef = useRef(AppState.currentState);
   const waitingForReturn = useRef(false);
@@ -64,16 +66,21 @@ export default function HealthConnectStep({ onNext }: Props) {
     );
   };
 
+  const benefits = [
+    t('onboarding.healthConnect.benefit1'),
+    t('onboarding.healthConnect.benefit2'),
+    t('onboarding.healthConnect.benefit3'),
+    t('onboarding.healthConnect.benefit4'),
+  ];
+
   return (
     <View style={styles.container}>
       <Text style={styles.icon}>❤️</Text>
-      <Text style={styles.title}>Health Connect連携</Text>
-      <Text style={styles.description}>
-        Samsung Health・Fitbit・Garminなどの睡眠データを自動取得できます。
-      </Text>
+      <Text style={styles.title}>{t('onboarding.healthConnect.title')}</Text>
+      <Text style={styles.description}>{t('onboarding.healthConnect.desc')}</Text>
 
       <View style={styles.benefitList}>
-        {BENEFITS.map(b => (
+        {benefits.map(b => (
           <View key={b} style={styles.benefitRow}>
             <Text style={styles.checkIcon}>✓</Text>
             <Text style={styles.benefitText}>{b}</Text>
@@ -84,22 +91,21 @@ export default function HealthConnectStep({ onNext }: Props) {
       {status === 'checking' && (
         <View style={styles.infoBanner}>
           <Text style={styles.infoText}>
-            Health Connect アプリで睡眠の権限を許可してから戻ってください。
+            {t('onboarding.healthConnect.checkingBanner')}
           </Text>
         </View>
       )}
 
       {status === 'connected' && (
         <View style={styles.successBanner}>
-          <Text style={styles.successText}>✅ Health Connect と連携しました</Text>
+          <Text style={styles.successText}>{t('onboarding.healthConnect.successBanner')}</Text>
         </View>
       )}
 
       {status === 'denied' && (
         <View style={styles.warningBanner}>
           <Text style={styles.warningText}>
-            権限が許可されませんでした。{'\n'}
-            あとで設定から変更できます。
+            {t('onboarding.healthConnect.deniedBanner')}
           </Text>
         </View>
       )}
@@ -107,18 +113,17 @@ export default function HealthConnectStep({ onNext }: Props) {
       {status === 'unavailable' && (
         <View style={styles.warningBanner}>
           <Text style={styles.warningText}>
-            Health Connect アプリが見つかりません。{'\n'}
-            Google Play からインストールできます。
+            {t('onboarding.healthConnect.unavailableBanner')}
           </Text>
           <TouchableOpacity onPress={handleOpenPlayStore} style={styles.installButton}>
-            <Text style={styles.installButtonText}>インストールする</Text>
+            <Text style={styles.installButtonText}>{t('onboarding.healthConnect.installBtn')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <View style={styles.privacyNote}>
         <Text style={styles.privacyNoteText}>
-          🔒 取得する睡眠データはFirebaseに暗号化して保存されます。第三者への提供は行いません。詳細はプライバシーポリシーをご確認ください。
+          {t('onboarding.healthConnect.privacyNote')}
         </Text>
       </View>
 
@@ -130,7 +135,7 @@ export default function HealthConnectStep({ onNext }: Props) {
             disabled={status === 'checking'}
           >
             <Text style={styles.buttonText}>
-              {status === 'checking' ? 'アプリで許可後、戻ってください' : 'Health Connect と連携する'}
+              {status === 'checking' ? t('onboarding.healthConnect.waitingBtn') : t('onboarding.healthConnect.connectBtn')}
             </Text>
           </TouchableOpacity>
         )}
@@ -140,20 +145,13 @@ export default function HealthConnectStep({ onNext }: Props) {
           onPress={() => onNext()}
         >
           <Text style={[styles.buttonText, status !== 'connected' && styles.buttonTextSecondary]}>
-            {status === 'connected' ? '次へ' : 'あとで設定する'}
+            {status === 'connected' ? t('onboarding.healthConnect.nextBtn') : t('onboarding.healthConnect.skipBtn')}
           </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-const BENEFITS = [
-  '深睡眠・レム睡眠など詳細なステージ取得',
-  '自動での睡眠記録（手入力不要）',
-  'より高精度なスコア計算',
-  'スマートアラームとの連携（有料）',
-];
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center' },

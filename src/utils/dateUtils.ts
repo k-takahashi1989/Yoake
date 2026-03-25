@@ -1,3 +1,10 @@
+import { ja, enUS } from 'date-fns/locale';
+import { i18n } from '../i18n';
+
+export function getDateFnsLocale() {
+  return i18n.language === 'ja' ? ja : enUS;
+}
+
 /**
  * Safely converts a Firestore Timestamp (or related value) to a Date.
  * Handles: proper Timestamp, plain {seconds} object, regular Date, null/undefined.

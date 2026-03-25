@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { SLEEP_LOG_FETCH_LIMIT, SUBSCRIPTION } from '../../constants';
+import { useTranslation } from '../../i18n';
 import {
   getRecentSleepLogs,
   getAiReport,
@@ -33,18 +34,12 @@ import HabitCorrelationCard from './components/HabitCorrelationCard';
 
 type Tab = 'weekly' | 'monthly';
 
-const REPORT_PAYWALL_FEATURES = [
-  '週次・月次スコア推移グラフ',
-  '習慣別スコア影響分析',
-  '週次AIレポート（自動生成）',
-  '過去8週分のレポートアーカイブ',
-];
-
 // ============================================================
 // メイン画面
 // ============================================================
 
 export default function ReportScreen() {
+  const { t } = useTranslation();
   const { isPremium } = useAuthStore();
   const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
@@ -160,16 +155,22 @@ export default function ReportScreen() {
 
   // ペイウォール
   if (!isPremium) {
+    const paywallFeatures = [
+      t('report.paywallFeature1'),
+      t('report.paywallFeature2'),
+      t('report.paywallFeature3'),
+      t('report.paywallFeature4'),
+    ];
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>レポート</Text>
+          <Text style={styles.title}>{t('report.title')}</Text>
         </View>
         <View style={styles.center}>
           <Text style={styles.lockIcon}>🔒</Text>
-          <Text style={styles.paywallTitle}>レポートはプレミアム機能です</Text>
+          <Text style={styles.paywallTitle}>{t('report.paywallTitle')}</Text>
           <View style={styles.paywallFeatureCard}>
-            {REPORT_PAYWALL_FEATURES.map(f => (
+            {paywallFeatures.map(f => (
               <View key={f} style={styles.paywallFeatureRow}>
                 <Text style={styles.paywallFeatureCheck}>✓</Text>
                 <Text style={styles.paywallFeatureText}>{f}</Text>
@@ -183,7 +184,7 @@ export default function ReportScreen() {
             style={styles.upgradeBtn}
             onPress={() => navigation.navigate('SubscriptionManage')}
           >
-            <Text style={styles.upgradeBtnText}>{SUBSCRIPTION.TRIAL_DAYS}日間無料トライアルを始める</Text>
+            <Text style={styles.upgradeBtnText}>{t('report.upgradeBtn', { days: SUBSCRIPTION.TRIAL_DAYS })}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -207,19 +208,19 @@ export default function ReportScreen() {
     <SafeAreaView style={styles.container}>
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.title}>レポート</Text>
+        <Text style={styles.title}>{t('report.title')}</Text>
         <View style={styles.tabRow}>
           <TouchableOpacity
             style={[styles.tabBtn, tab === 'weekly' && styles.tabBtnActive]}
             onPress={() => setTab('weekly')}
           >
-            <Text style={[styles.tabText, tab === 'weekly' && styles.tabTextActive]}>週次</Text>
+            <Text style={[styles.tabText, tab === 'weekly' && styles.tabTextActive]}>{t('report.weekly')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabBtn, tab === 'monthly' && styles.tabBtnActive]}
             onPress={() => setTab('monthly')}
           >
-            <Text style={[styles.tabText, tab === 'monthly' && styles.tabTextActive]}>月次</Text>
+            <Text style={[styles.tabText, tab === 'monthly' && styles.tabTextActive]}>{t('report.monthly')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -231,18 +232,18 @@ export default function ReportScreen() {
       ) : logs.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyIcon}>📊</Text>
-          <Text style={styles.emptyText}>データが不足しています</Text>
+          <Text style={styles.emptyText}>{t('report.insufficientData')}</Text>
           <Text style={styles.emptySubText}>
-            {tab === 'weekly' ? '7日間' : '30日間'}の睡眠を記録すると分析できます
+            {tab === 'weekly' ? t('report.insufficientDataSub_weekly') : t('report.insufficientDataSub_monthly')}
           </Text>
         </View>
       ) : (
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* 統計サマリー */}
           <View style={styles.statsRow}>
-            <StatCell label="平均スコア" value={`${avgScore}点`} color="#6B5CE7" />
-            <StatCell label="最高スコア" value={`${bestScore}点`} color="#4CAF50" />
-            <StatCell label="最低スコア" value={`${worstScore}点`} color="#F44336" />
+            <StatCell label={t('report.avgScore')} value={`${avgScore}${t('common.points')}`} color="#6B5CE7" />
+            <StatCell label={t('report.bestScore')} value={`${bestScore}${t('common.points')}`} color="#4CAF50" />
+            <StatCell label={t('report.worstScore')} value={`${worstScore}${t('common.points')}`} color="#F44336" />
           </View>
 
           {/* スコア推移グラフ */}

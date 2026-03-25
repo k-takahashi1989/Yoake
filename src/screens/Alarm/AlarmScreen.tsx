@@ -11,12 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { useAlarmStore, PREMIUM_MAX_SNOOZE } from '../../stores/alarmStore';
 import { useAuthStore } from '../../stores/authStore';
 import { FREE_LIMITS } from '../../constants';
+import { useTranslation } from '../../i18n';
+import { getDateFnsLocale } from '../../utils/dateUtils';
 
 export default function AlarmScreen() {
+  const { t } = useTranslation();
   const { isPremium } = useAuthStore();
   const {
     hour, minute, isEnabled, smartWindowMinutes, scheduledTimestamp, isLoaded,
@@ -51,13 +53,13 @@ export default function AlarmScreen() {
   const maxSnooze = isPremium ? PREMIUM_MAX_SNOOZE : FREE_LIMITS.SNOOZE_COUNT;
 
   const scheduledLabel = scheduledTimestamp
-    ? format(new Date(scheduledTimestamp), 'M月d日（EEE）HH:mm', { locale: ja }) + ' に予定'
+    ? t('alarm.scheduled', { date: format(new Date(scheduledTimestamp), 'M/d（EEE）HH:mm', { locale: getDateFnsLocale() }) })
     : null;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>アラーム</Text>
+        <Text style={styles.title}>{t('alarm.title')}</Text>
       </View>
 
       {!isLoaded ? (
@@ -74,7 +76,7 @@ export default function AlarmScreen() {
                 <Text style={[styles.timeText, isEnabled && styles.timeTextActive]}>
                   {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
                 </Text>
-                <Text style={styles.timeTapHint}>タップで時刻変更</Text>
+                <Text style={styles.timeTapHint}>{t('alarm.tapHint')}</Text>
               </TouchableOpacity>
 
               {/* トグル */}
@@ -95,7 +97,7 @@ export default function AlarmScreen() {
             {isEnabled && scheduledLabel ? (
               <Text style={styles.scheduledLabel}>⏱ {scheduledLabel}</Text>
             ) : !isEnabled ? (
-              <Text style={styles.disabledLabel}>アラームはオフです</Text>
+              <Text style={styles.disabledLabel}>{t('alarm.disabled')}</Text>
             ) : null}
           </View>
 
@@ -105,12 +107,12 @@ export default function AlarmScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <Text style={styles.settingTitle}>
-                  スマートアラーム{!isPremium ? ' 🔒' : ''}
+                  {isPremium ? t('alarm.smartAlarm') : t('alarm.smartAlarmLocked')}
                 </Text>
                 <Text style={styles.settingSubtitle}>
                   {smartWindowMinutes > 0
-                    ? `起床ウィンドウ：${smartWindowMinutes}分前から段階的に起こします`
-                    : '設定した時刻ちょうどに起こします'}
+                    ? t('alarm.smartAlarmSubActive', { minutes: smartWindowMinutes })
+                    : t('alarm.smartAlarmSubOff')}
                 </Text>
               </View>
               <Switch
@@ -127,10 +129,11 @@ export default function AlarmScreen() {
             {/* スヌーズ設定 */}
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>スヌーズ設定</Text>
+                <Text style={styles.settingTitle}>{t('alarm.snoozeTitle')}</Text>
                 <Text style={styles.settingSubtitle}>
-                  間隔 {FREE_LIMITS.SNOOZE_INTERVAL_MIN}分 ／ 最大 {maxSnooze}回
-                  {!isPremium && `（プレミアムで${PREMIUM_MAX_SNOOZE}回）`}
+                  {isPremium
+                    ? t('alarm.snoozeSub', { interval: FREE_LIMITS.SNOOZE_INTERVAL_MIN, max: maxSnooze })
+                    : t('alarm.snoozeSubPremium', { interval: FREE_LIMITS.SNOOZE_INTERVAL_MIN, max: maxSnooze, premiumMax: PREMIUM_MAX_SNOOZE })}
                 </Text>
               </View>
             </View>
@@ -138,19 +141,13 @@ export default function AlarmScreen() {
 
           {/* 使い方ヒント */}
           <View style={styles.hintCard}>
-            <Text style={styles.hintTitle}>📌 アラームの使い方</Text>
-            <Text style={styles.hintText}>
-              {'・アラームをONにすると翌日の設定時刻に通知が届きます\n'}
-              {'・止めると翌日の同じ時刻に自動で再スケジュールします\n'}
-              {'・スマートアラームは起床ウィンドウ内で最適なタイミングに起こします（プレミアム）'}
-            </Text>
+            <Text style={styles.hintTitle}>{t('alarm.hintTitle')}</Text>
+            <Text style={styles.hintText}>{t('alarm.hintText')}</Text>
           </View>
 
           {!isPremium && (
             <TouchableOpacity style={styles.upgradeBtn}>
-              <Text style={styles.upgradeBtnText}>
-                有料プランでスマートアラームを使う
-              </Text>
+              <Text style={styles.upgradeBtnText}>{t('alarm.upgradeBtn')}</Text>
             </TouchableOpacity>
           )}
 

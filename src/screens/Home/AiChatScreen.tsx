@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
+import { useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
 import { getGoal } from '../../services/firebase';
 import { sendChatMessage } from '../../services/claudeApi';
@@ -28,6 +29,7 @@ interface Message {
 }
 
 export default function AiChatScreen() {
+  const { t } = useTranslation();
   const { isPremium } = useAuthStore();
   const navigation = useNavigation<any>();
   const { recentLogs, loadRecent } = useSleepStore();
@@ -35,7 +37,7 @@ export default function AiChatScreen() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'こんにちは！睡眠についてなんでも聞いてね。睡眠データをもとにアドバイスするよ。',
+      content: t('aiChat.welcome'),
       timestamp: new Date(),
     },
   ]);

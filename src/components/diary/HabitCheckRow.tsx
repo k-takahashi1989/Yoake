@@ -1,17 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { HabitEntry } from '../../types';
+import { useTranslation } from '../../i18n';
 
 interface Props {
   habit: HabitEntry;
   onToggle: () => void;
 }
 
+function getHabitDisplayLabel(habit: { id: string; label: string }, t: (key: string, opts?: any) => string): string {
+  if (habit.id.startsWith('default_')) {
+    return t(`habits.${habit.id}`, { defaultValue: habit.label });
+  }
+  return habit.label;
+}
+
 export default function HabitCheckRow({ habit, onToggle }: Props) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity style={styles.row} onPress={onToggle} activeOpacity={0.7}>
       <Text style={styles.emoji}>{habit.emoji}</Text>
-      <Text style={styles.label}>{habit.label}</Text>
+      <Text style={styles.label}>{getHabitDisplayLabel(habit, t)}</Text>
       <View style={[styles.checkbox, habit.checked && styles.checkboxChecked]}>
         {habit.checked && <Text style={styles.checkmark}>✓</Text>}
       </View>

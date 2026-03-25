@@ -10,11 +10,13 @@ import { ProfileStackParamList } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { getRecentSleepLogs } from '../../services/firebase';
 import { safeToDate } from '../../utils/dateUtils';
+import { useTranslation } from '../../i18n';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'DataManagement'>;
 
 export default function DataManagementScreen({ navigation }: Props) {
   const { deleteAccount } = useAuthStore();
+  const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -56,7 +58,7 @@ export default function DataManagementScreen({ navigation }: Props) {
       });
     } catch (e: any) {
       if (e?.message !== 'User did not share') {
-        Alert.alert('エクスポート失敗', 'データの取得に失敗しました。');
+        Alert.alert(t('dataManagement.exportBtn'), t('dataManagement.exportFailed'));
       }
     } finally {
       setIsExporting(false);
@@ -69,12 +71,12 @@ export default function DataManagementScreen({ navigation }: Props) {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'アカウントを削除',
-      '全ての睡眠記録・設定・AIレポートが削除されます。この操作は元に戻せません。',
+      t('dataManagement.deleteTitle'),
+      t('dataManagement.deleteMessage'),
       [
-        { text: 'キャンセル', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '削除する',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: confirmDelete,
         },
@@ -84,12 +86,12 @@ export default function DataManagementScreen({ navigation }: Props) {
 
   const confirmDelete = () => {
     Alert.alert(
-      '本当によろしいですか？',
-      '削除後はデータを復元できません。',
+      t('dataManagement.deleteConfirmTitle'),
+      t('dataManagement.deleteConfirmMessage'),
       [
-        { text: 'キャンセル', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '完全に削除',
+          text: t('dataManagement.deleteConfirmBtn'),
           style: 'destructive',
           onPress: executeDelete,
         },
@@ -104,7 +106,7 @@ export default function DataManagementScreen({ navigation }: Props) {
       // authStore が hasCompletedOnboarding: false にするので
       // AppNavigator が自動的に Onboarding へリダイレクト
     } catch {
-      Alert.alert('削除失敗', 'アカウントの削除に失敗しました。');
+      Alert.alert(t('dataManagement.deleteTitle'), t('dataManagement.deleteFailed'));
       setIsDeleting(false);
     }
   };
@@ -114,10 +116,8 @@ export default function DataManagementScreen({ navigation }: Props) {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* エクスポート */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>データエクスポート</Text>
-          <Text style={styles.cardDesc}>
-            過去1年分の睡眠データをJSON形式でエクスポートします。他のアプリへの移行や自己分析に活用できます。
-          </Text>
+          <Text style={styles.cardTitle}>{t('dataManagement.exportTitle')}</Text>
+          <Text style={styles.cardDesc}>{t('dataManagement.exportDesc')}</Text>
           <TouchableOpacity
             style={[styles.exportBtn, isExporting && styles.btnDisabled]}
             onPress={handleExport}
@@ -125,18 +125,15 @@ export default function DataManagementScreen({ navigation }: Props) {
           >
             {isExporting
               ? <ActivityIndicator color="#FFF" size="small" />
-              : <Text style={styles.exportBtnText}>📤 データをエクスポート</Text>
+              : <Text style={styles.exportBtnText}>{t('dataManagement.exportBtn')}</Text>
             }
           </TouchableOpacity>
         </View>
 
         {/* 危険ゾーン */}
         <View style={[styles.card, styles.dangerCard]}>
-          <Text style={[styles.cardTitle, styles.dangerTitle]}>危険ゾーン</Text>
-          <Text style={styles.cardDesc}>
-            以下の操作は取り消しできません。実行前に必ずデータをエクスポートしてください。{'\n'}
-            削除後はFirestore上のデータが消去されます。AIアドバイス生成時にAnthropicに送信したデータについては、Anthropicのデータポリシーが適用されます。
-          </Text>
+          <Text style={[styles.cardTitle, styles.dangerTitle]}>{t('dataManagement.dangerZoneTitle')}</Text>
+          <Text style={styles.cardDesc}>{t('dataManagement.dangerZoneDesc')}</Text>
           <TouchableOpacity
             style={[styles.deleteBtn, isDeleting && styles.btnDisabled]}
             onPress={handleDeleteAccount}
@@ -144,7 +141,7 @@ export default function DataManagementScreen({ navigation }: Props) {
           >
             {isDeleting
               ? <ActivityIndicator color="#F44336" size="small" />
-              : <Text style={styles.deleteBtnText}>🗑️ アカウントを削除する</Text>
+              : <Text style={styles.deleteBtnText}>{t('dataManagement.deleteBtn')}</Text>
             }
           </TouchableOpacity>
         </View>

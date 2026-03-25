@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { startOfMonth, format } from 'date-fns';
 import { SleepLog } from '../../types';
 import { calculateSleepDebt } from '../../utils/scoreCalculator';
+import { useTranslation } from '../../i18n';
 
 type DebtPeriod = '14' | '30' | 'month';
 
@@ -12,27 +13,29 @@ interface Props {
   isPremium: boolean;
 }
 
-const PERIOD_LABELS: Record<DebtPeriod, string> = {
-  '14': '14日',
-  '30': '30日',
-  'month': '今月',
-};
 
 export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Props) {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState<DebtPeriod>('14');
+
+  const periodLabels: Record<DebtPeriod, string> = {
+    '14': t('sleepDebt.period14'),
+    '30': t('sleepDebt.period30'),
+    'month': t('sleepDebt.periodMonth'),
+  };
 
   if (!isPremium) {
     return (
       <View style={styles.card}>
         <View style={styles.header}>
-          <Text style={styles.title}>睡眠負債</Text>
+          <Text style={styles.title}>{t('sleepDebt.title')}</Text>
           <View style={styles.premiumBadge}>
-            <Text style={styles.premiumText}>有料</Text>
+            <Text style={styles.premiumText}>{t('sleepDebt.paidLabel')}</Text>
           </View>
         </View>
         <View style={styles.lockedRow}>
           <Text style={styles.lockIcon}>🔒</Text>
-          <Text style={styles.premiumHint}>プレミアムで睡眠負債を確認できます</Text>
+          <Text style={styles.premiumHint}>{t('sleepDebt.locked')}</Text>
         </View>
       </View>
     );
@@ -54,7 +57,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
 
   const debtText =
     debtMinutes === 0
-      ? '睡眠負債なし 🎉'
+      ? t('sleepDebt.none')
       : `${debtHours > 0 ? `${debtHours}時間` : ''}${debtMins > 0 ? `${debtMins}分` : ''}`;
 
   const debtColor =
@@ -67,7 +70,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>睡眠負債</Text>
+        <Text style={styles.title}>{t('sleepDebt.title')}</Text>
       </View>
 
       {/* 期間チップ */}
@@ -79,7 +82,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
             onPress={() => setPeriod(p)}
           >
             <Text style={[styles.chipText, period === p && styles.chipTextActive]}>
-              {PERIOD_LABELS[p]}
+              {periodLabels[p]}
             </Text>
           </TouchableOpacity>
         ))}
@@ -91,7 +94,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
 
       {debtMinutes > 0 && (
         <Text style={styles.hint}>
-          目標 {targetHours}時間/日に対して累積不足分です
+          {t('sleepDebt.hint', { target: targetHours })}
         </Text>
       )}
     </View>

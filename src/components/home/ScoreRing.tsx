@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { useTranslation } from '../../i18n';
 
 interface Props {
   score: number | null;
@@ -14,6 +15,7 @@ const RADIUS = (SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function ScoreRing({ score, scoreColor, label }: Props) {
+  const { t } = useTranslation();
   const progress = score !== null ? score / 100 : 0;
   const strokeDashoffset = CIRCUMFERENCE * (1 - progress);
 
@@ -49,11 +51,11 @@ export default function ScoreRing({ score, scoreColor, label }: Props) {
         {score !== null ? (
           <>
             <Text style={[styles.score, { color: scoreColor }]}>{score}</Text>
-            <Text style={styles.unit}>点</Text>
+            <Text style={styles.unit}>{t('scoreRing.unit')}</Text>
             {label && <Text style={[styles.label, { color: scoreColor }]}>{label}</Text>}
           </>
         ) : (
-          <Text style={styles.noData}>未記録</Text>
+          <Text style={styles.noData}>{t('scoreRing.noData')}</Text>
         )}
       </View>
     </View>

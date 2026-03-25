@@ -13,5 +13,6 @@ module.exports = {
     '@react-native-async-storage/async-storage': '<rootDir>/__mocks__/@react-native-async-storage/async-storage.js',
     '@notifee/react-native': '<rootDir>/__mocks__/@notifee/react-native.js',
     'react-native-iap': '<rootDir>/__mocks__/react-native-iap.js',
+    'react-i18next': '<rootDir>/__mocks__/react-i18next.js',
   },
 };

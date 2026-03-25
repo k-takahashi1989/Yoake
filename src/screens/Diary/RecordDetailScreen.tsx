@@ -15,6 +15,7 @@ import { DiaryStackParamList, SleepLog } from '../../types';
 import { getSleepLog } from '../../services/firebase';
 import { getScoreInfo } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
+import { useTranslation } from '../../i18n';
 
 type Props = NativeStackScreenProps<DiaryStackParamList, 'RecordDetail'>;
 
@@ -33,6 +34,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
   const { date } = route.params;
   const [log, setLog] = useState<SleepLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { t } = useTranslation();
 
   useEffect(() => {
     getSleepLog(date)
@@ -64,8 +66,16 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
   const hours = Math.floor(log.totalMinutes / 60);
   const mins = log.totalMinutes % 60;
 
-  const wakeFeelingLabel = { GOOD: 'すっきり 😊', NORMAL: 'ふつう 😐', BAD: 'つらい 😩' }[log.wakeFeeling];
-  const sleepOnsetLabel = { FAST: 'すぐ寝れた 😴', NORMAL: '少し時間かかった 😐', SLOW: 'なかなか寝れなかった 😫' }[log.sleepOnset];
+  const wakeFeelingLabel = {
+    GOOD: t('common.wakeFeeling.good'),
+    NORMAL: t('common.wakeFeeling.normal'),
+    BAD: t('common.wakeFeeling.bad'),
+  }[log.wakeFeeling];
+  const sleepOnsetLabel = {
+    FAST: t('common.sleepOnset.fast'),
+    NORMAL: t('common.sleepOnset.normal'),
+    SLOW: t('common.sleepOnset.slow'),
+  }[log.sleepOnset];
 
   const checkedHabits = log.habits.filter(h => h.checked);
   const uncheckedHabits = log.habits.filter(h => !h.checked);
@@ -80,7 +90,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
             <Text style={[styles.scoreValue, { color: scoreColor }]}>{log.score}</Text>
             <Text style={styles.scoreUnit}>点</Text>
             <View style={[styles.scoreBadge, { backgroundColor: scoreColor + '22', borderColor: scoreColor + '55' }]}>
-              <Text style={[styles.scoreBadgeText, { color: scoreColor }]}>{scoreInfo.label}</Text>
+              <Text style={[styles.scoreBadgeText, { color: scoreColor }]}>{t(scoreInfo.labelKey)}</Text>
             </View>
           </View>
           <Text style={styles.sourceLabel}>
@@ -90,7 +100,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
 
         {/* 睡眠サマリー */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>睡眠サマリー</Text>
+          <Text style={styles.cardTitle}>{t('recordDetail.summarySectionTitle')}</Text>
           <View style={styles.summaryGrid}>
             <SummaryCell
               label="就寝"
@@ -104,21 +114,21 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
               label="睡眠時間"
               value={`${hours}h${mins}m`}
             />
-            <SummaryCell label="目覚め" value={wakeFeelingLabel} />
-            <SummaryCell label="寝つき" value={sleepOnsetLabel} />
+            <SummaryCell label={t('recordDetail.wakeFeeling')} value={wakeFeelingLabel} />
+            <SummaryCell label={t('recordDetail.sleepOnset')} value={sleepOnsetLabel} />
             {log.source === 'HEALTH_CONNECT' && log.deepSleepMinutes !== null && (
-              <SummaryCell label="深睡眠" value={`${log.deepSleepMinutes}分`} />
+              <SummaryCell label={t('recordDetail.deepSleep')} value={`${log.deepSleepMinutes}${t('common.minutes')}`} />
             )}
           </View>
         </View>
 
         {/* 習慣チェック */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>習慣チェック</Text>
+          <Text style={styles.cardTitle}>{t('recordDetail.habitsTitle')}</Text>
 
           {checkedHabits.length > 0 && (
             <>
-              <Text style={styles.habitGroupLabel}>チェックあり</Text>
+              <Text style={styles.habitGroupLabel}>{t('recordDetail.habitsChecked')}</Text>
               <View style={styles.habitsGrid}>
                 {checkedHabits.map(h => (
                   <View key={h.id} style={[styles.habitChip, styles.habitChipChecked]}>
@@ -133,7 +143,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
           {uncheckedHabits.length > 0 && (
             <>
               <Text style={[styles.habitGroupLabel, { marginTop: checkedHabits.length > 0 ? 12 : 0 }]}>
-                チェックなし
+                {t('recordDetail.habitsUnchecked')}
               </Text>
               <View style={styles.habitsGrid}>
                 {uncheckedHabits.map(h => (
@@ -147,14 +157,14 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
           )}
 
           {log.habits.length === 0 && (
-            <Text style={styles.noHabitsText}>習慣データなし</Text>
+            <Text style={styles.noHabitsText}>{t('recordDetail.noHabits')}</Text>
           )}
         </View>
 
         {/* メモ */}
         {log.memo && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>メモ</Text>
+            <Text style={styles.cardTitle}>{t('recordDetail.memoTitle')}</Text>
             <Text style={styles.memoText}>{log.memo}</Text>
           </View>
         )}
@@ -164,7 +174,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
           style={styles.editButton}
           onPress={() => navigation.navigate('RecordEdit', { date })}
         >
-          <Text style={styles.editButtonText}>✏️ この記録を編集する</Text>
+          <Text style={styles.editButtonText}>{t('recordDetail.editButton')}</Text>
         </TouchableOpacity>
 
         <View style={styles.spacer} />

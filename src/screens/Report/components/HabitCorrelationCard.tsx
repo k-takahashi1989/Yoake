@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { HabitStat } from '../utils/habitStats';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   habitStats: HabitStat[];
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function HabitCorrelationCard({ habitStats, avgScore, chartWidth }: Props) {
+  const { t } = useTranslation();
   const barData = habitStats.slice(0, 6).map(h => ({
     value: h.withAvg,
     label: h.emoji,
@@ -18,16 +20,12 @@ export default function HabitCorrelationCard({ habitStats, avgScore, chartWidth 
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>習慣別スコア影響</Text>
+      <Text style={styles.cardTitle}>{t('report.habitCorrelationTitle')}</Text>
       {habitStats.length === 0 ? (
-        <Text style={styles.reportPlaceholder}>
-          複数日の習慣チェック記録が溜まると表示されます。
-        </Text>
+        <Text style={styles.reportPlaceholder}>{t('report.habitCorrelationEmpty')}</Text>
       ) : (
         <>
-          <Text style={styles.cardSubTitle}>
-            各習慣を実行した日の平均スコア（緑：全体平均以上 / 橙：全体平均未満）
-          </Text>
+          <Text style={styles.cardSubTitle}>{t('report.habitCorrelationSub')}</Text>
           {barData.length >= 2 ? (
             <View style={{ marginBottom: 12 }}>
               <BarChart
@@ -66,6 +64,7 @@ export default function HabitCorrelationCard({ habitStats, avgScore, chartWidth 
 }
 
 function HabitCorrelationRow({ stat }: { stat: HabitStat }) {
+  const { t } = useTranslation();
   const diff = stat.withAvg - stat.withoutAvg;
   const diffColor = diff > 2 ? '#4CAF50' : diff < -2 ? '#F44336' : '#888';
   const diffText = diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : '±0';
@@ -77,13 +76,13 @@ function HabitCorrelationRow({ stat }: { stat: HabitStat }) {
       <View style={styles.habitScores}>
         {stat.withCount > 0 && (
           <View style={styles.habitScoreChip}>
-            <Text style={styles.habitScoreChipLabel}>あり</Text>
+            <Text style={styles.habitScoreChipLabel}>{t('report.habitWith')}</Text>
             <Text style={styles.habitScoreChipValue}>{stat.withAvg}点</Text>
           </View>
         )}
         {stat.withoutCount > 0 && (
           <View style={[styles.habitScoreChip, styles.habitScoreChipMuted]}>
-            <Text style={styles.habitScoreChipLabel}>なし</Text>
+            <Text style={styles.habitScoreChipLabel}>{t('report.habitWithout')}</Text>
             <Text style={[styles.habitScoreChipValue, { color: '#888' }]}>{stat.withoutAvg}点</Text>
           </View>
         )}

@@ -11,6 +11,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { HomeStackParamList, SleepLog } from '../../types';
+import { useTranslation } from '../../i18n';
 import { getSleepLog } from '../../services/firebase';
 import { getScoreInfo, calculateScore } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
@@ -19,6 +20,7 @@ import { safeToDate } from '../../utils/dateUtils';
 type Props = NativeStackScreenProps<HomeStackParamList, 'ScoreDetail'>;
 
 export default function ScoreDetailScreen({ route }: Props) {
+  const { t } = useTranslation();
   const { date } = route.params;
   const [log, setLog] = useState<SleepLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +45,7 @@ export default function ScoreDetailScreen({ route }: Props) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.center}>
-          <Text style={styles.emptyText}>データが見つかりません</Text>
+          <Text style={styles.emptyText}>{t('common.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -70,9 +72,9 @@ export default function ScoreDetailScreen({ route }: Props) {
           <Text style={styles.dateLabel}>{dateLabel}</Text>
           <View style={styles.scoreRow}>
             <Text style={[styles.scoreValue, { color: scoreColor }]}>{log.score}</Text>
-            <Text style={styles.scoreUnit}>点</Text>
+            <Text style={styles.scoreUnit}>{t('common.points')}</Text>
             <View style={[styles.scoreBadge, { backgroundColor: scoreColor + '22', borderColor: scoreColor + '55' }]}>
-              <Text style={[styles.scoreBadgeText, { color: scoreColor }]}>{scoreInfo.label}</Text>
+              <Text style={[styles.scoreBadgeText, { color: scoreColor }]}>{t(scoreInfo.labelKey)}</Text>
             </View>
           </View>
           <View style={styles.sourceRow}>
@@ -83,62 +85,70 @@ export default function ScoreDetailScreen({ route }: Props) {
         </View>
 
         {/* 基本データ */}
-        <SectionCard title="基本データ">
-          <DataRow label="就寝" value={bedStr} />
-          <DataRow label="起床" value={wakeStr} />
-          <DataRow label="睡眠時間" value={`${hours}時間${mins}分`} />
+        <SectionCard title={t('scoreDetail.basicDataTitle')}>
+          <DataRow label={t('common.bedTime')} value={bedStr} />
+          <DataRow label={t('common.wakeTime')} value={wakeStr} />
+          <DataRow label={t('common.sleepDuration')} value={`${hours}${t('common.hours')}${mins}${t('common.minutes')}`} />
           <DataRow
-            label="目覚め"
-            value={{ GOOD: 'すっきり 😊', NORMAL: 'ふつう 😐', BAD: 'つらい 😩' }[log.wakeFeeling]}
+            label={t('scoreDetail.wakeFeeling')}
+            value={{
+              GOOD: t('common.wakeFeeling.good'),
+              NORMAL: t('common.wakeFeeling.normal'),
+              BAD: t('common.wakeFeeling.bad'),
+            }[log.wakeFeeling]}
           />
           <DataRow
-            label="寝つき"
-            value={{ FAST: 'すぐ寝れた 😴', NORMAL: '少し時間かかった 😐', SLOW: 'なかなか寝れなかった 😫' }[log.sleepOnset]}
+            label={t('scoreDetail.sleepOnset')}
+            value={{
+              FAST: t('common.sleepOnset.fast'),
+              NORMAL: t('common.sleepOnset.normal'),
+              SLOW: t('common.sleepOnset.slow'),
+            }[log.sleepOnset]}
           />
         </SectionCard>
 
         {/* Health Connect データ */}
         {isHC && log.deepSleepMinutes !== null && (
-          <SectionCard title="睡眠ステージ">
-            <DataRow label="深睡眠" value={`${log.deepSleepMinutes}分`} />
-            <DataRow label="レム睡眠" value={`${log.remMinutes ?? 0}分`} />
-            <DataRow label="浅い睡眠" value={`${log.lightSleepMinutes ?? 0}分`} />
-            <DataRow label="覚醒回数" value={`${log.awakenings ?? 0}回`} />
-            {log.heartRateAvg && <DataRow label="心拍数（平均）" value={`${log.heartRateAvg} bpm`} />}
+          <SectionCard title={t('scoreDetail.sleepStageTitle')}>
+            <DataRow label={t('scoreDetail.deepSleep')} value={`${log.deepSleepMinutes}${t('common.minutes')}`} />
+            <DataRow label={t('scoreDetail.remSleep')} value={`${log.remMinutes ?? 0}${t('common.minutes')}`} />
+            <DataRow label={t('scoreDetail.lightSleep')} value={`${log.lightSleepMinutes ?? 0}${t('common.minutes')}`} />
+            <DataRow label={t('scoreDetail.awakenings')} value={`${log.awakenings ?? 0}${t('common.times')}`} />
+            {log.heartRateAvg && <DataRow label={t('scoreDetail.heartRate')} value={`${log.heartRateAvg} bpm`} />}
           </SectionCard>
         )}
 
         {/* スコア内訳 */}
-        <SectionCard title="スコア内訳">
+        <SectionCard title={t('scoreDetail.scoreBreakdownTitle')}>
           <ScoreBar
-            label="睡眠時間"
+            label={t('scoreDetail.durationLabel')}
             score={breakdown.sleepDuration}
             maxScore={isHC ? 30 : 40}
           />
           <ScoreBar
-            label="就寝時刻"
+            label={t('scoreDetail.bedTimeLabel')}
             score={breakdown.bedTime}
             maxScore={isHC ? 20 : 25}
           />
           {isHC && (
-            <ScoreBar label="深睡眠割合" score={breakdown.deepSleep} maxScore={15} />
+            <ScoreBar label={t('scoreDetail.deepSleepLabel')} score={breakdown.deepSleep} maxScore={15} />
           )}
           <ScoreBar
-            label="目覚め主観"
+            label={t('scoreDetail.wakeFeelingLabel')}
             score={breakdown.wakeFeeling}
             maxScore={isHC ? 15 : 20}
           />
           {isHC && (
-            <ScoreBar label="睡眠連続性" score={breakdown.continuity} maxScore={10} />
+            <ScoreBar label={t('scoreDetail.continuityLabel')} score={breakdown.continuity} maxScore={10} />
           )}
           <ScoreBar
-            label="寝つき主観"
+            label={t('scoreDetail.sleepOnsetLabel')}
             score={breakdown.sleepOnset}
             maxScore={isHC ? 10 : 15}
           />
           {breakdown.consistencyBonus !== 0 && (
             <ScoreBar
-              label="就寝時刻の一定さ"
+              label={t('scoreDetail.consistencyLabel')}
               score={breakdown.consistencyBonus}
               maxScore={5}
               allowNegative
@@ -146,7 +156,7 @@ export default function ScoreDetailScreen({ route }: Props) {
           )}
           {breakdown.oversleepPenalty !== 0 && (
             <ScoreBar
-              label="寝過ぎペナルティ"
+              label={t('scoreDetail.oversleepLabel')}
               score={breakdown.oversleepPenalty}
               maxScore={0}
               allowNegative
@@ -156,7 +166,7 @@ export default function ScoreDetailScreen({ route }: Props) {
 
         {/* 習慣 */}
         {log.habits.length > 0 && (
-          <SectionCard title="習慣チェック">
+          <SectionCard title={t('scoreDetail.habitsTitle')}>
             <View style={styles.habitsGrid}>
               {log.habits.map(h => (
                 <View
@@ -175,7 +185,7 @@ export default function ScoreDetailScreen({ route }: Props) {
 
         {/* メモ */}
         {log.memo && (
-          <SectionCard title="メモ">
+          <SectionCard title={t('scoreDetail.memoTitle')}>
             <Text style={styles.memoText}>{log.memo}</Text>
           </SectionCard>
         )}

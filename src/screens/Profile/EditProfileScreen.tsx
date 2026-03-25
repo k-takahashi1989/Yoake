@@ -8,11 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
+import { useTranslation } from '../../i18n';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'EditProfile'>;
 
 export default function EditProfileScreen({ navigation }: Props) {
   const { profile, updateProfile } = useAuthStore();
+  const { t } = useTranslation();
   const [name, setName] = useState(profile?.displayName ?? '');
   const [height, setHeight] = useState(
     profile?.height != null ? String(profile.height) : '',
@@ -27,11 +29,11 @@ export default function EditProfileScreen({ navigation }: Props) {
     const w = weight ? parseFloat(weight) : null;
 
     if (h !== null && (isNaN(h) || h < 50 || h > 250)) {
-      Alert.alert('入力エラー', '身長は50〜250cmの範囲で入力してください。');
+      Alert.alert(t('editProfile.inputError'), t('editProfile.heightError'));
       return;
     }
     if (w !== null && (isNaN(w) || w < 20 || w > 300)) {
-      Alert.alert('入力エラー', '体重は20〜300kgの範囲で入力してください。');
+      Alert.alert(t('editProfile.inputError'), t('editProfile.weightError'));
       return;
     }
 
@@ -44,7 +46,7 @@ export default function EditProfileScreen({ navigation }: Props) {
       });
       navigation.goBack();
     } catch {
-      Alert.alert('保存失敗', '保存に失敗しました。');
+      Alert.alert(t('editProfile.inputError'), t('editProfile.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -58,33 +60,33 @@ export default function EditProfileScreen({ navigation }: Props) {
       >
         <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <FieldLabel>ニックネーム（任意）</FieldLabel>
+            <FieldLabel>{t('editProfile.nickname')}</FieldLabel>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="例: たかし"
+              placeholder={t('editProfile.nicknamePlaceholder')}
               placeholderTextColor="#555"
               maxLength={20}
             />
 
-            <FieldLabel>身長（cm）</FieldLabel>
+            <FieldLabel>{t('editProfile.height')}</FieldLabel>
             <TextInput
               style={styles.input}
               value={height}
               onChangeText={setHeight}
-              placeholder="例: 170"
+              placeholder={t('editProfile.heightPlaceholder')}
               placeholderTextColor="#555"
               keyboardType="decimal-pad"
               maxLength={5}
             />
 
-            <FieldLabel>体重（kg）</FieldLabel>
+            <FieldLabel>{t('editProfile.weight')}</FieldLabel>
             <TextInput
               style={styles.input}
               value={weight}
               onChangeText={setWeight}
-              placeholder="例: 65"
+              placeholder={t('editProfile.weightPlaceholder')}
               placeholderTextColor="#555"
               keyboardType="decimal-pad"
               maxLength={5}
@@ -98,7 +100,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           >
             {isSaving
               ? <ActivityIndicator color="#FFF" />
-              : <Text style={styles.saveBtnText}>保存する</Text>
+              : <Text style={styles.saveBtnText}>{t('editProfile.saveBtn')}</Text>
             }
           </TouchableOpacity>
 

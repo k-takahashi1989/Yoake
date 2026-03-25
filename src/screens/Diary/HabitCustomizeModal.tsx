@@ -15,6 +15,14 @@ import { useHabitStore } from '../../stores/habitStore';
 import { useAuthStore } from '../../stores/authStore';
 import { HabitTemplate } from '../../types';
 import { FREE_LIMITS } from '../../constants';
+import { useTranslation } from '../../i18n';
+
+function getHabitDisplayLabel(habit: { id: string; label: string }, t: (key: string, opts?: any) => string): string {
+  if (habit.id.startsWith('default_')) {
+    return t(`habits.${habit.id}`, { defaultValue: habit.label });
+  }
+  return habit.label;
+}
 
 interface Props {
   visible: boolean;
@@ -32,18 +40,19 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
   const [newLabel, setNewLabel] = useState('');
   const [newEmoji, setNewEmoji] = useState('🧘');
   const [isSaving, setIsSaving] = useState(false);
+  const { t } = useTranslation();
 
-  const customTemplates = templates.filter(t => !t.isDefault);
+  const customTemplates = templates.filter(tmpl => !tmpl.isDefault);
   const canAddMore = customTemplates.length < FREE_LIMITS.MAX_HABIT_ITEMS;
 
   const handleAdd = async () => {
     const trimmed = newLabel.trim();
     if (!trimmed) {
-      Alert.alert('入力エラー', '習慣名を入力してください。');
+      Alert.alert(t('habitCustomize.inputError'), t('habitCustomize.inputErrorMessage'));
       return;
     }
     if (!canAddMore) {
-      Alert.alert('上限に達しました', `カスタム習慣は${FREE_LIMITS.MAX_HABIT_ITEMS}個まで追加できます。`);
+      Alert.alert(t('habitCustomize.limitError'), t('habitCustomize.limitErrorMessage', { count: FREE_LIMITS.MAX_HABIT_ITEMS }));
       return;
     }
     setIsSaving(true);
@@ -59,12 +68,12 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
 
   const handleDelete = (template: HabitTemplate) => {
     Alert.alert(
-      '習慣を削除',
-      `「${template.label}」を削除しますか？`,
+      t('habitCustomize.deleteConfirmTitle'),
+      t('habitCustomize.deleteConfirmMessage', { label: getHabitDisplayLabel(template, t) }),
       [
-        { text: 'キャンセル', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '削除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => removeHabit(template.id),
         },
@@ -75,11 +84,9 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
   const renderPaywall = () => (
     <View style={styles.paywall}>
       <Text style={styles.paywallIcon}>⚙️</Text>
-      <Text style={styles.paywallTitle}>習慣カスタマイズ</Text>
-      <Text style={styles.paywallDesc}>
-        オリジナルの習慣を追加して{'\n'}より詳しく睡眠への影響を分析できます。
-      </Text>
-      <Text style={styles.paywallCta}>プレミアムプランで利用できます</Text>
+      <Text style={styles.paywallTitle}>{t('habitCustomize.paywallTitle')}</Text>
+      <Text style={styles.paywallDesc}>{t('habitCustomize.paywallDesc')}</Text>
+      <Text style={styles.paywallCta}>{t('habitCustomize.paywallCta')}</Text>
     </View>
   );
 
@@ -87,8 +94,8 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
     <View style={styles.habitRow}>
       <Text style={styles.habitEmoji}>{item.emoji}</Text>
       <View style={styles.habitInfo}>
-        <Text style={styles.habitLabel}>{item.label}</Text>
-        {item.isDefault && <Text style={styles.habitDefault}>デフォルト</Text>}
+        <Text style={styles.habitLabel}>{getHabitDisplayLabel(item, t)}</Text>
+        {item.isDefault && <Text style={styles.habitDefault}>{t('habitCustomize.default')}</Text>}
       </View>
       <TouchableOpacity
         style={[styles.toggleBtn, item.isActive && styles.toggleBtnActive]}
@@ -112,12 +119,12 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
         {/* ヘッダー */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Text style={styles.closeText}>閉じる</Text>
+            <Text style={styles.closeText}>{t('common.close')}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>習慣カスタマイズ</Text>
+          <Text style={styles.title}>{t('habitCustomize.title')}</Text>
           {isPremium && mode === 'list' ? (
             <TouchableOpacity onPress={() => setMode('add')} style={styles.addBtn}>
-              <Text style={styles.addText}>＋ 追加</Text>
+              <Text style={styles.addText}>{t('habitCustomize.add')}</Text>
             </TouchableOpacity>
           ) : (
             <View style={{ width: 60 }} />
@@ -128,7 +135,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
           renderPaywall()
         ) : mode === 'add' ? (
           <View style={styles.addForm}>
-            <Text style={styles.formLabel}>絵文字を選択</Text>
+            <Text style={styles.formLabel}>{t('habitCustomize.formEmojiLabel')}</Text>
             <View style={styles.emojiGrid}>
               {PRESET_EMOJIS.map(e => (
                 <TouchableOpacity
@@ -140,7 +147,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={styles.formLabel}>習慣名</Text>
+            <Text style={styles.formLabel}>{t('habitCustomize.formNameLabel')}</Text>
             <TextInput
               style={styles.labelInput}
               value={newLabel}
@@ -155,7 +162,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
                 style={styles.cancelFormBtn}
                 onPress={() => { setMode('list'); setNewLabel(''); }}
               >
-                <Text style={styles.cancelFormText}>キャンセル</Text>
+                <Text style={styles.cancelFormText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveFormBtn, isSaving && styles.saveFormBtnDisabled]}
@@ -164,7 +171,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
               >
                 {isSaving
                   ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Text style={styles.saveFormText}>追加する</Text>
+                  : <Text style={styles.saveFormText}>{t('habitCustomize.formAddButton')}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -172,8 +179,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
         ) : (
           <>
             <Text style={styles.hint}>
-              習慣のON/OFFで記録時の表示を切り替えられます。
-              {'\n'}カスタム習慣はあと{FREE_LIMITS.MAX_HABIT_ITEMS - customTemplates.length}個追加できます。
+              {t('habitCustomize.hint', { count: FREE_LIMITS.MAX_HABIT_ITEMS - customTemplates.length })}
             </Text>
             <FlatList
               data={templates}

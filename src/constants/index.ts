@@ -9,14 +9,6 @@ export const SCORE_THRESHOLDS = {
   POOR: 40,
 } as const;
 
-export const SCORE_LABELS = {
-  EXCELLENT: '最高',
-  GOOD: '良好',
-  NORMAL: '普通',
-  POOR: 'やや不足',
-  BAD: '要改善',
-} as const;
-
 export const SCORE_COLORS = {
   EXCELLENT: '#4CAF50',
   GOOD: '#8BC34A',

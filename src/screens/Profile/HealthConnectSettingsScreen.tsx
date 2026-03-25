@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isHCAvailable, hasHCSleepPermission, requestHCPermissions } from '../../services/healthConnect';
+import { useTranslation } from '../../i18n';
 
 type Status = 'loading' | 'unavailable' | 'granted' | 'denied';
 
 export default function HealthConnectSettingsScreen() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<Status>('loading');
   const [isRequesting, setIsRequesting] = useState(false);
 
@@ -54,7 +56,7 @@ export default function HealthConnectSettingsScreen() {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ステータスカード */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Health Connect 接続状況</Text>
+          <Text style={styles.cardTitle}>{t('healthConnect.statusTitle')}</Text>
 
           {status === 'loading' ? (
             <ActivityIndicator color="#6B5CE7" style={{ marginTop: 8 }} />
@@ -66,17 +68,17 @@ export default function HealthConnectSettingsScreen() {
               <View style={styles.statusInfo}>
                 <Text style={styles.statusText}>
                   {status === 'granted'
-                    ? '権限付与済み'
+                    ? t('healthConnect.statusGranted')
                     : status === 'denied'
-                    ? '権限が必要です'
-                    : 'Health Connectが利用できません'}
+                    ? t('healthConnect.statusDenied')
+                    : t('healthConnect.statusUnavailable')}
                 </Text>
                 <Text style={styles.statusSubText}>
                   {status === 'granted'
-                    ? '睡眠データを自動取得できます'
+                    ? t('healthConnect.statusSubGranted')
                     : status === 'denied'
-                    ? '睡眠データの自動取得には権限が必要です'
-                    : 'Android 9以上・Health Connectアプリが必要です'}
+                    ? t('healthConnect.statusSubDenied')
+                    : t('healthConnect.statusSubUnavailable')}
                 </Text>
               </View>
             </View>
@@ -85,12 +87,8 @@ export default function HealthConnectSettingsScreen() {
 
         {/* 説明カード */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Health Connect とは</Text>
-          <Text style={styles.descText}>
-            {'Health ConnectはGoogleが提供するヘルスデータ統合プラットフォームです。\n\n' +
-              'YOAKEはHealth Connectと連携することで、ウェアラブルデバイスの睡眠データ（就寝・起床時刻、深睡眠・REM睡眠・浅い睡眠・覚醒回数）を自動で取得できます。\n\n' +
-              'データはGoogle Playサービスにより管理され、YOAKEのサーバーには送信されません。'}
-          </Text>
+          <Text style={styles.cardTitle}>{t('healthConnect.descTitle')}</Text>
+          <Text style={styles.descText}>{t('healthConnect.desc')}</Text>
         </View>
 
         {/* アクションボタン */}
@@ -102,24 +100,24 @@ export default function HealthConnectSettingsScreen() {
           >
             {isRequesting
               ? <ActivityIndicator color="#FFF" />
-              : <Text style={styles.actionBtnText}>睡眠データの権限を要求</Text>
+              : <Text style={styles.actionBtnText}>{t('healthConnect.requestPermission')}</Text>
             }
           </TouchableOpacity>
         )}
 
         {status === 'unavailable' && (
           <TouchableOpacity style={styles.actionBtn} onPress={openHCApp}>
-            <Text style={styles.actionBtnText}>Health Connectをインストール</Text>
+            <Text style={styles.actionBtnText}>{t('healthConnect.install')}</Text>
           </TouchableOpacity>
         )}
 
         {status === 'granted' && (
           <>
             <TouchableOpacity style={styles.secondaryBtn} onPress={handleRequest}>
-              <Text style={styles.secondaryBtnText}>権限を再確認する</Text>
+              <Text style={styles.secondaryBtnText}>{t('healthConnect.recheck')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryBtn} onPress={openHCApp}>
-              <Text style={styles.secondaryBtnText}>Health Connectアプリを開く</Text>
+              <Text style={styles.secondaryBtnText}>{t('healthConnect.openApp')}</Text>
             </TouchableOpacity>
           </>
         )}

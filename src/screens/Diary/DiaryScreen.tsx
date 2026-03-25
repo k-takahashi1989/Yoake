@@ -17,6 +17,7 @@ import { getScoreInfo } from '../../utils/scoreCalculator';
 import { SCORE_COLORS, FREE_LIMITS } from '../../constants';
 import { SleepLog, DiaryStackParamList } from '../../types';
 import HabitCustomizeModal from './HabitCustomizeModal';
+import { useTranslation } from '../../i18n';
 
 type DiaryNav = NativeStackNavigationProp<DiaryStackParamList>;
 
@@ -25,6 +26,7 @@ export default function DiaryScreen() {
   const { recentLogs, loadRecent } = useSleepStore();
   const { isPremium } = useAuthStore();
   const [showCustomize, setShowCustomize] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     loadRecent(30);
@@ -37,12 +39,12 @@ export default function DiaryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>睡眠日記</Text>
+        <Text style={styles.title}>{t('diary.title')}</Text>
         <TouchableOpacity
           style={styles.customizeBtn}
           onPress={() => setShowCustomize(true)}
         >
-          <Text style={styles.customizeBtnText}>⚙️ 習慣</Text>
+          <Text style={styles.customizeBtnText}>{t('diary.customize')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -59,12 +61,12 @@ export default function DiaryScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📔</Text>
-            <Text style={styles.emptyText}>まだ記録がありません</Text>
+            <Text style={styles.emptyText}>{t('diary.empty')}</Text>
             <TouchableOpacity
               style={styles.emptyBtn}
               onPress={() => (navigation.getParent() as any)?.navigate('Home')}
             >
-              <Text style={styles.emptyBtnText}>ホームで睡眠を記録する</Text>
+              <Text style={styles.emptyBtnText}>{t('diary.emptyAction')}</Text>
             </TouchableOpacity>
           </View>
         }
@@ -72,7 +74,7 @@ export default function DiaryScreen() {
           !isPremium && recentLogs.length > FREE_LIMITS.LOG_HISTORY_DAYS ? (
             <View style={styles.premiumBanner}>
               <Text style={styles.premiumText}>
-                🔒 7日より前の記録はプレミアムで閲覧できます
+                {t('diary.premiumBanner')}
               </Text>
             </View>
           ) : null
@@ -100,6 +102,7 @@ function safeToDate(ts: any): Date {
 }
 
 function DiaryRow({ log, onPress }: { log: SleepLog; onPress: () => void }) {
+  const { t } = useTranslation();
   const scoreInfo = getScoreInfo(log.score);
   const scoreColor = SCORE_COLORS[scoreInfo.color.toUpperCase() as keyof typeof SCORE_COLORS];
   const dateLabel = format(new Date(log.date.replace(/-/g, '/')), 'M月d日（EEE）', { locale: ja });
@@ -111,7 +114,7 @@ function DiaryRow({ log, onPress }: { log: SleepLog; onPress: () => void }) {
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.scoreBadge, { backgroundColor: scoreColor + '20', borderColor: scoreColor }]}>
         <Text style={[styles.scoreValue, { color: scoreColor }]}>{log.score}</Text>
-        <Text style={[styles.scoreLabel, { color: scoreColor }]}>{scoreInfo.label}</Text>
+        <Text style={[styles.scoreLabel, { color: scoreColor }]}>{t(scoreInfo.labelKey)}</Text>
       </View>
 
       <View style={styles.rowContent}>

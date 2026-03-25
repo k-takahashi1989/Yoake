@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useTranslation } from '../../i18n';
 
 interface Props {
   advice: string | null;
@@ -8,16 +9,18 @@ interface Props {
 }
 
 export default function AiAdviceCard({ advice, isLoading, onRefresh }: Props) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.icon}>🤖</Text>
-          <Text style={styles.title}>今日のAIアドバイス</Text>
+          <Text style={styles.title}>{t('aiAdviceCard.title')}</Text>
         </View>
         {onRefresh && !isLoading && (
           <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-            <Text style={styles.refreshText}>再生成</Text>
+            <Text style={styles.refreshText}>{t('aiAdviceCard.refresh')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -25,11 +28,11 @@ export default function AiAdviceCard({ advice, isLoading, onRefresh }: Props) {
       {isLoading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator size="small" color="#6B5CE7" />
-          <Text style={styles.loadingText}>分析中...</Text>
+          <Text style={styles.loadingText}>{t('aiAdviceCard.loading')}</Text>
         </View>
       ) : (
         <Text style={styles.advice}>
-          {advice ?? 'データが溜まったら分析します。まずは数日間記録を続けてみましょう！'}
+          {advice ?? t('aiAdviceCard.noData')}
         </Text>
       )}
     </View>

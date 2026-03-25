@@ -11,6 +11,7 @@ import { ProfileStackParamList } from '../../types';
 import { SUBSCRIPTION, LINKS } from '../../constants';
 import pkg from '../../../package.json';
 import { generateSeedData } from '../../utils/seedData';
+import { useTranslation, changeLanguage } from '../../i18n';
 
 type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -18,25 +19,26 @@ export default function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
   const { profile, subscription, isPremium, signOut, _devSetPremium } = useAuthStore();
   const [isSeedLoading, setIsSeedLoading] = useState(false);
+  const { t, i18n } = useTranslation();
 
   const planText =
     subscription?.status === 'trial'
-      ? '🎁 無料トライアル中'
+      ? t('profile.trial')
       : isPremium
-      ? '⭐ プレミアム'
-      : '🆓 無料プラン';
+      ? t('profile.premium')
+      : t('profile.free');
 
   const handleSignOut = () => {
-    Alert.alert('ログアウト', 'ログアウトしますか？', [
-      { text: 'キャンセル', style: 'cancel' },
-      { text: 'ログアウト', style: 'destructive', onPress: signOut },
+    Alert.alert(t('profile.signOutTitle'), t('profile.signOutMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('profile.signOut'), style: 'destructive', onPress: signOut },
     ]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>マイページ</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
       </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -49,7 +51,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>
-              {profile?.displayName ?? 'ゲスト'}
+              {profile?.displayName ?? t('profile.guest')}
             </Text>
             <Text style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
               {planText}
@@ -61,7 +63,7 @@ export default function ProfileScreen() {
         {!profile?.displayName && (
           <View style={styles.guestWarning}>
             <Text style={styles.guestWarningText}>
-              ⚠️ アカウント未設定のため、端末変更・再インストール時にデータが失われます。プロフィール編集からニックネームを設定しておきましょう。
+              {t('profile.guestWarning')}
             </Text>
           </View>
         )}
@@ -73,10 +75,13 @@ export default function ProfileScreen() {
             onPress={() => navigation.navigate('SubscriptionManage')}
           >
             <Text style={styles.upgradeCardText}>
-              ✨ プレミアムにアップグレード
+              {t('profile.upgradeCard')}
             </Text>
             <Text style={styles.upgradeCardSub}>
-              月額¥{SUBSCRIPTION.MONTHLY_PRICE.toLocaleString()} · {SUBSCRIPTION.TRIAL_DAYS}日間無料
+              {t('profile.upgradeCardSub', {
+                price: SUBSCRIPTION.MONTHLY_PRICE.toLocaleString(),
+                days: SUBSCRIPTION.TRIAL_DAYS,
+              })}
             </Text>
           </TouchableOpacity>
         )}
@@ -85,37 +90,49 @@ export default function ProfileScreen() {
         <View style={styles.menuSection}>
           <MenuRow
             emoji="👤"
-            label="プロフィール編集"
+            label={t('profile.menuEditProfile')}
             onPress={() => navigation.navigate('EditProfile')}
           />
           <MenuRow
             emoji="💳"
-            label="サブスク管理"
+            label={t('profile.menuSubscription')}
             onPress={() => navigation.navigate('SubscriptionManage')}
           />
           <MenuRow
             emoji="❤️"
-            label="Health Connect設定"
+            label={t('profile.menuHealthConnect')}
             onPress={() => navigation.navigate('HealthConnectSettings')}
           />
           <MenuRow
             emoji="🔔"
-            label="通知設定"
+            label={t('profile.menuNotification')}
             onPress={() => navigation.navigate('NotificationSettings')}
           />
           <MenuRow
             emoji="💾"
-            label="データ管理"
+            label={t('profile.menuData')}
             onPress={() => navigation.navigate('DataManagement')}
           />
           <MenuRow
+            emoji="🌐"
+            label={t('profile.language')}
+            value={i18n.language === 'ja' ? '日本語' : 'English'}
+            onPress={() => {
+              Alert.alert(t('profile.selectLanguage'), '', [
+                { text: '日本語', onPress: () => changeLanguage('ja') },
+                { text: 'English', onPress: () => changeLanguage('en') },
+                { text: t('common.cancel'), style: 'cancel' },
+              ]);
+            }}
+          />
+          <MenuRow
             emoji="📄"
-            label="プライバシーポリシー"
+            label={t('profile.menuPrivacy')}
             onPress={() => Linking.openURL(LINKS.PRIVACY_POLICY)}
           />
           <MenuRow
             emoji="📋"
-            label="利用規約"
+            label={t('profile.menuTerms')}
             onPress={() => Linking.openURL(LINKS.TERMS)}
             last
           />
@@ -123,10 +140,10 @@ export default function ProfileScreen() {
 
         {/* ログアウト */}
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>ログアウト</Text>
+          <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>YOAKE v{pkg.version}</Text>
+        <Text style={styles.version}>{t('profile.version', { version: pkg.version })}</Text>
 
         {/* DEV セクション */}
         {__DEV__ && (
@@ -181,11 +198,13 @@ export default function ProfileScreen() {
 function MenuRow({
   emoji,
   label,
+  value,
   onPress,
   last = false,
 }: {
   emoji: string;
   label: string;
+  value?: string;
   onPress: () => void;
   last?: boolean;
 }) {
@@ -197,6 +216,7 @@ function MenuRow({
     >
       <Text style={styles.menuEmoji}>{emoji}</Text>
       <Text style={styles.menuLabel}>{label}</Text>
+      {value != null && <Text style={styles.menuValue}>{value}</Text>}
       <Text style={styles.menuArrow}>›</Text>
     </TouchableOpacity>
   );
@@ -278,6 +298,7 @@ const styles = StyleSheet.create({
   menuRowLast: { borderBottomWidth: 0 },
   menuEmoji: { fontSize: 18, width: 28 },
   menuLabel: { flex: 1, fontSize: 15, color: '#FFFFFF' },
+  menuValue: { fontSize: 13, color: '#888', marginRight: 4 },
   menuArrow: { fontSize: 20, color: '#555' },
   signOutBtn: {
     margin: 16,

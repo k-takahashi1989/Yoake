@@ -8,6 +8,7 @@ import {
 import { LineChart } from 'react-native-gifted-charts';
 import { SleepLog } from '../../../types';
 import { buildLineData, ScorePeriod } from '../utils/habitStats';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   monthlyLogs: SleepLog[];
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function ScoreTrendCard({ monthlyLogs, chartWidth }: Props) {
+  const { t } = useTranslation();
   const [scorePeriod, setScorePeriod] = useState<ScorePeriod>('7');
   const lineData = useMemo(
     () => buildLineData(monthlyLogs, scorePeriod),
@@ -24,7 +26,7 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.cardHeaderRow}>
-        <Text style={[styles.cardTitle, { marginBottom: 0 }]}>スコア推移</Text>
+        <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('report.scoreTrendTitle')}</Text>
         <View style={styles.periodChips}>
           {(['7', '14', '30'] as ScorePeriod[]).map(p => (
             <TouchableOpacity
@@ -33,7 +35,7 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth }: Props) {
               onPress={() => setScorePeriod(p)}
             >
               <Text style={[styles.periodChipText, scorePeriod === p && styles.periodChipTextActive]}>
-                {p}日
+                {p}{t('common.days')}
               </Text>
             </TouchableOpacity>
           ))}
@@ -65,7 +67,7 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth }: Props) {
         />
       ) : (
         <View style={styles.chartEmpty}>
-          <Text style={styles.chartEmptyText}>グラフ表示には2件以上のデータが必要です</Text>
+          <Text style={styles.chartEmptyText}>{t('report.chartNoData')}</Text>
         </View>
       )}
     </View>

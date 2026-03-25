@@ -130,11 +130,10 @@ export interface ScoreBreakdown {
   total: number;
 }
 
-export type ScoreLabel = '最高' | '良好' | '普通' | 'やや不足' | '要改善';
 export type ScoreColor = 'green' | 'yellowGreen' | 'yellow' | 'orange' | 'red';
 
 export interface ScoreInfo {
-  label: ScoreLabel;
+  labelKey: string;
   color: ScoreColor;
 }
 

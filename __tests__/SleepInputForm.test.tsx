@@ -139,23 +139,23 @@ describe('calculateScore - エッジケース', () => {
 });
 
 describe('getScoreInfo', () => {
-  test('90点以上 → 最高', () => {
-    expect(getScoreInfo(95).label).toBe('最高');
+  test('90点以上 → score.excellent', () => {
+    expect(getScoreInfo(95).labelKey).toBe('score.excellent');
   });
 
-  test('75〜89点 → 良好', () => {
-    expect(getScoreInfo(80).label).toBe('良好');
+  test('75〜89点 → score.good', () => {
+    expect(getScoreInfo(80).labelKey).toBe('score.good');
   });
 
-  test('60〜74点 → 普通', () => {
-    expect(getScoreInfo(65).label).toBe('普通');
+  test('60〜74点 → score.normal', () => {
+    expect(getScoreInfo(65).labelKey).toBe('score.normal');
   });
 
-  test('40〜59点 → やや不足', () => {
-    expect(getScoreInfo(50).label).toBe('やや不足');
+  test('40〜59点 → score.poor', () => {
+    expect(getScoreInfo(50).labelKey).toBe('score.poor');
   });
 
-  test('39点以下 → 要改善', () => {
-    expect(getScoreInfo(30).label).toBe('要改善');
+  test('39点以下 → score.bad', () => {
+    expect(getScoreInfo(30).labelKey).toBe('score.bad');
   });
 });

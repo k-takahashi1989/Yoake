@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format, subDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { SleepLog, SleepInputForm, SleepOnset, WakeFeeling, HabitEntry, UserGoal } from '../../types';
+import { useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
 import { useHabitStore } from '../../stores/habitStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
@@ -32,6 +33,7 @@ interface Props {
 type SourceMode = 'loading' | 'hc' | 'manual';
 
 export default function SleepInputModal({ visible, onClose, existingLog, goal, targetDate }: Props) {
+  const { t } = useTranslation();
   const { saveLog } = useSleepStore();
   const { getActiveEntries, isLoaded: habitsLoaded, loadHabits } = useHabitStore();
   const [isSaving, setIsSaving] = useState(false);
@@ -113,7 +115,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
     setSourceMode('loading');
     const timeoutId = setTimeout(() => {
       setSourceMode('manual');
-      Alert.alert('タイムアウト', 'Health Connectからのデータ取得に失敗しました。手動で入力してください。');
+      Alert.alert(t('sleepInput.hcTimeoutTitle'), t('sleepInput.hcTimeoutMessage'));
     }, 5000);
     try {
       const permitted = await hasHCSleepPermission();
@@ -182,7 +184,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
       );
       onClose();
     } catch {
-      Alert.alert('保存失敗', '記録の保存に失敗しました。');
+      Alert.alert(t('recordEdit.saveFailedTitle'), t('sleepInput.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -205,26 +207,26 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
         {/* ヘッダー */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>キャンセル</Text>
+            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
           <Text style={styles.title}>
             {isToday
-              ? '睡眠記録'
-              : format(targetDateObj, 'M月d日（EEE）', { locale: ja }) + ' の記録'}
+              ? t('sleepInput.titleToday')
+              : t('sleepInput.titlePast', { date: format(targetDateObj, 'M月d日（EEE）', { locale: ja }) })}
           </Text>
           <TouchableOpacity
             onPress={handleSave}
             style={[styles.saveBtn, (isSaving || sourceMode === 'loading') && styles.saveBtnDisabled]}
             disabled={isSaving || sourceMode === 'loading'}
           >
-            <Text style={styles.saveText}>{isSaving ? '保存中' : '保存'}</Text>
+            <Text style={styles.saveText}>{isSaving ? t('common.saving') : t('common.save')}</Text>
           </TouchableOpacity>
         </View>
 
         {sourceMode === 'loading' ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#6B5CE7" />
-            <Text style={styles.loadingText}>Health Connect からデータを取得中...</Text>
+            <Text style={styles.loadingText}>{t('sleepInput.loadingHC')}</Text>
           </View>
         ) : (
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -232,7 +234,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
             {!isToday && (
               <View style={styles.pastDateBanner}>
                 <Text style={styles.pastDateText}>
-                  📅 {format(targetDateObj, 'M月d日（EEE）', { locale: ja })} の睡眠を記録しています
+                  {t('sleepInput.pastDateBanner', { date: format(targetDateObj, 'M月d日（EEE）', { locale: ja }) })}
                 </Text>
               </View>
             )}
@@ -240,9 +242,9 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
             {/* HC ソースバッジ */}
             {sourceMode === 'hc' && (
               <View style={styles.hcBanner}>
-                <Text style={styles.hcBannerText}>❤️ Health Connect から自動取得</Text>
+                <Text style={styles.hcBannerText}>{t('sleepInput.hcBanner')}</Text>
                 <TouchableOpacity onPress={switchToManual}>
-                  <Text style={styles.hcBannerSwitch}>手動入力に切替</Text>
+                  <Text style={styles.hcBannerSwitch}>{t('sleepInput.switchManual')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -257,32 +259,32 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
 
             {/* HC ステージ情報 */}
             {sourceMode === 'hc' && form.deepSleepMinutes != null && (
-              <SectionCard title="睡眠ステージ（Health Connect）">
+              <SectionCard title={t('sleepInput.sleepStageTitle')}>
                 <View style={styles.stageRow}>
-                  <StageItem label="深睡眠" minutes={form.deepSleepMinutes ?? 0} color="#6B5CE7" />
-                  <StageItem label="レム睡眠" minutes={form.remMinutes ?? 0} color="#4CAF50" />
-                  <StageItem label="浅い睡眠" minutes={form.lightSleepMinutes ?? 0} color="#FF9800" />
-                  <StageItem label="覚醒" minutes={form.awakenings ?? 0} color="#F44336" isCount />
+                  <StageItem label={t('sleepInput.deepSleep')} minutes={form.deepSleepMinutes ?? 0} color="#6B5CE7" />
+                  <StageItem label={t('sleepInput.remSleep')} minutes={form.remMinutes ?? 0} color="#4CAF50" />
+                  <StageItem label={t('sleepInput.lightSleep')} minutes={form.lightSleepMinutes ?? 0} color="#FF9800" />
+                  <StageItem label={t('sleepInput.awake')} minutes={form.awakenings ?? 0} color="#F44336" isCount />
                 </View>
               </SectionCard>
             )}
 
             {/* 就寝・起床時刻 */}
-            <SectionCard title="就寝・起床時刻">
+            <SectionCard title={t('sleepInput.bedWakeTitle')}>
               <TimePickerRow
-                label="就寝"
+                label={t('common.bedTime')}
                 value={form.bedTime}
                 onChange={d => setForm(prev => ({ ...prev, bedTime: d }))}
               />
               <TimePickerRow
-                label="起床"
+                label={t('common.wakeTime')}
                 value={form.wakeTime}
                 onChange={d => setForm(prev => ({ ...prev, wakeTime: d }))}
               />
             </SectionCard>
 
             {/* 寝つき */}
-            <SectionCard title="寝つきはどうでしたか？">
+            <SectionCard title={t('sleepInput.sleepOnsetTitle')}>
               <View style={styles.optionRow}>
                 {SLEEP_ONSET_OPTIONS.map(opt => (
                   <TouchableOpacity
@@ -297,14 +299,14 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
                     <Text style={[
                       styles.optionLabel,
                       form.sleepOnset === opt.value && styles.optionLabelActive,
-                    ]}>{opt.label}</Text>
+                    ]}>{t(opt.labelKey)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </SectionCard>
 
             {/* 目覚め */}
-            <SectionCard title="目覚めはどうでしたか？">
+            <SectionCard title={t('sleepInput.wakeFeelingTitle')}>
               <View style={styles.optionRow}>
                 {WAKE_FEELING_OPTIONS.map(opt => (
                   <TouchableOpacity
@@ -319,14 +321,14 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
                     <Text style={[
                       styles.optionLabel,
                       form.wakeFeeling === opt.value && styles.optionLabelActive,
-                    ]}>{opt.label}</Text>
+                    ]}>{t(opt.labelKey)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </SectionCard>
 
             {/* 習慣チェック */}
-            <SectionCard title="昨日の習慣">
+            <SectionCard title={t('sleepInput.habitsTitle')}>
               {form.habits.map(habit => (
                 <HabitCheckRow
                   key={habit.id}
@@ -337,12 +339,12 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
             </SectionCard>
 
             {/* メモ */}
-            <SectionCard title="メモ（任意）">
+            <SectionCard title={t('common.memoOptional')}>
               <TextInput
                 style={styles.memoInput}
                 value={form.memo}
                 onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
-                placeholder="気になったことを記録..."
+                placeholder={t('common.memoPlaceholder')}
                 placeholderTextColor="#555"
                 multiline
                 numberOfLines={3}
@@ -388,16 +390,16 @@ function StageItem({
   );
 }
 
-const SLEEP_ONSET_OPTIONS: Array<{ value: SleepOnset; label: string; emoji: string }> = [
-  { value: 'FAST', label: 'すぐ寝れた', emoji: '😴' },
-  { value: 'NORMAL', label: '少し時間かかった', emoji: '😐' },
-  { value: 'SLOW', label: 'なかなか寝れなかった', emoji: '😫' },
+const SLEEP_ONSET_OPTIONS: Array<{ value: SleepOnset; labelKey: string; emoji: string }> = [
+  { value: 'FAST', labelKey: 'sleepInput.onsetFast', emoji: '😴' },
+  { value: 'NORMAL', labelKey: 'sleepInput.onsetNormal', emoji: '😐' },
+  { value: 'SLOW', labelKey: 'sleepInput.onsetSlow', emoji: '😫' },
 ];
 
-const WAKE_FEELING_OPTIONS: Array<{ value: WakeFeeling; label: string; emoji: string }> = [
-  { value: 'GOOD', label: 'すっきり', emoji: '😊' },
-  { value: 'NORMAL', label: 'ふつう', emoji: '😐' },
-  { value: 'BAD', label: 'つらい', emoji: '😩' },
+const WAKE_FEELING_OPTIONS: Array<{ value: WakeFeeling; labelKey: string; emoji: string }> = [
+  { value: 'GOOD', labelKey: 'sleepInput.wakeFeelingGood', emoji: '😊' },
+  { value: 'NORMAL', labelKey: 'sleepInput.wakeFeelingNormal', emoji: '😐' },
+  { value: 'BAD', labelKey: 'sleepInput.wakeFeelingBad', emoji: '😩' },
 ];
 
 const styles = StyleSheet.create({

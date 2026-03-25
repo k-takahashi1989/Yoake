@@ -71,4 +71,6 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   }
 });
 
+// AppRegistry は同期的に登録する必要がある（非同期の中で呼ぶとクラッシュする）
+// i18n の初期化は App コンポーネント内で行う
 AppRegistry.registerComponent(appName, () => App);

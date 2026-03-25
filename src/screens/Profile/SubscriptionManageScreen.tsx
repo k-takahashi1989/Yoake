@@ -9,9 +9,11 @@ import { ja } from 'date-fns/locale';
 import { useAuthStore } from '../../stores/authStore';
 import { SUBSCRIPTION } from '../../constants';
 import { safeToDate } from '../../utils/dateUtils';
+import { useTranslation } from '../../i18n';
 
 export default function SubscriptionManageScreen() {
   const { subscription, isPremium, refreshSubscription } = useAuthStore();
+  const { t } = useTranslation();
   const [isRestoring, setIsRestoring] = useState(false);
 
   const status = subscription?.status ?? 'free';
@@ -29,9 +31,9 @@ export default function SubscriptionManageScreen() {
     setIsRestoring(true);
     try {
       await refreshSubscription();
-      Alert.alert('完了', '購入情報を確認しました。');
+      Alert.alert(t('subscription.restoreSuccess'), t('subscription.restoreSuccessMessage'));
     } catch {
-      Alert.alert('エラー', '購入情報の復元に失敗しました。');
+      Alert.alert(t('common.error'), t('subscription.restoreError'));
     } finally {
       setIsRestoring(false);
     }
@@ -47,39 +49,54 @@ export default function SubscriptionManageScreen() {
     );
   };
 
+  const features = [
+    { emoji: '📊', labelKey: 'subscription.feature1' as const, premium: true },
+    { emoji: '🤖', labelKey: 'subscription.feature2' as const, premium: true },
+    { emoji: '💬', labelKey: 'subscription.feature3' as const, premium: true },
+    { emoji: '🌊', labelKey: 'subscription.feature4' as const, premium: true },
+    { emoji: '⚙️', labelKey: 'subscription.feature5' as const, premium: true },
+    { emoji: '📔', labelKey: 'subscription.feature6' as const, premium: true },
+    { emoji: '🌙', labelKey: 'subscription.feature7' as const, premium: false },
+    { emoji: '⏰', labelKey: 'subscription.feature8' as const, premium: false },
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* 現在のプラン */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>現在のプラン</Text>
+          <Text style={styles.cardTitle}>{t('subscription.currentPlanTitle')}</Text>
 
           <View style={styles.planBadgeRow}>
             <Text style={styles.planBadge}>
-              {isOnTrial ? '🎁 無料トライアル' : isActive ? '⭐ プレミアム' : '🆓 無料プラン'}
+              {isOnTrial
+                ? t('subscription.trialBadge')
+                : isActive
+                ? t('subscription.premiumBadge')
+                : t('subscription.freeBadge')}
             </Text>
           </View>
 
           {isOnTrial && trialEnd && (
-            <Text style={styles.planNote}>トライアル終了日：{trialEnd}</Text>
+            <Text style={styles.planNote}>{t('subscription.trialEnd', { date: trialEnd })}</Text>
           )}
           {isActive && periodEnd && (
-            <Text style={styles.planNote}>次回更新日：{periodEnd}</Text>
+            <Text style={styles.planNote}>{t('subscription.nextBilling', { date: periodEnd })}</Text>
           )}
           {!isPremium && (
             <Text style={styles.planNote}>
-              無料プランでは一部の機能が制限されます。
+              {t('subscription.freeNote')}
             </Text>
           )}
         </View>
 
         {/* プレミアム特典 */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>プレミアム特典</Text>
-          {FEATURES.map(f => (
-            <View key={f.label} style={styles.featureRow}>
+          <Text style={styles.cardTitle}>{t('subscription.featuresTitle')}</Text>
+          {features.map(f => (
+            <View key={f.labelKey} style={styles.featureRow}>
               <Text style={styles.featureEmoji}>{f.emoji}</Text>
-              <Text style={styles.featureLabel}>{f.label}</Text>
+              <Text style={styles.featureLabel}>{t(f.labelKey)}</Text>
               {f.premium && !isPremium && (
                 <Text style={styles.featureLock}>🔒</Text>
               )}
@@ -91,21 +108,21 @@ export default function SubscriptionManageScreen() {
         {!isPremium && (
           <View style={styles.upgradeCard}>
             <Text style={styles.upgradeTitle}>
-              月額¥{SUBSCRIPTION.MONTHLY_PRICE.toLocaleString()}
+              {t('subscription.monthlyPrice', { price: SUBSCRIPTION.MONTHLY_PRICE.toLocaleString() })}
             </Text>
             <View style={styles.yearlyRow}>
               <Text style={styles.upgradeSubtitle}>
-                年額¥{SUBSCRIPTION.YEARLY_PRICE.toLocaleString()}
+                {t('subscription.yearlyPrice', { price: SUBSCRIPTION.YEARLY_PRICE.toLocaleString() })}
               </Text>
               <View style={styles.discountBadge}>
                 <Text style={styles.discountText}>40%OFF</Text>
               </View>
             </View>
             <Text style={styles.yearlyMonthly}>
-              （月換算¥{Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString()}）
+              {t('subscription.yearlyMonthly', { price: Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString() })}
             </Text>
             <Text style={styles.upgradeTrial}>
-              {SUBSCRIPTION.TRIAL_DAYS}日間無料トライアルあり
+              {t('subscription.trialInfo', { days: SUBSCRIPTION.TRIAL_DAYS })}
             </Text>
           </View>
         )}
@@ -113,7 +130,7 @@ export default function SubscriptionManageScreen() {
         {/* 管理ボタン */}
         {isPremium && (
           <TouchableOpacity style={styles.manageBtn} onPress={openGooglePlaySubscriptions}>
-            <Text style={styles.manageBtnText}>Google Playでサブスクを管理</Text>
+            <Text style={styles.manageBtnText}>{t('subscription.manageBtn')}</Text>
           </TouchableOpacity>
         )}
 
@@ -124,32 +141,17 @@ export default function SubscriptionManageScreen() {
         >
           {isRestoring
             ? <ActivityIndicator color="#9C8FFF" size="small" />
-            : <Text style={styles.restoreBtnText}>購入を復元する</Text>
+            : <Text style={styles.restoreBtnText}>{t('subscription.restoreBtn')}</Text>
           }
         </TouchableOpacity>
 
-        <Text style={styles.legalNote}>
-          {'サブスクリプションはGoogle Playで管理できます。\n' +
-            'トライアル期間終了前にキャンセルした場合、料金は発生しません。\n' +
-            '解約後も睡眠ログデータは保持されます。'}
-        </Text>
+        <Text style={styles.legalNote}>{t('subscription.legal')}</Text>
 
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const FEATURES = [
-  { emoji: '📊', label: '週次・月次レポート', premium: true },
-  { emoji: '🤖', label: '週次AIレポート', premium: true },
-  { emoji: '💬', label: 'AIチャット相談', premium: true },
-  { emoji: '🌊', label: 'スマートアラーム', premium: true },
-  { emoji: '⚙️', label: '習慣カスタマイズ', premium: true },
-  { emoji: '📔', label: '30日以上の日記閲覧', premium: true },
-  { emoji: '🌙', label: '睡眠記録（基本）', premium: false },
-  { emoji: '⏰', label: '通常アラーム', premium: false },
-];
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1A1A2E' },

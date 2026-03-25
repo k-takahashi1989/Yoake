@@ -1,5 +1,5 @@
 import { SleepLog, ScoreBreakdown, ScoreInfo } from '../types';
-import { SCORE_THRESHOLDS, SCORE_LABELS, SCORE_COLORS } from '../constants';
+import { SCORE_THRESHOLDS, SCORE_COLORS } from '../constants';
 import { safeToDate } from './dateUtils';
 
 // ============================================================
@@ -183,18 +183,18 @@ export function calculateScore(
 
 export function getScoreInfo(score: number): ScoreInfo {
   if (score >= SCORE_THRESHOLDS.EXCELLENT) {
-    return { label: SCORE_LABELS.EXCELLENT, color: 'green' };
+    return { labelKey: 'score.excellent', color: 'green' };
   }
   if (score >= SCORE_THRESHOLDS.GOOD) {
-    return { label: SCORE_LABELS.GOOD, color: 'yellowGreen' };
+    return { labelKey: 'score.good', color: 'yellowGreen' };
   }
   if (score >= SCORE_THRESHOLDS.NORMAL) {
-    return { label: SCORE_LABELS.NORMAL, color: 'yellow' };
+    return { labelKey: 'score.normal', color: 'yellow' };
   }
   if (score >= SCORE_THRESHOLDS.POOR) {
-    return { label: SCORE_LABELS.POOR, color: 'orange' };
+    return { labelKey: 'score.poor', color: 'orange' };
   }
-  return { label: SCORE_LABELS.BAD, color: 'red' };
+  return { labelKey: 'score.bad', color: 'red' };
 }
 
 // ============================================================

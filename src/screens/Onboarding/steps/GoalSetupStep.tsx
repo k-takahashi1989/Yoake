@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { saveGoal } from '../../../services/firebase';
 import firestore from '@react-native-firebase/firestore';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   onNext: () => void;
@@ -87,6 +88,7 @@ function SelectRow<T>({ label, value, options, renderLabel, onChange, nullable, 
 // ============================================================
 
 export default function GoalSetupStep({ onNext }: Props) {
+  const { t } = useTranslation();
   const [targetHours, setTargetHours] = useState(7.5);
   const [targetScore, setTargetScore] = useState(80);
   const [bedTimeTarget, setBedTimeTarget] = useState<string | null>('23:00');
@@ -111,34 +113,34 @@ export default function GoalSetupStep({ onNext }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>目標を設定しよう</Text>
-      <Text style={styles.subtitle}>あとで変更できます</Text>
+      <Text style={styles.title}>{t('onboarding.goal.title')}</Text>
+      <Text style={styles.subtitle}>{t('onboarding.goal.subtitle')}</Text>
 
       <View style={styles.card}>
         <SelectRow
-          label="目標睡眠時間"
+          label={t('onboarding.goal.sleepHours')}
           value={targetHours}
           options={SLEEP_HOUR_OPTIONS}
-          renderLabel={h => `${h}時間`}
+          renderLabel={h => t('onboarding.goal.hoursFormat', { h })}
           onChange={setTargetHours}
         />
         <View style={styles.divider} />
         <SelectRow
-          label="目標スコア"
+          label={t('onboarding.goal.targetScore')}
           value={targetScore}
           options={SCORE_OPTIONS}
-          renderLabel={s => `${s}点以上`}
+          renderLabel={s => t('onboarding.goal.scoreFormat', { s })}
           onChange={setTargetScore}
         />
         <View style={styles.divider} />
         <SelectRow
-          label="就寝目標時刻"
+          label={t('onboarding.goal.bedTimeTarget')}
           value={bedTimeTarget}
           options={BEDTIME_OPTIONS}
-          renderLabel={t => t}
+          renderLabel={v => v ?? ''}
           onChange={setBedTimeTarget}
           nullable
-          nullLabel="設定しない"
+          nullLabel={t('onboarding.goal.notSet')}
         />
       </View>
 
@@ -147,7 +149,7 @@ export default function GoalSetupStep({ onNext }: Props) {
         onPress={handleSave}
         disabled={isSaving}
       >
-        <Text style={styles.buttonText}>{isSaving ? '保存中...' : '次へ'}</Text>
+        <Text style={styles.buttonText}>{isSaving ? t('onboarding.goal.saving') : t('common.next')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

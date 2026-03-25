@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { AiReport } from '../../../types';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   weeklyReport: AiReport | null;
@@ -21,6 +22,7 @@ export default function WeeklyReportCard({
   isLoadingReport,
   onGenerate,
 }: Props) {
+  const { t } = useTranslation();
   const [expandedReportKey, setExpandedReportKey] = useState<string | null>(null);
 
   return (
@@ -28,14 +30,14 @@ export default function WeeklyReportCard({
       {/* 今週のレポート */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Text style={[styles.cardTitle, { marginBottom: 0 }]}>週次AIレポート</Text>
+          <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('report.weeklyAIReportTitle')}</Text>
           <TouchableOpacity
             style={[styles.generateBtn, isLoadingReport && styles.generateBtnDisabled]}
             onPress={onGenerate}
             disabled={isLoadingReport}
           >
             <Text style={styles.generateBtnText}>
-              {isLoadingReport ? '生成中...' : weeklyReport ? '再生成' : '生成する'}
+              {isLoadingReport ? t('report.generatingBtn') : weeklyReport ? t('report.regenerateBtn') : t('report.generateBtn')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -44,17 +46,14 @@ export default function WeeklyReportCard({
         ) : weeklyReport ? (
           <Text style={styles.reportText}>{weeklyReport.content}</Text>
         ) : (
-          <Text style={styles.reportPlaceholder}>
-            月曜日に自動生成されます。{'\n'}
-            今すぐ「生成する」を押しても作成できます（要データ1件以上）。
-          </Text>
+          <Text style={styles.reportPlaceholder}>{t('report.reportPlaceholder')}</Text>
         )}
       </View>
 
       {/* 過去のレポート */}
       {pastReports.length > 1 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>過去のレポート</Text>
+          <Text style={styles.cardTitle}>{t('report.pastReportsTitle')}</Text>
           {pastReports.slice(1).map(r => {
             const isExpanded = expandedReportKey === r.key;
             const weekLabel = r.key.replace(/(\d{4})-W(\d+)/, '$1年 第$2週');

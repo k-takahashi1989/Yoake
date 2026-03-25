@@ -23,6 +23,7 @@ import functions from '@react-native-firebase/functions';
 import DeviceInfo from 'react-native-device-info';
 import { saveSubscription } from '../../../services/firebase';
 import { SUBSCRIPTION } from '../../../constants';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   onComplete: () => void;
@@ -34,6 +35,7 @@ const PRODUCT_IDS = [
 ];
 
 export default function TrialStep({ onComplete }: Props) {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -67,11 +69,11 @@ export default function TrialStep({ onComplete }: Props) {
               const code = err?.code ?? '';
               if (code === 'functions/already-exists') {
                 Alert.alert(
-                  'トライアル利用済み',
-                  'このデバイスではすでに無料トライアルが使用されています。',
+                  t('onboarding.trial.alreadyUsedTitle'),
+                  t('onboarding.trial.alreadyUsedMessage'),
                 );
               } else {
-                Alert.alert('エラー', 'トライアルの開始に失敗しました。しばらく経ってから再試行してください。');
+                Alert.alert(t('common.error'), t('onboarding.trial.errorMessage'));
                 console.error('activateTrial error:', err);
               }
             }
@@ -82,7 +84,7 @@ export default function TrialStep({ onComplete }: Props) {
           console.error('購入エラー:', error);
           setIsPurchasing(false);
           if (!error.message?.toLowerCase().includes('cancel')) {
-            Alert.alert('購入エラー', error.message);
+            Alert.alert(t('onboarding.trial.purchaseError'), error.message);
           }
         });
 
@@ -117,7 +119,7 @@ export default function TrialStep({ onComplete }: Props) {
       console.error('購入リクエストエラー:', e);
       const msg: string = e?.message ?? '';
       if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('user')) {
-        Alert.alert('購入エラー', msg || '購入を開始できませんでした');
+        Alert.alert(t('onboarding.trial.purchaseError'), msg || t('onboarding.trial.errorMessage'));
       }
     }
   };
@@ -137,16 +139,24 @@ export default function TrialStep({ onComplete }: Props) {
   const monthlyProduct = products.find(p => (p as any).id === SUBSCRIPTION.PRODUCT_IDS.MONTHLY);
   const yearlyProduct = products.find(p => (p as any).id === SUBSCRIPTION.PRODUCT_IDS.YEARLY);
 
+  const premiumFeatures = [
+    t('onboarding.trial.feature1'),
+    t('onboarding.trial.feature2'),
+    t('onboarding.trial.feature3'),
+    t('onboarding.trial.feature4'),
+    t('onboarding.trial.feature5'),
+  ];
+
   return (
     <View style={styles.container}>
       <Text style={styles.icon}>⭐</Text>
-      <Text style={styles.title}>7日間無料トライアル</Text>
+      <Text style={styles.title}>{t('onboarding.trial.title')}</Text>
       <Text style={styles.description}>
-        すべての有料機能を{SUBSCRIPTION.TRIAL_DAYS}日間無料でお試しいただけます。
+        {t('onboarding.trial.desc', { days: SUBSCRIPTION.TRIAL_DAYS })}
       </Text>
 
       <View style={styles.featureList}>
-        {PREMIUM_FEATURES.map(f => (
+        {premiumFeatures.map(f => (
           <View key={f} style={styles.featureRow}>
             <Text style={styles.checkIcon}>✓</Text>
             <Text style={styles.featureText}>{f}</Text>
@@ -157,8 +167,7 @@ export default function TrialStep({ onComplete }: Props) {
       {!isBillingAvailable && !isLoading && (
         <View style={styles.billingUnavailable}>
           <Text style={styles.billingUnavailableText}>
-            この環境ではGoogle Playが利用できません。{'\n'}
-            無料プランで始めることができます。
+            {t('onboarding.trial.billingUnavailable')}
           </Text>
         </View>
       )}
@@ -167,37 +176,37 @@ export default function TrialStep({ onComplete }: Props) {
         <ActivityIndicator color="#6B5CE7" style={{ marginVertical: 16 }} />
       ) : isBillingAvailable ? (
         <View style={styles.planGroup}>
-          {/* 月額プラン */}
+          {/* Monthly plan */}
           <TouchableOpacity
             style={[styles.planCard, isPurchasing && styles.planCardDisabled]}
             onPress={() => handleStartTrial(SUBSCRIPTION.PRODUCT_IDS.MONTHLY)}
             disabled={isPurchasing}
           >
             <View>
-              <Text style={styles.planName}>月額プラン</Text>
+              <Text style={styles.planName}>{t('onboarding.trial.monthlyPlan')}</Text>
               <Text style={styles.planPrice}>
-                {(monthlyProduct as any)?.displayPrice ?? `¥${SUBSCRIPTION.MONTHLY_PRICE}`} / 月
+                {(monthlyProduct as any)?.displayPrice ?? `¥${SUBSCRIPTION.MONTHLY_PRICE}`} {t('onboarding.trial.perMonth')}
               </Text>
             </View>
             {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
           </TouchableOpacity>
 
-          {/* 年額プラン（推奨） */}
+          {/* Yearly plan (recommended) */}
           <TouchableOpacity
             style={[styles.planCard, styles.planCardRecommended, isPurchasing && styles.planCardDisabled]}
             onPress={() => handleStartTrial(SUBSCRIPTION.PRODUCT_IDS.YEARLY)}
             disabled={isPurchasing}
           >
             <View style={styles.recommendedBadge}>
-              <Text style={styles.recommendedText}>おすすめ 38%OFF</Text>
+              <Text style={styles.recommendedText}>{t('onboarding.trial.recommended')}</Text>
             </View>
             <View>
-              <Text style={styles.planName}>年額プラン</Text>
+              <Text style={styles.planName}>{t('onboarding.trial.yearlyPlan')}</Text>
               <Text style={styles.planPrice}>
-                {(yearlyProduct as any)?.displayPrice ?? `¥${SUBSCRIPTION.YEARLY_PRICE}`} / 年
+                {(yearlyProduct as any)?.displayPrice ?? `¥${SUBSCRIPTION.YEARLY_PRICE}`} {t('onboarding.trial.perYear')}
               </Text>
               <Text style={styles.planMonthly}>
-                月換算 ¥{Math.round(SUBSCRIPTION.YEARLY_PRICE / 12)}
+                {t('onboarding.trial.monthlyEquivalent', { price: Math.round(SUBSCRIPTION.YEARLY_PRICE / 12) })}
               </Text>
             </View>
             {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
@@ -206,23 +215,15 @@ export default function TrialStep({ onComplete }: Props) {
       ) : null}
 
       <Text style={styles.legal}>
-        トライアル終了後は自動更新されます。{'\n'}いつでもキャンセル可能です。
+        {t('onboarding.trial.legal')}
       </Text>
 
       <TouchableOpacity style={styles.skipButton} onPress={handleSkip} disabled={isPurchasing}>
-        <Text style={styles.skipText}>無料プランで始める</Text>
+        <Text style={styles.skipText}>{t('onboarding.trial.skipBtn')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-const PREMIUM_FEATURES = [
-  '週次AIレポート・AIチャット',
-  'スマートアラーム（ウェアラブル連携）',
-  '週次・月次グラフ / 習慣別相関グラフ',
-  '習慣カスタマイズ（最大20項目）',
-  'クラウドバックアップ・CSVエクスポート',
-];
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center' },

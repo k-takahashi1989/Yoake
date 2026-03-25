@@ -1,16 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from '../../../i18n';
 
 interface Props {
   onNext: () => void;
 }
 
 export default function WelcomeStep({ onNext }: Props) {
+  const { t } = useTranslation();
+
+  const FEATURES = [
+    { emoji: '🤖', label: t('onboarding.welcome.feature1') },
+    { emoji: '📊', label: t('onboarding.welcome.feature2') },
+    { emoji: '⏰', label: t('onboarding.welcome.feature3') },
+    { emoji: '📔', label: t('onboarding.welcome.feature4') },
+  ];
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>🌅</Text>
       <Text style={styles.appName}>YOAKE</Text>
-      <Text style={styles.tagline}>毎朝AIが、あなたの睡眠を{'\n'}採点して改善策を教えてくれる</Text>
+      <Text style={styles.tagline}>{t('onboarding.welcome.tagline')}</Text>
 
       <View style={styles.features}>
         {FEATURES.map(f => (
@@ -22,18 +32,11 @@ export default function WelcomeStep({ onNext }: Props) {
       </View>
 
       <TouchableOpacity style={styles.button} onPress={onNext}>
-        <Text style={styles.buttonText}>はじめる</Text>
+        <Text style={styles.buttonText}>{t('onboarding.welcome.startBtn')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-const FEATURES = [
-  { emoji: '🤖', label: 'AIが毎朝ひとこと睡眠アドバイス' },
-  { emoji: '📊', label: '睡眠スコアで毎日の質を可視化' },
-  { emoji: '⏰', label: '浅い眠りに合わせたスマートアラーム' },
-  { emoji: '📔', label: '習慣と睡眠の相関をAIが分析' },
-];
 
 const styles = StyleSheet.create({
   container: {

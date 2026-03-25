@@ -18,6 +18,7 @@ import { safeToDate } from '../../utils/dateUtils';
 import { useSleepStore } from '../../stores/sleepStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
+import { useTranslation } from '../../i18n';
 
 type Props = NativeStackScreenProps<DiaryStackParamList, 'RecordEdit'>;
 
@@ -27,6 +28,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [originalLog, setOriginalLog] = useState<SleepLog | null>(null);
+  const { t } = useTranslation();
 
   const defaultBedTime = subHours(new Date(), 8);
   defaultBedTime.setMinutes(0, 0, 0);
@@ -64,17 +66,17 @@ export default function RecordEditScreen({ route, navigation }: Props) {
   }, [date]);
 
   const handleDelete = () => {
-    Alert.alert('記録を削除', 'この睡眠記録を削除しますか？', [
-      { text: 'キャンセル', style: 'cancel' },
+    Alert.alert(t('recordEdit.deleteConfirmTitle'), t('recordEdit.deleteConfirmMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '削除',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await deleteLog(date);
             navigation.pop(2);
           } catch {
-            Alert.alert('削除失敗', '記録の削除に失敗しました。');
+            Alert.alert(t('recordEdit.deleteFailedTitle'), t('recordEdit.deleteFailedMessage'));
           }
         },
       },
@@ -101,7 +103,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
       );
       navigation.goBack();
     } catch {
-      Alert.alert('保存失敗', '記録の保存に失敗しました。');
+      Alert.alert(t('recordEdit.saveFailedTitle'), t('common.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -119,6 +121,9 @@ export default function RecordEditScreen({ route, navigation }: Props) {
     Math.round((form.wakeTime.getTime() - form.bedTime.getTime()) / 60000),
   );
 
+  const SLEEP_ONSET_OPTIONS = getSleepOnsetOptions(t);
+  const WAKE_FEELING_OPTIONS = getWakeFeelingOptions(t);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -131,7 +136,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.center}>
-          <Text style={styles.errorText}>記録が見つかりません</Text>
+          <Text style={styles.errorText}>{t('recordEdit.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -142,19 +147,19 @@ export default function RecordEditScreen({ route, navigation }: Props) {
       {/* ヘッダー */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
-          <Text style={styles.cancelText}>キャンセル</Text>
+          <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>記録を編集</Text>
+        <Text style={styles.title}>{t('recordEdit.title')}</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
-            <Text style={styles.deleteText}>削除</Text>
+            <Text style={styles.deleteText}>{t('common.delete')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleSave}
             style={[styles.saveBtn, isSaving && styles.saveBtnDisabled]}
             disabled={isSaving}
           >
-            <Text style={styles.saveText}>{isSaving ? '保存中' : '保存'}</Text>
+            <Text style={styles.saveText}>{t('common.save')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -169,7 +174,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         </View>
 
         {/* 就寝・起床 */}
-        <SectionCard title="就寝・起床時刻">
+        <SectionCard title={t('sleepInput.bedWakeTitle')}>
           <TimePickerRow
             label="就寝"
             value={form.bedTime}
@@ -183,7 +188,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         </SectionCard>
 
         {/* 寝つき */}
-        <SectionCard title="寝つきはどうでしたか？">
+        <SectionCard title={t('sleepInput.sleepOnsetTitle')}>
           <View style={styles.optionRow}>
             {SLEEP_ONSET_OPTIONS.map(opt => (
               <TouchableOpacity
@@ -201,7 +206,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         </SectionCard>
 
         {/* 目覚め */}
-        <SectionCard title="目覚めはどうでしたか？">
+        <SectionCard title={t('sleepInput.wakeFeelingTitle')}>
           <View style={styles.optionRow}>
             {WAKE_FEELING_OPTIONS.map(opt => (
               <TouchableOpacity
@@ -219,19 +224,19 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         </SectionCard>
 
         {/* 習慣 */}
-        <SectionCard title="習慣チェック">
+        <SectionCard title={t('recordEdit.habitsTitle')}>
           {form.habits.map(habit => (
             <HabitCheckRow key={habit.id} habit={habit} onToggle={() => toggleHabit(habit.id)} />
           ))}
         </SectionCard>
 
         {/* メモ */}
-        <SectionCard title="メモ（任意）">
+        <SectionCard title={t('common.memoOptional')}>
           <TextInput
             style={styles.memoInput}
             value={form.memo}
             onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
-            placeholder="気になったことを記録..."
+            placeholder={t('common.memoPlaceholder')}
             placeholderTextColor="#555"
             multiline
             numberOfLines={3}
@@ -254,17 +259,21 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
-const SLEEP_ONSET_OPTIONS: Array<{ value: SleepOnset; label: string; emoji: string }> = [
-  { value: 'FAST', label: 'すぐ寝れた', emoji: '😴' },
-  { value: 'NORMAL', label: '少し時間かかった', emoji: '😐' },
-  { value: 'SLOW', label: 'なかなか寝れなかった', emoji: '😫' },
-];
+function getSleepOnsetOptions(t: (key: string) => string): Array<{ value: SleepOnset; label: string; emoji: string }> {
+  return [
+    { value: 'FAST', label: t('sleepInput.onsetFast'), emoji: '😴' },
+    { value: 'NORMAL', label: t('sleepInput.onsetNormal'), emoji: '😐' },
+    { value: 'SLOW', label: t('sleepInput.onsetSlow'), emoji: '😫' },
+  ];
+}
 
-const WAKE_FEELING_OPTIONS: Array<{ value: WakeFeeling; label: string; emoji: string }> = [
-  { value: 'GOOD', label: 'すっきり', emoji: '😊' },
-  { value: 'NORMAL', label: 'ふつう', emoji: '😐' },
-  { value: 'BAD', label: 'つらい', emoji: '😩' },
-];
+function getWakeFeelingOptions(t: (key: string) => string): Array<{ value: WakeFeeling; label: string; emoji: string }> {
+  return [
+    { value: 'GOOD', label: t('sleepInput.wakeFeelingGood'), emoji: '😊' },
+    { value: 'NORMAL', label: t('sleepInput.wakeFeelingNormal'), emoji: '😐' },
+    { value: 'BAD', label: t('sleepInput.wakeFeelingBad'), emoji: '😩' },
+  ];
+}
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1A1A2E' },

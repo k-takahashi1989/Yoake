@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import notifee, { AndroidImportance, TriggerType, TimestampTrigger } from '@notifee/react-native';
+import { useTranslation } from '../../i18n';
 
 const STORAGE_KEY = '@yoake:notification_settings';
 const CHANNEL_ID = 'yoake_reminders';
@@ -56,6 +57,7 @@ async function cancelReminder(): Promise<void> {
 }
 
 export default function NotificationSettingsScreen() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<NotifSettings>(DEFAULTS);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -101,14 +103,14 @@ export default function NotificationSettingsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>朝のリマインダー</Text>
+          <Text style={styles.cardTitle}>{t('notification.morningTitle')}</Text>
 
           {/* ON/OFF トグル */}
           <View style={styles.row}>
             <View style={styles.rowInfo}>
-              <Text style={styles.rowTitle}>毎朝リマインダー通知</Text>
+              <Text style={styles.rowTitle}>{t('notification.morningToggle')}</Text>
               <Text style={styles.rowSubtitle}>
-                設定した時刻に「記録しましょう」の通知を送ります
+                {t('notification.morningToggleSub')}
               </Text>
             </View>
             <Switch
@@ -124,7 +126,7 @@ export default function NotificationSettingsScreen() {
             <>
               <View style={styles.divider} />
               <View style={styles.row}>
-                <Text style={styles.rowTitle}>通知時刻</Text>
+                <Text style={styles.rowTitle}>{t('notification.timeLabel')}</Text>
                 <Text
                   style={styles.timeValue}
                   onPress={() => setShowPicker(true)}
@@ -137,10 +139,7 @@ export default function NotificationSettingsScreen() {
           )}
         </View>
 
-        <Text style={styles.note}>
-          ※ リマインダーは1日1回、次の設定時刻に送信されます。{'\n'}
-          毎日受け取るには通知後に設定を一度オフ→オンにしてください。
-        </Text>
+        <Text style={styles.note}>{t('notification.note')}</Text>
 
         <View style={{ height: 32 }} />
       </ScrollView>
