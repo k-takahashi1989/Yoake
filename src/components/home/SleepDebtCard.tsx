@@ -4,6 +4,7 @@ import { startOfMonth, format } from 'date-fns';
 import { SleepLog } from '../../types';
 import { calculateSleepDebt } from '../../utils/scoreCalculator';
 import { useTranslation } from '../../i18n';
+import Icon from '../common/Icon';
 
 type DebtPeriod = '14' | '30' | 'month';
 
@@ -34,7 +35,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
           </View>
         </View>
         <View style={styles.lockedRow}>
-          <Text style={styles.lockIcon}>🔒</Text>
+          <Icon name="lock" size={18} color="#6B5CE7" />
           <Text style={styles.premiumHint}>{t('sleepDebt.locked')}</Text>
         </View>
       </View>
@@ -58,7 +59,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
   const debtText =
     debtMinutes === 0
       ? t('sleepDebt.none')
-      : `${debtHours > 0 ? `${debtHours}時間` : ''}${debtMins > 0 ? `${debtMins}分` : ''}`;
+      : `${debtHours > 0 ? `${debtHours}${t('common.hours')}` : ''}${debtMins > 0 ? `${debtMins}${t('common.minutes')}` : ''}`;
 
   const debtColor =
     debtMinutes === 0
@@ -171,7 +172,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 4,
   },
-  lockIcon: { fontSize: 16 },
   premiumHint: {
     fontSize: 12,
     color: '#6B5CE7',

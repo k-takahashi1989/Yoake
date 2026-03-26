@@ -10,25 +10,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { DiaryStackParamList, SleepLog } from '../../types';
 import { getSleepLog } from '../../services/firebase';
 import { getScoreInfo } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
 import { useTranslation } from '../../i18n';
+import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
 
 type Props = NativeStackScreenProps<DiaryStackParamList, 'RecordDetail'>;
-
-function safeToDate(ts: any): Date {
-  if (!ts) return new Date();
-  if (ts instanceof Date) return isNaN(ts.getTime()) ? new Date() : ts;
-  if (typeof ts.toDate === 'function') {
-    const d: Date = ts.toDate();
-    return isNaN(d.getTime()) ? new Date() : d;
-  }
-  if (ts.seconds !== undefined) return new Date(ts.seconds * 1000);
-  return new Date();
-}
 
 export default function RecordDetailScreen({ route, navigation }: Props) {
   const { date } = route.params;
@@ -61,8 +50,8 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
   }
 
   const scoreInfo = getScoreInfo(log.score);
-  const scoreColor = SCORE_COLORS[scoreInfo.color.toUpperCase() as keyof typeof SCORE_COLORS];
-  const dateLabel = format(new Date(date.replace(/-/g, '/')), 'M月d日（EEE）', { locale: ja });
+  const scoreColor = SCORE_COLORS[scoreInfo.color];
+  const dateLabel = format(safeToDate(date), 'M月d日（EEE）', { locale: getDateFnsLocale() });
   const hours = Math.floor(log.totalMinutes / 60);
   const mins = log.totalMinutes % 60;
 

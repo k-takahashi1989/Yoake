@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../../i18n';
+import Icon from '../common/Icon';
 
 interface Props {
   advice: string | null;
@@ -15,7 +16,7 @@ export default function AiAdviceCard({ advice, isLoading, onRefresh }: Props) {
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.icon}>🤖</Text>
+          <Icon name="sparkling" size={18} />
           <Text style={styles.title}>{t('aiAdviceCard.title')}</Text>
         </View>
         {onRefresh && !isLoading && (
@@ -56,7 +57,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  icon: { fontSize: 16 },
   title: { fontSize: 13, color: '#888', fontWeight: '600' },
   refreshBtn: { paddingHorizontal: 8, paddingVertical: 2 },
   refreshText: { fontSize: 11, color: '#6B5CE7' },

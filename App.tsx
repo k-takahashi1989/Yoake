@@ -4,6 +4,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from './src/stores/authStore';
 import AppNavigator from './src/navigation';
 import { initI18n } from './src/i18n';
+import { getRecentSleepLogs } from './src/services/firebase';
+import { generateSeedData } from './src/utils/seedData';
 
 export default function App() {
   const { initialize, ensureSignedIn } = useAuthStore();
@@ -17,7 +19,19 @@ export default function App() {
     if (!i18nReady) return;
     const unsubscribe = initialize();
     // 未サインインの場合は匿名で自動サインイン
-    ensureSignedIn();
+    ensureSignedIn().then(async () => {
+      if (!__DEV__) return;
+      try {
+        const logs = await getRecentSleepLogs(1);
+        if (logs.length === 0) {
+          console.log('[DEV] Seeding 90 days of data...');
+          await generateSeedData(90);
+          console.log('[DEV] Seed complete');
+        }
+      } catch (e) {
+        console.warn('[DEV] Auto-seed failed:', e);
+      }
+    });
     return unsubscribe;
   }, [i18nReady]);
 

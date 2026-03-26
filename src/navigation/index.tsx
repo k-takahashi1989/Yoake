@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -14,6 +14,7 @@ import {
 } from '../types';
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n';
+import TabBarIcon from '../components/common/TabBarIcon';
 
 import HomeScreen from '../screens/Home/HomeScreen';
 import ScoreDetailScreen from '../screens/Home/ScoreDetailScreen';
@@ -55,31 +56,6 @@ const HEADER_OPTS = {
   headerShadowVisible: false,
 };
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const { t } = useTranslation();
-  const icons: Record<string, string> = {
-    Home: '🌙',
-    Diary: '📔',
-    Report: '📊',
-    Alarm: '⏰',
-    Profile: '👤',
-  };
-  const labelKeys: Record<string, string> = {
-    Home: 'nav.home',
-    Diary: 'nav.diary',
-    Report: 'nav.report',
-    Alarm: 'nav.alarm',
-    Profile: 'nav.profile',
-  };
-  return (
-    <Text
-      style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}
-      accessibilityLabel={t(labelKeys[name])}
-    >
-      {icons[name] ?? '?'}
-    </Text>
-  );
-}
 
 function HomeStackNavigator() {
   const { t } = useTranslation();
@@ -167,7 +143,9 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }) => <TabIcon name={route.name} focused={focused} />,
+        tabBarIcon: ({ focused, color }) => (
+          <TabBarIcon name={route.name} color={color} size={22} />
+        ),
         tabBarActiveTintColor: '#6B5CE7',
         tabBarInactiveTintColor: '#9E9E9E',
         tabBarStyle: { backgroundColor: '#1A1A2E', borderTopColor: '#2D2D44' },

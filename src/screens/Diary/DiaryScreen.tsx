@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSleepStore } from '../../stores/sleepStore';
@@ -18,6 +17,7 @@ import { SCORE_COLORS, FREE_LIMITS } from '../../constants';
 import { SleepLog, DiaryStackParamList } from '../../types';
 import HabitCustomizeModal from './HabitCustomizeModal';
 import { useTranslation } from '../../i18n';
+import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
 
 type DiaryNav = NativeStackNavigationProp<DiaryStackParamList>;
 
@@ -89,26 +89,14 @@ export default function DiaryScreen() {
   );
 }
 
-// Firestore Timestamp / Date / プレーンオブジェクト を安全にDateへ変換
-function safeToDate(ts: any): Date {
-  if (!ts) return new Date();
-  if (ts instanceof Date) return isNaN(ts.getTime()) ? new Date() : ts;
-  if (typeof ts.toDate === 'function') {
-    const d: Date = ts.toDate();
-    return isNaN(d.getTime()) ? new Date() : d;
-  }
-  if (ts.seconds !== undefined) return new Date(ts.seconds * 1000);
-  return new Date();
-}
-
 function DiaryRow({ log, onPress }: { log: SleepLog; onPress: () => void }) {
   const { t } = useTranslation();
   const scoreInfo = getScoreInfo(log.score);
-  const scoreColor = SCORE_COLORS[scoreInfo.color.toUpperCase() as keyof typeof SCORE_COLORS];
-  const dateLabel = format(new Date(log.date.replace(/-/g, '/')), 'M月d日（EEE）', { locale: ja });
+  const scoreColor = SCORE_COLORS[scoreInfo.color];
+  const dateLabel = format(safeToDate(log.date), 'M月d日（EEE）', { locale: getDateFnsLocale() });
   const hours = Math.floor(log.totalMinutes / 60);
   const mins = log.totalMinutes % 60;
-  const checkedHabits = log.habits.filter(h => h.checked);
+  const checkedHabits = (log.habits ?? []).filter(h => h.checked);
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>

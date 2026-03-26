@@ -208,6 +208,8 @@ export default function TrialStep({ onComplete }: Props) {
               <Text style={styles.planMonthly}>
                 {t('onboarding.trial.monthlyEquivalent', { price: Math.round(SUBSCRIPTION.YEARLY_PRICE / 12) })}
               </Text>
+              {/* 年額節約額バッジ: 月額との差額を緑バッジで訴求 */}
+              <Text style={styles.savingsBadge}>{t('onboarding.trial.yearSavings')}</Text>
             </View>
             {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
           </TouchableOpacity>
@@ -218,8 +220,9 @@ export default function TrialStep({ onComplete }: Props) {
         {t('onboarding.trial.legal')}
       </Text>
 
+      {/* スキップボタン: marginTopを大きくして誤タップを防止 */}
       <TouchableOpacity style={styles.skipButton} onPress={handleSkip} disabled={isPurchasing}>
-        <Text style={styles.skipText}>{t('onboarding.trial.skipBtn')}</Text>
+        <Text style={styles.skipText}>{t('onboarding.trial.skipLater')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -277,6 +280,20 @@ const styles = StyleSheet.create({
   },
   billingUnavailableText: { fontSize: 13, color: '#B0B0C8', textAlign: 'center', lineHeight: 20 },
   legal: { fontSize: 10, color: '#555', textAlign: 'center', lineHeight: 16, marginBottom: 12 },
-  skipButton: { paddingVertical: 10, alignItems: 'center' },
-  skipText: { color: '#666', fontSize: 13, textDecorationLine: 'underline' },
+  // スキップボタン: marginTopを増やしCTAとの距離を広げて誤タップを防止、色もWCAG AA準拠の#888以上に
+  skipButton: { paddingVertical: 10, marginTop: 16, alignItems: 'center' },
+  skipText: { color: '#888', fontSize: 13, textDecorationLine: 'underline' },
+  // 年額節約額バッジ: 緑背景で月額より安い訴求を強調
+  savingsBadge: {
+    backgroundColor: '#4CAF50',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
 });

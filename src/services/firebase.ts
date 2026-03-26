@@ -104,7 +104,7 @@ export async function getRecentSleepLogs(days: number): Promise<SleepLog[]> {
     .orderBy('date', 'desc')
     .limit(days)
     .get();
-  return snap.docs.map(d => d.data() as SleepLog);
+  return snap.docs.map(d => ({ ...d.data(), date: d.id } as SleepLog));
 }
 
 export async function deleteSleepLog(date: string): Promise<void> {
@@ -121,7 +121,7 @@ export async function getSleepLogsInRange(
     .where('date', '<=', endDate)
     .orderBy('date', 'desc')
     .get();
-  return snap.docs.map(d => d.data() as SleepLog);
+  return snap.docs.map(d => ({ ...d.data(), date: d.id } as SleepLog));
 }
 
 // ============================================================
@@ -141,10 +141,11 @@ export async function getPastWeeklyReports(n: number): Promise<Array<{ key: stri
   const snap = await userDoc()
     .collection('aiReports')
     .where('type', '==', 'weekly')
-    .orderBy('generatedAt', 'desc')
-    .limit(n)
     .get();
-  return snap.docs.map(d => ({ key: d.id, ...(d.data() as AiReport) }));
+  return snap.docs
+    .map(d => ({ key: d.id, ...(d.data() as AiReport) }))
+    .sort((a, b) => (b.generatedAt?.seconds ?? 0) - (a.generatedAt?.seconds ?? 0))
+    .slice(0, n);
 }
 
 // ============================================================

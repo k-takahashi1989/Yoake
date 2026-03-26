@@ -1,7 +1,7 @@
 module.exports = {
   preset: 'react-native',
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-native-community|@react-navigation|react-native-safe-area-context|react-native-screens|react-native-vector-icons|react-native-gifted-charts|gifted-charts-core|react-native-linear-gradient|react-native-svg|react-native-iap|@notifee|react-native-health-connect|react-native-device-info|react-native-nitro-modules)/)',
+    'node_modules/(?!(react-native|@react-native|@react-native-community|@react-navigation|react-native-safe-area-context|react-native-screens|react-native-vector-icons|react-native-gifted-charts|gifted-charts-core|react-native-linear-gradient|react-native-svg|react-native-iap|@notifee|react-native-health-connect|react-native-device-info|react-native-nitro-modules|react-native-reanimated)/)',
   ],
   moduleNameMapper: {
     '@react-native-firebase/firestore': '<rootDir>/__mocks__/@react-native-firebase/firestore.js',
@@ -14,5 +14,7 @@ module.exports = {
     '@notifee/react-native': '<rootDir>/__mocks__/@notifee/react-native.js',
     'react-native-iap': '<rootDir>/__mocks__/react-native-iap.js',
     'react-i18next': '<rootDir>/__mocks__/react-i18next.js',
+    'react-native-reanimated': '<rootDir>/__mocks__/react-native-reanimated.js',
+    'react-native-svg': '<rootDir>/__mocks__/react-native-svg.js',
   },
 };

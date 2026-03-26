@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSubscription, saveSubscription, getProfile, saveProfile, deleteAllUserData } from '../services/firebase';
-import { Subscription, UserProfile } from '../types';
+import { Subscription, UserProfile, AiPersonality } from '../types';
 
 const ONBOARDING_KEY = '@yoake:onboarding_completed';
 
@@ -20,7 +20,7 @@ interface AuthState {
   completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
-  updateProfile: (data: { displayName?: string | null; height?: number | null; weight?: number | null }) => Promise<void>;
+  updateProfile: (data: { displayName?: string | null; height?: number | null; weight?: number | null; aiPersonality?: AiPersonality }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   /** DEV only: プレミアム状態を強制切替 */
   _devSetPremium: (value: boolean) => void;
@@ -104,7 +104,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   _devSetPremium: (value: boolean) => {
-    if (__DEV__) set({ isPremium: value });
+    if (!__DEV__) return;
+    set({ isPremium: value });
+    saveSubscription({
+      plan: value ? 'monthly' : 'free',
+      status: value ? 'active' : 'expired',
+      trialStartAt: null,
+      trialEndAt: null,
+      currentPeriodEndAt: null,
+      trialUsed: false,
+    }).catch(e => console.warn('_devSetPremium failed:', e));
   },
 
   deleteAccount: async () => {

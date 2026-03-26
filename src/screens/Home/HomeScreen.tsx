@@ -18,7 +18,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { getAiReport, saveAiReport, getGoal, getSleepLog } from '../../services/firebase';
 import { generateDailyAdvice } from '../../services/claudeApi';
 import { getScoreInfo } from '../../utils/scoreCalculator';
-import { safeToDate } from '../../utils/dateUtils';
+import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
 import { SCORE_COLORS, SLEEP_LOG_FETCH_LIMIT } from '../../constants';
 import { UserGoal, HomeStackParamList } from '../../types';
 import SleepInputModal from './SleepInputModal';
@@ -46,7 +46,14 @@ export default function HomeScreen() {
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  const dateLabel = format(new Date(), 'M月d日（EEE）');
+  const dateLabel = format(new Date(), 'M月d日（EEE）', { locale: getDateFnsLocale() });
+
+  const hour = new Date().getHours();
+  const greeting =
+    hour >= 5 && hour < 12  ? t('home.greetingMorning')
+    : hour >= 12 && hour < 18 ? t('home.greetingAfternoon')
+    : hour >= 18 && hour < 23 ? t('home.greetingEvening')
+    :                            t('home.greetingNight');
 
   useEffect(() => {
     loadToday();
@@ -128,16 +135,25 @@ export default function HomeScreen() {
   }, []);
 
   const scoreInfo = todayLog ? getScoreInfo(todayLog.score) : null;
-  const scoreColor = scoreInfo ? SCORE_COLORS[scoreInfo.color.toUpperCase() as keyof typeof SCORE_COLORS] : '#6B5CE7';
+  const scoreColor = scoreInfo ? SCORE_COLORS[scoreInfo.color] : '#6B5CE7';
 
   // スコアコンテキスト（前日比・今週平均）
   const prevScore = recentLogs[1]?.score ?? null;
   const scoreDiff = todayLog && prevScore !== null ? todayLog.score - prevScore : null;
 
-  // 今週の目標達成日数
+  // 今週の目標達成
   const weekLogs = recentLogs.slice(0, 7);
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return format(d, 'yyyy-MM-dd');
+  });
+  const logMap = new Map(recentLogs.map(l => [l.date, l]));
   const achievedDays = goal
-    ? weekLogs.filter(l => l.score >= goal.targetScore).length
+    ? last7Days.filter(dateStr => {
+        const log = logMap.get(dateStr);
+        return log ? log.score >= goal.targetScore : false;
+      }).length
     : 0;
 
   return (
@@ -149,7 +165,7 @@ export default function HomeScreen() {
         {/* ヘッダー */}
         <View style={styles.header}>
           <Text style={styles.dateText}>{dateLabel}</Text>
-          <Text style={styles.headerTitle}>{t('home.greeting')}</Text>
+          <Text style={styles.headerTitle}>{greeting}</Text>
         </View>
 
         {/* スコアリング */}
@@ -247,15 +263,15 @@ export default function HomeScreen() {
             <Text style={styles.cardTitle}>{t('home.todaySleep')}</Text>
             <View style={styles.summaryRow}>
               <SummaryItem
-                label="睡眠時間"
+                label={t('home.duration')}
                 value={`${Math.floor(todayLog.totalMinutes / 60)}h${todayLog.totalMinutes % 60}m`}
               />
               <SummaryItem
-                label="就寝"
+                label={t('home.bedtime')}
                 value={format(safeToDate(todayLog.bedTime), 'HH:mm')}
               />
               <SummaryItem
-                label="起床"
+                label={t('home.wakeup')}
                 value={format(safeToDate(todayLog.wakeTime), 'HH:mm')}
               />
             </View>
@@ -267,15 +283,23 @@ export default function HomeScreen() {
           <View style={styles.goalCard}>
             <Text style={styles.cardTitle}>{t('home.weeklyGoal')}</Text>
             <View style={styles.goalProgress}>
-              {Array.from({ length: 7 }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.goalDot,
-                    i < achievedDays && styles.goalDotAchieved,
-                  ]}
-                />
-              ))}
+              {last7Days.map(dateStr => {
+                const log = logMap.get(dateStr);
+                const achieved = log ? log.score >= goal.targetScore : false;
+                const dayLabel = format(safeToDate(dateStr), 'E', { locale: getDateFnsLocale() });
+                return (
+                  <TouchableOpacity
+                    key={dateStr}
+                    style={styles.goalDayCell}
+                    onPress={() => log && navigation.navigate('ScoreDetail', { date: dateStr })}
+                  >
+                    <View style={[styles.goalDot, achieved && styles.goalDotAchieved, !log && styles.goalDotEmpty]}>
+                      {log && <Text style={styles.goalDotScore}>{log.score}</Text>}
+                    </View>
+                    <Text style={styles.goalDayLabel}>{dayLabel}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             <Text style={styles.goalText}>
               {t('home.goalText', { achieved: achievedDays, target: goal.targetScore })}
@@ -464,14 +488,33 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  goalDayCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
   goalDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#444',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalDotAchieved: {
     backgroundColor: '#4CAF50',
+  },
+  goalDotEmpty: {
+    opacity: 0.4,
+  },
+  goalDotScore: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  goalDayLabel: {
+    fontSize: 10,
+    color: '#888',
   },
   goalText: {
     fontSize: 12,

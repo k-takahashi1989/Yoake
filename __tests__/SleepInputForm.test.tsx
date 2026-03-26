@@ -126,7 +126,8 @@ describe('calculateScore - エッジケース', () => {
     const manualLog = makeLog(bed, wake);
     const hcLog = makeLog(bed, wake, {
       source: 'HEALTH_CONNECT' as const,
-      deepSleepMinutes: 90,
+      // deepSleep=60/480=0.125 → 11pts (0.10〜0.15未満の中間帯) → HC合計76 vs 手動80
+      deepSleepMinutes: 60,
       remMinutes: 100,
       lightSleepMinutes: 150,
       awakenings: 2,

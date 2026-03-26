@@ -62,12 +62,13 @@ describe('calculateSleepDebt', () => {
     expect(calculateSleepDebt(logs, TARGET_HOURS)).toBe(180); // 合計3時間不足
   });
 
-  test('一部不足・一部達成 → 不足分のみ累積', () => {
+  test('一部不足・一部達成 → 余剰分が不足分を相殺（Dingesモデル）', () => {
     const logs = [
-      makeLog('2026-03-20', 480), // 8h (達成)
+      makeLog('2026-03-20', 480), // 8h (30分余剰)
       makeLog('2026-03-19', 300), // 5h (150分不足)
     ];
-    expect(calculateSleepDebt(logs, TARGET_HOURS)).toBe(150);
+    // Dinges net モデル: 150 - 30 = 120
+    expect(calculateSleepDebt(logs, TARGET_HOURS)).toBe(120);
   });
 
   test('空配列 → 負債0', () => {

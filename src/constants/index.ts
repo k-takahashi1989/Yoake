@@ -9,13 +9,15 @@ export const SCORE_THRESHOLDS = {
   POOR: 40,
 } as const;
 
-export const SCORE_COLORS = {
-  EXCELLENT: '#4CAF50',
-  GOOD: '#8BC34A',
-  NORMAL: '#FFC107',
-  POOR: '#FF9800',
-  BAD: '#F44336',
-} as const;
+import type { ScoreColor, AiPersonality } from '../types';
+
+export const SCORE_COLORS: Record<ScoreColor, string> = {
+  green: '#4CAF50',
+  yellowGreen: '#8BC34A',
+  yellow: '#FFC107',
+  orange: '#FF9800',
+  red: '#F44336',
+};
 
 // ============================================================
 // デフォルト習慣
@@ -120,3 +122,21 @@ export const LINKS = {
   PRIVACY_POLICY: 'https://ktakahashi.dev/yoake/privacy',
   TERMS: 'https://ktakahashi.dev/yoake/terms',
 } as const;
+
+// ============================================================
+// AI性格設定
+// ============================================================
+
+export const AI_PERSONALITIES: {
+  id: AiPersonality;
+  emoji: string;
+  themeColor: string;
+  labelKey: string;
+  subKey: string;
+  previewKey: string;
+}[] = [
+  { id: 'standard',   emoji: '💬', themeColor: '#6B5CE7', labelKey: 'personality.standard',   subKey: 'personality.standardSub',   previewKey: 'personality.standardPreview'   },
+  { id: 'gentle',     emoji: '🌙', themeColor: '#4CA1AF', labelKey: 'personality.gentle',     subKey: 'personality.gentleSub',     previewKey: 'personality.gentlePreview'     },
+  { id: 'passionate', emoji: '🔥', themeColor: '#FF6B35', labelKey: 'personality.passionate', subKey: 'personality.passionateSub', previewKey: 'personality.passionatePreview' },
+  { id: 'animal',     emoji: '🐻‍❄️', themeColor: '#7EC850', labelKey: 'personality.animal',     subKey: 'personality.animalSub',     previewKey: 'personality.animalPreview'     },
+];

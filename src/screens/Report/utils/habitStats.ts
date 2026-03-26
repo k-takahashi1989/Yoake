@@ -1,4 +1,5 @@
 import { SleepLog } from '../../../types';
+import { safeToDate } from '../../../utils/dateUtils';
 
 export interface HabitStat {
   id: string;
@@ -19,7 +20,7 @@ export function computeHabitStats(logs: SleepLog[]): HabitStat[] {
   >();
 
   for (const log of logs) {
-    for (const h of log.habits) {
+    for (const h of (log.habits ?? [])) {
       if (!map.has(h.id)) {
         map.set(h.id, { label: h.label, emoji: h.emoji, withScores: [], withoutScores: [] });
       }
@@ -62,7 +63,7 @@ export function buildLineData(
   const sliced = logs.slice(0, Number(period));
   const chronological = [...sliced].reverse();
   return chronological.map((log, i) => {
-    const d = new Date(log.date.replace(/-/g, '/'));
+    const d = safeToDate(log.date);
     const label =
       i % labelEveryN === 0
         ? `${d.getMonth() + 1}/${d.getDate()}`

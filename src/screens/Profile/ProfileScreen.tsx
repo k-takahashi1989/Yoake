@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking,
+  Modal, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../stores/authStore';
-import { ProfileStackParamList } from '../../types';
-import { SUBSCRIPTION, LINKS } from '../../constants';
+import { ProfileStackParamList, AiPersonality } from '../../types';
+import { SUBSCRIPTION, LINKS, AI_PERSONALITIES } from '../../constants';
 import pkg from '../../../package.json';
 import { generateSeedData } from '../../utils/seedData';
 import { useTranslation, changeLanguage } from '../../i18n';
@@ -17,8 +18,9 @@ type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
 export default function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
-  const { profile, subscription, isPremium, signOut, _devSetPremium } = useAuthStore();
+  const { profile, subscription, isPremium, signOut, updateProfile, _devSetPremium } = useAuthStore();
   const [isSeedLoading, setIsSeedLoading] = useState(false);
+  const [showPersonality, setShowPersonality] = useState(false);
   const { t, i18n } = useTranslation();
 
   const planText =
@@ -126,6 +128,12 @@ export default function ProfileScreen() {
             }}
           />
           <MenuRow
+            emoji="🤖"
+            label={t('profile.aiPersonality')}
+            value={t(`personality.${profile?.aiPersonality ?? 'standard'}`)}
+            onPress={() => setShowPersonality(true)}
+          />
+          <MenuRow
             emoji="📄"
             label={t('profile.menuPrivacy')}
             onPress={() => Linking.openURL(LINKS.PRIVACY_POLICY)}
@@ -191,6 +199,17 @@ export default function ProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* AI性格選択ボトムシート */}
+      <PersonalityBottomSheet
+        visible={showPersonality}
+        currentPersonality={profile?.aiPersonality ?? 'standard'}
+        onClose={() => setShowPersonality(false)}
+        onConfirm={async (selected) => {
+          await updateProfile({ aiPersonality: selected });
+          setShowPersonality(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -349,4 +368,237 @@ const styles = StyleSheet.create({
   },
   devSeedBtnDisabled: { opacity: 0.5 },
   devSeedBtnText: { color: '#9C8FFF', fontSize: 13, fontWeight: '600' },
+});
+
+// ============================================================
+// AI性格選択ボトムシートコンポーネント
+// ============================================================
+
+function PersonalityBottomSheet({
+  visible,
+  currentPersonality,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  currentPersonality: AiPersonality;
+  onClose: () => void;
+  onConfirm: (selected: AiPersonality) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [selected, setSelected] = useState<AiPersonality>(currentPersonality);
+  const [confirming, setConfirming] = useState(false);
+
+  // 各カードのアニメーション値（4枚分）
+  const anims = useRef(
+    AI_PERSONALITIES.map(() => ({
+      translateY: new Animated.Value(30),
+      opacity: new Animated.Value(0),
+    }))
+  ).current;
+
+  // モーダルが開いたときにstaggerアニメーション実行
+  useEffect(() => {
+    if (visible) {
+      // 選択状態を現在値にリセット
+      setSelected(currentPersonality);
+      // アニメーションをリセット
+      anims.forEach(a => {
+        a.translateY.setValue(30);
+        a.opacity.setValue(0);
+      });
+      // staggerアニメーション開始
+      Animated.stagger(
+        60,
+        anims.map(a =>
+          Animated.parallel([
+            Animated.timing(a.translateY, {
+              toValue: 0,
+              duration: 280,
+              useNativeDriver: true,
+            }),
+            Animated.timing(a.opacity, {
+              toValue: 1,
+              duration: 280,
+              useNativeDriver: true,
+            }),
+          ])
+        )
+      ).start();
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    try {
+      await onConfirm(selected);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={onClose}
+    >
+      {/* 背景タップで閉じる */}
+      <TouchableOpacity
+        style={personalityStyles.overlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        {/* シート本体（タップが背景に伝播しないよう stopPropagation） */}
+        <TouchableOpacity
+          style={personalityStyles.sheet}
+          activeOpacity={1}
+          onPress={() => {}}
+        >
+          <Text style={personalityStyles.sheetTitle}>{t('personality.sheetTitle')}</Text>
+          <Text style={personalityStyles.sheetSub}>{t('personality.sheetSub')}</Text>
+
+          {/* カードグリッド（2列） */}
+          <View style={personalityStyles.grid}>
+            {AI_PERSONALITIES.map((p, i) => {
+              const isSelected = selected === p.id;
+              return (
+                <Animated.View
+                  key={p.id}
+                  style={[
+                    personalityStyles.cardWrapper,
+                    {
+                      opacity: anims[i].opacity,
+                      transform: [{ translateY: anims[i].translateY }],
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={[
+                      personalityStyles.card,
+                      isSelected
+                        ? { borderColor: p.themeColor, backgroundColor: p.themeColor + '18' }
+                        : { borderColor: '#3D3D55', backgroundColor: '#1A1A2E' },
+                    ]}
+                    onPress={() => setSelected(p.id)}
+                    activeOpacity={0.8}
+                  >
+                    {/* 選択中チェックマーク */}
+                    {isSelected && (
+                      <Text style={[personalityStyles.checkMark, { color: p.themeColor }]}>✓</Text>
+                    )}
+                    <Text style={personalityStyles.cardEmoji}>{p.emoji}</Text>
+                    <Text style={personalityStyles.cardTitle}>{t(p.labelKey)}</Text>
+                    <Text style={personalityStyles.cardSub}>{t(p.subKey)}</Text>
+                    {/* 区切り線 */}
+                    <View style={personalityStyles.divider} />
+                    {/* プレビュー文 */}
+                    <Text style={personalityStyles.cardPreview}>{t(p.previewKey)}</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </View>
+
+          {/* 決定ボタン */}
+          <TouchableOpacity
+            style={[personalityStyles.confirmBtn, confirming && { opacity: 0.6 }]}
+            onPress={handleConfirm}
+            disabled={confirming}
+            activeOpacity={0.8}
+          >
+            {confirming ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={personalityStyles.confirmBtnText}>{t('personality.confirm')}</Text>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+const personalityStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#2D2D44',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  sheetSub: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 16,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  cardWrapper: {
+    width: '47%',
+    margin: '1.5%',
+  },
+  card: {
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 12,
+    position: 'relative',
+  },
+  checkMark: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cardEmoji: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  cardSub: {
+    fontSize: 11,
+    color: '#AAAAAA',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#3D3D55',
+    marginVertical: 8,
+  },
+  cardPreview: {
+    fontSize: 12,
+    color: '#CCCCCC',
+    fontStyle: 'italic',
+    lineHeight: 17,
+  },
+  confirmBtn: {
+    backgroundColor: '#6B5CE7',
+    borderRadius: 30,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  confirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
 });

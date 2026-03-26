@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,15 +19,57 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 type Step = 'welcome' | 'goal' | 'healthConnect' | 'notification' | 'trial';
 const STEPS: Step[] = ['welcome', 'goal', 'healthConnect', 'notification', 'trial'];
 
+// ProgressDot: アクティブ時に幅が 8px → 24px へ Animated.spring で伸びるドット
+function ProgressDot({ isActive, isDone }: { isActive: boolean; isDone: boolean }) {
+  // useNativeDriver: false — width はレイアウトプロパティのためネイティブドライバ不可
+  const dotWidth = useRef(new Animated.Value(isActive ? 24 : 8)).current;
+
+  useEffect(() => {
+    Animated.spring(dotWidth, {
+      toValue: isActive ? 24 : 8,
+      useNativeDriver: false,
+    }).start();
+  }, [isActive, dotWidth]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        isDone && styles.dotDone,
+        isActive && styles.dotActive,
+        { width: dotWidth },
+      ]}
+    />
+  );
+}
+
 export default function OnboardingScreen({ navigation }: Props) {
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const { completeOnboarding } = useAuthStore();
 
   const stepIndex = STEPS.indexOf(currentStep);
 
+  // フェードアニメーション用の値（初期値 1 = 完全表示）
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  /**
+   * フェードアウト（150ms）→ ステップ切替 → フェードイン（200ms）
+   * 既存の AsyncStorage 完了フラグ等は各 Step コンポーネント内で管理されており影響なし
+   */
   const goNext = () => {
     if (stepIndex < STEPS.length - 1) {
-      setCurrentStep(STEPS[stepIndex + 1]);
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentStep(STEPS[stepIndex + 1]);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
     }
   };
 
@@ -52,21 +95,21 @@ export default function OnboardingScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ステップインジケーター */}
+      {/* ステップインジケーター（ヘッダー固定 — フェードの対象外） */}
       <View style={styles.indicator}>
         {STEPS.map((step, i) => (
-          <View
+          <ProgressDot
             key={step}
-            style={[
-              styles.dot,
-              i === stepIndex && styles.dotActive,
-              i < stepIndex && styles.dotDone,
-            ]}
+            isActive={i === stepIndex}
+            isDone={i < stepIndex}
           />
         ))}
       </View>
 
-      <View style={styles.content}>{renderStep()}</View>
+      {/* コンテンツエリアのみフェードトランジションを適用 */}
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        {renderStep()}
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -79,6 +122,7 @@ const styles = StyleSheet.create({
   indicator: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     paddingTop: 20,
     gap: 8,
   },
@@ -90,7 +134,6 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: '#6B5CE7',
-    width: 24,
   },
   dotDone: {
     backgroundColor: '#4CAF50',

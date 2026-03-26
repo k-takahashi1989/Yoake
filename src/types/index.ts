@@ -4,10 +4,13 @@ import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 // Firestore Data Models
 // ============================================================
 
+export type AiPersonality = 'standard' | 'gentle' | 'passionate' | 'animal';
+
 export interface UserProfile {
   displayName: string | null;
   height: number | null; // cm
   weight: number | null; // kg
+  aiPersonality?: AiPersonality; // AI性格設定（未設定時はstandard扱い）
   createdAt: FirebaseFirestoreTypes.Timestamp;
   lastActiveAt: FirebaseFirestoreTypes.Timestamp;
 }

@@ -1,6 +1,6 @@
 import functions from '@react-native-firebase/functions';
 import firestore from '@react-native-firebase/firestore';
-import { SleepLog, UserGoal, AiReport } from '../types';
+import { SleepLog, UserGoal, AiReport, AiPersonality } from '../types';
 import { AI_CONFIG } from '../constants';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -157,6 +157,7 @@ export async function generateDailyAdvice(
   recentLogs: SleepLog[],
   goal: UserGoal,
   stats?: Partial<SleepStats>,
+  personality?: AiPersonality,
 ): Promise<AiReport> {
   if (recentLogs.length === 0) {
     return {
@@ -190,8 +191,14 @@ export async function generateDailyAdvice(
     `【ユーザーの目標】${goalText}`,
   ].join('\n');
 
+  // 性格指示をシステムプロンプトに追記
+  const personalityInstruction = getPersonalityInstruction(personality);
+  const systemPrompt = personalityInstruction
+    ? `${DAILY_SYSTEM_PROMPT}\n\n${personalityInstruction}`
+    : DAILY_SYSTEM_PROMPT;
+
   const result = await callCloudFunction('claudeGenerateDaily', {
-    systemPrompt: DAILY_SYSTEM_PROMPT,
+    systemPrompt,
     userMessage,
   });
 
@@ -228,6 +235,7 @@ export async function generateWeeklyReport(
   recentLogs: SleepLog[],
   goal: UserGoal,
   stats?: Partial<SleepStats>,
+  personality?: AiPersonality,
 ): Promise<AiReport> {
   const logsText = recentLogs
     .slice(0, AI_CONFIG.CONTEXT_DAYS)
@@ -250,8 +258,14 @@ export async function generateWeeklyReport(
     `【ユーザーの目標】${goalText}`,
   ].join('\n');
 
+  // 性格指示をシステムプロンプトに追記
+  const personalityInstruction = getPersonalityInstruction(personality);
+  const weeklySystemPrompt = personalityInstruction
+    ? `${WEEKLY_SYSTEM_PROMPT}\n\n${personalityInstruction}`
+    : WEEKLY_SYSTEM_PROMPT;
+
   const result = await callCloudFunction('claudeGenerateWeekly', {
-    systemPrompt: WEEKLY_SYSTEM_PROMPT,
+    systemPrompt: weeklySystemPrompt,
     userMessage,
   });
 
@@ -295,12 +309,30 @@ ${statsText}
 
 【ユーザーの目標】${goalText}`;
 
+// ============================================================
+// AI性格ごとの追加指示文
+// ============================================================
+
+function getPersonalityInstruction(personality?: AiPersonality): string {
+  switch (personality) {
+    case 'gentle':
+      return 'トーンの補足：常に丁寧な敬語（ですます調）で話してください。まず「つらかったですね」「よく頑張りました」と受け止めてから話し、アドバイスは1つだけ「〜してみてもいいかもしれません」のように押しつけない提案形にしてください。スコアが低くても責めないでください。';
+    case 'passionate':
+      return 'トーンの補足：情熱的なコーチとして「絶対いける！」「一緒に頑張ろう！」など前向きで力強い表現を使ってください。必ず数値と目標の差分を引用し、即行動できる具体的な1ステップを伝えてください。';
+    case 'animal':
+      return 'トーンの補足：あなたは「しろくま」という名前の睡眠アドバイザーです。冬眠のプロとして振る舞い、一人称は「ぼく」、語尾は「〜だよ」「〜だね」「〜してみてね」を使ってください。「冬眠のプロとして言うと」というフレーズを時々使ってよいです。絵文字は🐻‍❄️か🌙を1つだけ使えます。かわいい口調でも睡眠データの根拠は必ず入れてください。';
+    default:
+      return '';
+  }
+}
+
 export async function sendChatMessage(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   recentLogs: SleepLog[],
   goal: UserGoal,
   stats?: Partial<SleepStats>,
+  personality?: AiPersonality,
 ): Promise<string> {
   const logsText = recentLogs
     .slice(0, AI_CONFIG.CONTEXT_DAYS)
@@ -317,8 +349,15 @@ export async function sendChatMessage(
     { role: 'user' as const, content: userMessage },
   ];
 
+  // 性格指示をシステムプロンプトに追記
+  const baseChatPrompt = CHAT_SYSTEM_PROMPT_TEMPLATE(logsText, goalText, statsText, seasonText);
+  const personalityInstruction = getPersonalityInstruction(personality);
+  const chatSystemPrompt = personalityInstruction
+    ? `${baseChatPrompt}\n\n${personalityInstruction}`
+    : baseChatPrompt;
+
   const result = await callCloudFunction('claudeSendChatMessage', {
-    systemPrompt: CHAT_SYSTEM_PROMPT_TEMPLATE(logsText, goalText, statsText, seasonText),
+    systemPrompt: chatSystemPrompt,
     messages,
   });
 

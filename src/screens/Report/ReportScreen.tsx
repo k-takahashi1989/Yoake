@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -52,6 +53,13 @@ export default function ReportScreen() {
   const [pastReports, setPastReports] = useState<Array<{ key: string } & AiReport>>([]);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // NOTE: useMemo はペイウォール early return の前に置く（Rules of Hooks）
+  const logs = useMemo(
+    () => (tab === 'weekly' ? weeklyLogs : monthlyLogs),
+    [tab, weeklyLogs, monthlyLogs],
+  );
+  const habitStats = useMemo(() => computeHabitStats(logs), [logs]);
 
   const buildStats = useCallback((logs: SleepLog[]): Partial<SleepStats> => {
     const thisWeek = logs.slice(0, 7);
@@ -122,6 +130,8 @@ export default function ReportScreen() {
       setWeeklyLogs(logs.slice(0, 7));
       setPastReports(past);
       await loadWeeklyReport(logs, past);
+    } catch (e) {
+      console.error('ReportScreen loadData error:', e);
     } finally {
       setIsLoading(false);
     }
@@ -146,8 +156,9 @@ export default function ReportScreen() {
       );
       await saveAiReport(weekKey, report);
       setWeeklyReport(report);
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error('generateWeeklyReport failed:', e);
+      Alert.alert(t('common.error'), t('report.generateFailed'));
     } finally {
       setIsLoadingReport(false);
     }
@@ -190,12 +201,6 @@ export default function ReportScreen() {
       </SafeAreaView>
     );
   }
-
-  const logs = useMemo(
-    () => (tab === 'weekly' ? weeklyLogs : monthlyLogs),
-    [tab, weeklyLogs, monthlyLogs],
-  );
-  const habitStats = useMemo(() => computeHabitStats(logs), [logs]);
 
   const avgScore =
     logs.length > 0

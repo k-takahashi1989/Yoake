@@ -20,23 +20,25 @@ function calcBedTimeScore(bedTime: Date): number {
   const minute = bedTime.getMinutes();
   const decimalHour = hour + minute / 60;
 
-  // 22〜23時
+  // 22〜23時: 最適（メラトニン分泌ピーク）
   if (decimalHour >= 22 && decimalHour < 23) return 20;
-  // 23〜24時
+  // 23〜24時 / 0〜1時
   if (decimalHour >= 23 && decimalHour < 24) return 15;
-  // 0〜1時
   if (decimalHour >= 0 && decimalHour < 1) return 15;
   // 1〜2時
   if (decimalHour >= 1 && decimalHour < 2) return 8;
+  // 20〜22時: 早寝（シフトワーカー・高齢者等）
+  if (decimalHour >= 20 && decimalHour < 22) return 12;
   return 3;
 }
 
 function calcDeepSleepScore(totalMinutes: number, deepSleepMinutes: number | null): number {
   if (deepSleepMinutes === null || totalMinutes === 0) return 0;
   const ratio = deepSleepMinutes / totalMinutes;
-  if (ratio >= 0.20) return 15;
-  if (ratio >= 0.15) return 11;
-  if (ratio >= 0.10) return 7;
+  // AASM基準: 成人の深睡眠(N3)は13〜23%が正常範囲。0.15以上を満点とする
+  if (ratio >= 0.15) return 15;
+  if (ratio >= 0.10) return 11;
+  if (ratio >= 0.07) return 7;
   return 3;
 }
 
@@ -83,6 +85,8 @@ function calcBedTimeScoreManual(bedTime: Date): number {
   if (decimalHour >= 23 && decimalHour < 24) return 19;
   if (decimalHour >= 0 && decimalHour < 1) return 19;
   if (decimalHour >= 1 && decimalHour < 2) return 10;
+  // 20〜22時: 早寝（シフトワーカー・高齢者等）
+  if (decimalHour >= 20 && decimalHour < 22) return 15;
   return 4;
 }
 
@@ -205,9 +209,12 @@ export function calculateSleepDebt(
   recentLogs: SleepLog[],
   targetHours: number,
 ): number {
+  // 目標との差分を合算し、超過睡眠による回復を考慮（Dinges et al., Sleep 1997）
+  // 余剰分が不足分を相殺できるが、負債は 0 未満にならない
   const targetMinutes = targetHours * 60;
-  return recentLogs.reduce((debt, log) => {
-    const diff = targetMinutes - log.totalMinutes;
-    return debt + (diff > 0 ? diff : 0);
-  }, 0);
+  const netDiff = recentLogs.reduce(
+    (sum, log) => sum + (targetMinutes - log.totalMinutes),
+    0,
+  );
+  return Math.max(0, netDiff);
 }
