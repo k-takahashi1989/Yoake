@@ -151,9 +151,25 @@ function MainTabs() {
     // 背景 + タブナビゲーター全体を包むコンテナ
     <View style={styles.mainContainer}>
       {/* ① 全画面背景：最背面に配置 */}
+      {/*
+        タブごとの背景画像を用意したら sources を有効化。
+        各タブ用 PNG/JPG を src/assets/ に配置してから uncomment する。
+
+        <AnimatedBackground
+          ref={bgRef}
+          sources={{
+            Home:    require('../assets/bg_home.png'),
+            Diary:   require('../assets/bg_diary.png'),
+            Report:  require('../assets/bg_report.png'),
+            Alarm:   require('../assets/bg_alarm.png'),
+            Profile: require('../assets/bg_profile.png'),
+          }}
+        />
+
+        画像未用意の間は以下のフォールバック（無地）を使う:
+      */}
       <AnimatedBackground
         ref={bgRef}
-        // source={require('../assets/bedroom.png')}  // 背景画像を用意したらここを有効化
       />
 
       {/* ② タブナビゲーター：背景の上に重ねる */}
