@@ -4,7 +4,7 @@ import {
   TouchableOpacity, Alert, ActivityIndicator, Linking,
   Modal, Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../stores/authStore';
@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const [isSeedLoading, setIsSeedLoading] = useState(false);
   const [showPersonality, setShowPersonality] = useState(false);
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const planText =
     subscription?.status === 'trial'
@@ -38,167 +39,167 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('profile.title')}</Text>
+    <View style={styles.root}>
+      {/* 鏡の位置に重なる右上フローティングユーザーカード */}
+      <View style={[styles.mirrorCard, { top: insets.top + 8 }]}>
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarText}>
+            {profile?.displayName ? profile.displayName[0].toUpperCase() : '?'}
+          </Text>
+        </View>
+        <View style={styles.userInfo}>
+          <Text style={styles.userName} numberOfLines={1}>
+            {profile?.displayName ?? t('profile.guest')}
+          </Text>
+          <Text style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
+            {planText}
+          </Text>
+        </View>
       </View>
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ユーザー情報 */}
-        <View style={styles.userCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
-              {profile?.displayName ? profile.displayName[0].toUpperCase() : '?'}
-            </Text>
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>
-              {profile?.displayName ?? t('profile.guest')}
-            </Text>
-            <Text style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
-              {planText}
-            </Text>
-          </View>
-        </View>
-
-        {/* ゲスト警告バナー */}
-        {!profile?.displayName && (
-          <View style={styles.guestWarning}>
-            <Text style={styles.guestWarningText}>
-              {t('profile.guestWarning')}
-            </Text>
-          </View>
-        )}
-
-        {/* アップグレード（無料ユーザーのみ） */}
-        {!isPremium && (
-          <TouchableOpacity
-            style={styles.upgradeCard}
-            onPress={() => navigation.navigate('SubscriptionManage')}
-          >
-            <Text style={styles.upgradeCardText}>
-              {t('profile.upgradeCard')}
-            </Text>
-            <Text style={styles.upgradeCardSub}>
-              {t('profile.upgradeCardSub', {
-                price: SUBSCRIPTION.MONTHLY_PRICE.toLocaleString(),
-                days: SUBSCRIPTION.TRIAL_DAYS,
-              })}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* メニュー */}
-        <View style={styles.menuSection}>
-          <MenuRow
-            emoji="👤"
-            label={t('profile.menuEditProfile')}
-            onPress={() => navigation.navigate('EditProfile')}
-          />
-          <MenuRow
-            emoji="💳"
-            label={t('profile.menuSubscription')}
-            onPress={() => navigation.navigate('SubscriptionManage')}
-          />
-          <MenuRow
-            emoji="❤️"
-            label={t('profile.menuHealthConnect')}
-            onPress={() => navigation.navigate('HealthConnectSettings')}
-          />
-          <MenuRow
-            emoji="🔔"
-            label={t('profile.menuNotification')}
-            onPress={() => navigation.navigate('NotificationSettings')}
-          />
-          <MenuRow
-            emoji="💾"
-            label={t('profile.menuData')}
-            onPress={() => navigation.navigate('DataManagement')}
-          />
-          <MenuRow
-            emoji="🌐"
-            label={t('profile.language')}
-            value={i18n.language === 'ja' ? '日本語' : 'English'}
-            onPress={() => {
-              Alert.alert(t('profile.selectLanguage'), '', [
-                { text: '日本語', onPress: () => changeLanguage('ja') },
-                { text: 'English', onPress: () => changeLanguage('en') },
-                { text: t('common.cancel'), style: 'cancel' },
-              ]);
-            }}
-          />
-          <MenuRow
-            emoji="🤖"
-            label={t('profile.aiPersonality')}
-            value={t(`personality.${profile?.aiPersonality ?? 'standard'}`)}
-            onPress={() => setShowPersonality(true)}
-          />
-          <MenuRow
-            emoji="📄"
-            label={t('profile.menuPrivacy')}
-            onPress={() => Linking.openURL(LINKS.PRIVACY_POLICY)}
-          />
-          <MenuRow
-            emoji="📋"
-            label={t('profile.menuTerms')}
-            onPress={() => Linking.openURL(LINKS.TERMS)}
-            last
-          />
-        </View>
-
-        {/* ログアウト */}
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.version}>{t('profile.version', { version: pkg.version })}</Text>
-
-        {/* DEV セクション */}
-        {__DEV__ && (
-          <View style={styles.devSection}>
-            <Text style={styles.devTitle}>── DEV ──────────────────────</Text>
-            <View style={styles.devRow}>
-              <Text style={styles.devLabel}>プレミアム切替</Text>
-              <View style={styles.devToggle}>
-                <TouchableOpacity
-                  style={[styles.devBtn, !isPremium && styles.devBtnActive]}
-                  onPress={() => _devSetPremium(false)}
-                >
-                  <Text style={[styles.devBtnText, !isPremium && styles.devBtnTextActive]}>FREE</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.devBtn, isPremium && styles.devBtnPremium]}
-                  onPress={() => _devSetPremium(true)}
-                >
-                  <Text style={[styles.devBtnText, isPremium && styles.devBtnTextActive]}>⭐ PRO</Text>
-                </TouchableOpacity>
-              </View>
+      {/* ボトムシート（メニュー一覧） */}
+      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 8 }]}>
+        <View style={styles.handle} />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* ゲスト警告バナー */}
+          {!profile?.displayName && (
+            <View style={styles.guestWarning}>
+              <Text style={styles.guestWarningText}>
+                {t('profile.guestWarning')}
+              </Text>
             </View>
+          )}
+
+          {/* アップグレード（無料ユーザーのみ） */}
+          {!isPremium && (
             <TouchableOpacity
-              style={[styles.devSeedBtn, isSeedLoading && styles.devSeedBtnDisabled]}
-              disabled={isSeedLoading}
-              onPress={async () => {
-                setIsSeedLoading(true);
-                try {
-                  await generateSeedData(90);
-                  Alert.alert('完了', '90日分のシードデータを生成しました');
-                } catch (e: any) {
-                  Alert.alert('エラー', e.message ?? '生成に失敗しました');
-                } finally {
-                  setIsSeedLoading(false);
-                }
-              }}
+              style={styles.upgradeCard}
+              onPress={() => navigation.navigate('SubscriptionManage')}
             >
-              {isSeedLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.devSeedBtnText}>90日分シードデータ生成</Text>
-              )}
+              <Text style={styles.upgradeCardText}>
+                {t('profile.upgradeCard')}
+              </Text>
+              <Text style={styles.upgradeCardSub}>
+                {t('profile.upgradeCardSub', {
+                  price: SUBSCRIPTION.MONTHLY_PRICE.toLocaleString(),
+                  days: SUBSCRIPTION.TRIAL_DAYS,
+                })}
+              </Text>
             </TouchableOpacity>
-            <Text style={styles.devTitle}>──────────────────────────────</Text>
+          )}
+
+          {/* メニュー */}
+          <View style={styles.menuSection}>
+            <MenuRow
+              emoji="👤"
+              label={t('profile.menuEditProfile')}
+              onPress={() => navigation.navigate('EditProfile')}
+            />
+            <MenuRow
+              emoji="💳"
+              label={t('profile.menuSubscription')}
+              onPress={() => navigation.navigate('SubscriptionManage')}
+            />
+            <MenuRow
+              emoji="❤️"
+              label={t('profile.menuHealthConnect')}
+              onPress={() => navigation.navigate('HealthConnectSettings')}
+            />
+            <MenuRow
+              emoji="🔔"
+              label={t('profile.menuNotification')}
+              onPress={() => navigation.navigate('NotificationSettings')}
+            />
+            <MenuRow
+              emoji="💾"
+              label={t('profile.menuData')}
+              onPress={() => navigation.navigate('DataManagement')}
+            />
+            <MenuRow
+              emoji="🌐"
+              label={t('profile.language')}
+              value={i18n.language === 'ja' ? '日本語' : 'English'}
+              onPress={() => {
+                Alert.alert(t('profile.selectLanguage'), '', [
+                  { text: '日本語', onPress: () => changeLanguage('ja') },
+                  { text: 'English', onPress: () => changeLanguage('en') },
+                  { text: t('common.cancel'), style: 'cancel' },
+                ]);
+              }}
+            />
+            <MenuRow
+              emoji="🤖"
+              label={t('profile.aiPersonality')}
+              value={t(`personality.${profile?.aiPersonality ?? 'standard'}`)}
+              onPress={() => setShowPersonality(true)}
+            />
+            <MenuRow
+              emoji="📄"
+              label={t('profile.menuPrivacy')}
+              onPress={() => Linking.openURL(LINKS.PRIVACY_POLICY)}
+            />
+            <MenuRow
+              emoji="📋"
+              label={t('profile.menuTerms')}
+              onPress={() => Linking.openURL(LINKS.TERMS)}
+              last
+            />
           </View>
-        )}
-      </ScrollView>
+
+          {/* ログアウト */}
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+            <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.version}>{t('profile.version', { version: pkg.version })}</Text>
+
+          {/* DEV セクション */}
+          {__DEV__ && (
+            <View style={styles.devSection}>
+              <Text style={styles.devTitle}>── DEV ──────────────────────</Text>
+              <View style={styles.devRow}>
+                <Text style={styles.devLabel}>プレミアム切替</Text>
+                <View style={styles.devToggle}>
+                  <TouchableOpacity
+                    style={[styles.devBtn, !isPremium && styles.devBtnActive]}
+                    onPress={() => _devSetPremium(false)}
+                  >
+                    <Text style={[styles.devBtnText, !isPremium && styles.devBtnTextActive]}>FREE</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.devBtn, isPremium && styles.devBtnPremium]}
+                    onPress={() => _devSetPremium(true)}
+                  >
+                    <Text style={[styles.devBtnText, isPremium && styles.devBtnTextActive]}>⭐ PRO</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.devSeedBtn, isSeedLoading && styles.devSeedBtnDisabled]}
+                disabled={isSeedLoading}
+                onPress={async () => {
+                  setIsSeedLoading(true);
+                  try {
+                    await generateSeedData(90);
+                    Alert.alert('完了', '90日分のシードデータを生成しました');
+                  } catch (e: any) {
+                    Alert.alert('エラー', e.message ?? '生成に失敗しました');
+                  } finally {
+                    setIsSeedLoading(false);
+                  }
+                }}
+              >
+                {isSeedLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.devSeedBtnText}>90日分シードデータ生成</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.devTitle}>──────────────────────────────</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
 
       {/* AI性格選択ボトムシート */}
       <PersonalityBottomSheet
@@ -210,7 +211,7 @@ export default function ProfileScreen() {
           setShowPersonality(false);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -242,39 +243,58 @@ function MenuRow({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1A1A2E' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
-  },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' },
-  scroll: { flex: 1 },
-  userCard: {
+  root: { flex: 1 },
+  // 右上フローティングユーザーカード（鏡の位置に重ねる）
+  mirrorCard: {
+    position: 'absolute',
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 16,
-    marginBottom: 0,
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(13, 13, 30, 0.88)',
     borderRadius: 16,
-    padding: 16,
-    gap: 14,
+    padding: 10,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.35)',
+    zIndex: 10,
+    maxWidth: 180,
   },
   avatarCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#6B5CE7',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' },
+  avatarText: { fontSize: 17, fontWeight: 'bold', color: '#FFFFFF' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },
-  planBadge: { fontSize: 13, color: '#888' },
+  userName: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginBottom: 2 },
+  planBadge: { fontSize: 11, color: '#C8C8E0' },
   planBadgePremium: { color: '#FFD700' },
+  // ボトムシート
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '62%',
+    backgroundColor: 'rgba(13, 13, 30, 0.88)',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.3)',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(107, 92, 231, 0.4)',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
   guestWarning: {
     marginHorizontal: 16,
     marginTop: 10,
@@ -301,9 +321,11 @@ const styles = StyleSheet.create({
   menuSection: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
   menuRow: {
     flexDirection: 'row',
@@ -311,14 +333,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#3D3D55',
+    borderBottomColor: 'rgba(107, 92, 231, 0.25)',
     gap: 12,
   },
   menuRowLast: { borderBottomWidth: 0 },
   menuEmoji: { fontSize: 18, width: 28 },
   menuLabel: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  menuValue: { fontSize: 13, color: '#888', marginRight: 4 },
-  menuArrow: { fontSize: 20, color: '#555' },
+  menuValue: { fontSize: 13, color: '#C8C8E0', marginRight: 4 },
+  menuArrow: { fontSize: 20, color: '#C8C8E0' },
   signOutBtn: {
     margin: 16,
     marginBottom: 8,
@@ -329,18 +351,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signOutText: { color: '#F44336', fontSize: 15, fontWeight: '600' },
-  version: { textAlign: 'center', color: '#444', fontSize: 12, marginBottom: 8 },
+  version: { textAlign: 'center', color: '#C8C8E0', fontSize: 12, marginBottom: 8 },
   devSection: {
     margin: 16,
     marginTop: 4,
     marginBottom: 24,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#6B5CE750',
+    borderColor: 'rgba(107, 92, 231, 0.25)',
     padding: 12,
   },
-  devTitle: { fontSize: 10, color: '#6B5CE7', letterSpacing: 1, marginBottom: 8 },
+  devTitle: { fontSize: 10, color: '#9C8FFF', letterSpacing: 1, marginBottom: 8 },
   devRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,21 +372,23 @@ const styles = StyleSheet.create({
   devLabel: { fontSize: 13, color: '#FFFFFF' },
   devToggle: {
     flexDirection: 'row',
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 8,
     overflow: 'hidden',
   },
   devBtn: { paddingHorizontal: 14, paddingVertical: 6 },
-  devBtnActive: { backgroundColor: '#555' },
+  devBtnActive: { backgroundColor: 'rgba(107, 92, 231, 0.35)' },
   devBtnPremium: { backgroundColor: '#6B5CE7' },
-  devBtnText: { fontSize: 12, color: '#888', fontWeight: '600' },
+  devBtnText: { fontSize: 12, color: '#C8C8E0', fontWeight: '600' },
   devBtnTextActive: { color: '#FFFFFF' },
   devSeedBtn: {
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
   devSeedBtnDisabled: { opacity: 0.5 },
   devSeedBtnText: { color: '#9C8FFF', fontSize: 13, fontWeight: '600' },
@@ -479,7 +503,7 @@ function PersonalityBottomSheet({
                       personalityStyles.card,
                       isSelected
                         ? { borderColor: p.themeColor, backgroundColor: p.themeColor + '18' }
-                        : { borderColor: '#3D3D55', backgroundColor: '#1A1A2E' },
+                        : { borderColor: 'rgba(107, 92, 231, 0.25)', backgroundColor: 'rgba(26, 26, 46, 0.75)' },
                     ]}
                     onPress={() => setSelected(p.id)}
                     activeOpacity={0.8}
@@ -527,10 +551,12 @@ const personalityStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.95)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
   sheetTitle: {
     fontSize: 18,
@@ -540,7 +566,7 @@ const personalityStyles = StyleSheet.create({
   },
   sheetSub: {
     fontSize: 13,
-    color: '#888',
+    color: '#C8C8E0',
     marginBottom: 16,
   },
   grid: {
@@ -576,16 +602,16 @@ const personalityStyles = StyleSheet.create({
   },
   cardSub: {
     fontSize: 11,
-    color: '#AAAAAA',
+    color: '#C8C8E0',
   },
   divider: {
     height: 1,
-    backgroundColor: '#3D3D55',
+    backgroundColor: 'rgba(107, 92, 231, 0.25)',
     marginVertical: 8,
   },
   cardPreview: {
     fontSize: 12,
-    color: '#CCCCCC',
+    color: '#C8C8E0',
     fontStyle: 'italic',
     lineHeight: 17,
   },

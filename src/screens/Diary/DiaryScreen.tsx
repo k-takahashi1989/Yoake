@@ -5,8 +5,9 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,6 +28,8 @@ export default function DiaryScreen() {
   const { isPremium } = useAuthStore();
   const [showCustomize, setShowCustomize] = useState(false);
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
 
   useEffect(() => {
     loadRecent(30);
@@ -37,8 +40,9 @@ export default function DiaryScreen() {
     : recentLogs.slice(0, FREE_LIMITS.LOG_HISTORY_DAYS);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={styles.root}>
+      {/* 右上フローティングヘッダー（日記帳の左上・机周辺を空ける） */}
+      <View style={[styles.header, { top: insets.top + 8 }]}>
         <Text style={styles.title}>{t('diary.title')}</Text>
         <TouchableOpacity
           style={styles.customizeBtn}
@@ -48,44 +52,49 @@ export default function DiaryScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={visibleLogs}
-        keyExtractor={item => item.date}
-        renderItem={({ item }) => (
-          <DiaryRow
-            log={item}
-            onPress={() => navigation.navigate('RecordDetail', { date: item.date })}
-          />
-        )}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📔</Text>
-            <Text style={styles.emptyText}>{t('diary.empty')}</Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => (navigation.getParent() as any)?.navigate('Home')}
-            >
-              <Text style={styles.emptyBtnText}>{t('diary.emptyAction')}</Text>
-            </TouchableOpacity>
-          </View>
-        }
-        ListFooterComponent={
-          !isPremium && recentLogs.length > FREE_LIMITS.LOG_HISTORY_DAYS ? (
-            <View style={styles.premiumBanner}>
-              <Text style={styles.premiumText}>
-                {t('diary.premiumBanner')}
-              </Text>
+      {/* ボトムシート（日記リスト） */}
+      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 8, maxHeight: screenH * 0.50 }]}>
+        <View style={styles.handle} />
+        <FlatList
+          data={visibleLogs}
+          keyExtractor={item => item.date}
+          renderItem={({ item }) => (
+            <DiaryRow
+              log={item}
+              onPress={() => navigation.navigate('RecordDetail', { date: item.date })}
+            />
+          )}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>📔</Text>
+              <Text style={styles.emptyText}>{t('diary.empty')}</Text>
+              <TouchableOpacity
+                style={styles.emptyBtn}
+                onPress={() => (navigation.getParent() as any)?.navigate('Home')}
+              >
+                <Text style={styles.emptyBtnText}>{t('diary.emptyAction')}</Text>
+              </TouchableOpacity>
             </View>
-          ) : null
-        }
-      />
+          }
+          ListFooterComponent={
+            !isPremium && recentLogs.length > FREE_LIMITS.LOG_HISTORY_DAYS ? (
+              <View style={styles.premiumBanner}>
+                <Text style={styles.premiumText}>
+                  {t('diary.premiumBanner')}
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      </View>
 
       <HabitCustomizeModal
         visible={showCustomize}
         onClose={() => setShowCustomize(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -124,33 +133,55 @@ function DiaryRow({ log, onPress }: { log: SleepLog; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1A1A2E' },
+  root: { flex: 1 },
+  // 右上フローティングヘッダー
   header: {
+    position: 'absolute',
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    gap: 8,
+    zIndex: 10,
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   customizeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#2D2D44',
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(13, 13, 30, 0.82)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.35)',
   },
-  customizeBtnText: { fontSize: 13, color: '#9C8FFF' },
-  list: { paddingVertical: 8 },
+  customizeBtnText: { fontSize: 12, color: '#9C8FFF' },
+  // ボトムシート
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(13, 13, 30, 0.88)',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.3)',
+    paddingTop: 12,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(107, 92, 231, 0.4)',
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  list: { paddingVertical: 4 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    borderBottomColor: 'rgba(107, 92, 231, 0.25)',
     gap: 12,
   },
   scoreBadge: {
@@ -165,12 +196,12 @@ const styles = StyleSheet.create({
   scoreLabel: { fontSize: 10, fontWeight: '600' },
   rowContent: { flex: 1 },
   dateText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginBottom: 3 },
-  sleepTime: { fontSize: 13, color: '#B0B0C8', marginBottom: 3 },
+  sleepTime: { fontSize: 13, color: '#C8C8E0', marginBottom: 3 },
   habits: { fontSize: 14, letterSpacing: 2 },
-  chevron: { fontSize: 20, color: '#444' },
+  chevron: { fontSize: 20, color: '#C8C8E0' },
   emptyContainer: { alignItems: 'center', paddingTop: 64, gap: 8 },
   emptyIcon: { fontSize: 48 },
-  emptyText: { fontSize: 16, color: '#888' },
+  emptyText: { fontSize: 16, color: '#C8C8E0' },
   emptyBtn: {
     marginTop: 8,
     backgroundColor: '#6B5CE7',
@@ -181,10 +212,12 @@ const styles = StyleSheet.create({
   emptyBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
   premiumBanner: {
     margin: 16,
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
-  premiumText: { color: '#6B5CE7', fontSize: 14 },
+  premiumText: { color: '#9C8FFF', fontSize: 14 },
 });

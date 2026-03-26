@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Switch,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useAlarmStore, PREMIUM_MAX_SNOOZE } from '../../stores/alarmStore';
@@ -27,6 +27,8 @@ export default function AlarmScreen() {
 
   const [showPicker, setShowPicker] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
 
   useEffect(() => {
     if (!isLoaded) loadAlarm();
@@ -57,8 +59,9 @@ export default function AlarmScreen() {
     : null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={styles.root}>
+      {/* ヘッダー（左上固定） */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={styles.title}>{t('alarm.title')}</Text>
       </View>
 
@@ -67,31 +70,27 @@ export default function AlarmScreen() {
           <ActivityIndicator color="#6B5CE7" size="large" />
         </View>
       ) : (
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* メインカード */}
-          <View style={[styles.mainCard, isEnabled && styles.mainCardActive]}>
-            <View style={styles.mainCardTop}>
-              {/* 時刻表示 */}
-              <TouchableOpacity onPress={() => setShowPicker(true)} activeOpacity={0.7}>
-                <Text style={[styles.timeText, isEnabled && styles.timeTextActive]}>
-                  {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
-                </Text>
-                <Text style={styles.timeTapHint}>{t('alarm.tapHint')}</Text>
-              </TouchableOpacity>
+        <>
+          {/* 時刻カード（右側フローティング・時計の隣） */}
+          <View style={[styles.timeFloatCard, { top: screenH * 0.28 }]}>
+            <TouchableOpacity onPress={() => setShowPicker(true)} activeOpacity={0.7}>
+              <Text style={[styles.timeText, isEnabled && styles.timeTextActive]}>
+                {String(hour).padStart(2, '0')}:{String(minute).padStart(2, '0')}
+              </Text>
+              <Text style={styles.timeTapHint}>{t('alarm.tapHint')}</Text>
+            </TouchableOpacity>
 
-              {/* トグル */}
-              <View style={styles.switchWrap}>
-                {isToggling ? (
-                  <ActivityIndicator color="#6B5CE7" />
-                ) : (
-                  <Switch
-                    value={isEnabled}
-                    onValueChange={handleToggle}
-                    trackColor={{ false: '#3D3D5E', true: '#6B5CE7' }}
-                    thumbColor="#FFFFFF"
-                  />
-                )}
-              </View>
+            <View style={styles.switchRow}>
+              {isToggling ? (
+                <ActivityIndicator color="#6B5CE7" />
+              ) : (
+                <Switch
+                  value={isEnabled}
+                  onValueChange={handleToggle}
+                  trackColor={{ false: '#3D3D5E', true: '#6B5CE7' }}
+                  thumbColor="#FFFFFF"
+                />
+              )}
             </View>
 
             {isEnabled && scheduledLabel ? (
@@ -101,8 +100,10 @@ export default function AlarmScreen() {
             ) : null}
           </View>
 
-          {/* 設定カード */}
-          <View style={styles.settingsCard}>
+          {/* ボトムシート（設定） */}
+          <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 8 }]}>
+            <View style={styles.handle} />
+
             {/* スマートアラーム */}
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
@@ -137,22 +138,21 @@ export default function AlarmScreen() {
                 </Text>
               </View>
             </View>
+
+            <View style={styles.divider} />
+
+            {/* ヒント */}
+            <View style={styles.hintRow}>
+              <Text style={styles.hintText}>{t('alarm.hintText')}</Text>
+            </View>
+
+            {!isPremium && (
+              <TouchableOpacity style={styles.upgradeBtn}>
+                <Text style={styles.upgradeBtnText}>{t('alarm.upgradeBtn')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
-
-          {/* 使い方ヒント */}
-          <View style={styles.hintCard}>
-            <Text style={styles.hintTitle}>{t('alarm.hintTitle')}</Text>
-            <Text style={styles.hintText}>{t('alarm.hintText')}</Text>
-          </View>
-
-          {!isPremium && (
-            <TouchableOpacity style={styles.upgradeBtn}>
-              <Text style={styles.upgradeBtnText}>{t('alarm.upgradeBtn')}</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.spacer} />
-        </ScrollView>
+        </>
       )}
 
       {showPicker && (
@@ -164,84 +164,81 @@ export default function AlarmScreen() {
           onChange={handleTimeChange}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1A1A2E' },
+  root: { flex: 1 },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    paddingBottom: 8,
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { flex: 1 },
-  mainCard: {
-    margin: 16,
-    backgroundColor: '#2D2D44',
+  // 時刻カード（右フローティング）
+  timeFloatCard: {
+    position: 'absolute',
+    right: 16,
+    width: '52%',
+    backgroundColor: 'rgba(13, 13, 30, 0.88)',
     borderRadius: 20,
-    padding: 24,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  mainCardActive: {
-    borderColor: '#6B5CE740',
-    backgroundColor: '#6B5CE710',
-  },
-  mainCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderColor: 'rgba(107, 92, 231, 0.35)',
+    zIndex: 10,
   },
   timeText: {
-    fontSize: 56,
+    fontSize: 52,
     fontWeight: '200',
-    color: '#555',
+    color: '#C8C8E0',
     letterSpacing: -1,
   },
   timeTextActive: { color: '#FFFFFF' },
-  timeTapHint: { fontSize: 11, color: '#555', marginTop: 2 },
-  switchWrap: { width: 56, alignItems: 'flex-end' },
-  scheduledLabel: { fontSize: 12, color: '#9C8FFF', marginTop: 12 },
-  disabledLabel: { fontSize: 12, color: '#555', marginTop: 12 },
-  settingsCard: {
-    marginHorizontal: 16,
-    backgroundColor: '#2D2D44',
-    borderRadius: 16,
-    paddingHorizontal: 16,
+  timeTapHint: { fontSize: 11, color: '#C8C8E0', marginTop: 2 },
+  switchRow: { marginTop: 14 },
+  scheduledLabel: { fontSize: 12, color: '#9C8FFF', marginTop: 10 },
+  disabledLabel: { fontSize: 12, color: '#C8C8E0', marginTop: 10 },
+  // ボトムシート
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(13, 13, 30, 0.88)',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.3)',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(107, 92, 231, 0.4)',
+    alignSelf: 'center',
     marginBottom: 12,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     gap: 12,
   },
   settingInfo: { flex: 1 },
   settingTitle: { fontSize: 15, color: '#FFFFFF', marginBottom: 3 },
-  settingSubtitle: { fontSize: 12, color: '#888', lineHeight: 18 },
-  divider: { height: 1, backgroundColor: '#1A1A2E' },
-  hintCard: {
-    marginHorizontal: 16,
-    backgroundColor: '#2D2D44',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  hintTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 8 },
-  hintText: { fontSize: 12, color: '#666', lineHeight: 20 },
+  settingSubtitle: { fontSize: 12, color: '#C8C8E0', lineHeight: 18 },
+  divider: { height: 1, backgroundColor: 'rgba(107, 92, 231, 0.25)' },
+  hintRow: { paddingVertical: 10 },
+  hintText: { fontSize: 12, color: '#C8C8E0', lineHeight: 20 },
   upgradeBtn: {
-    marginHorizontal: 16,
     backgroundColor: '#6B5CE7',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 28,
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 8,
   },
   upgradeBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  spacer: { height: 32 },
 });
