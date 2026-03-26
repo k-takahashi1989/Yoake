@@ -30,8 +30,9 @@ yarn-error.log
 *.p12
 *.mobileprovision
 
-# Claude Code local settings
-.claude/
+# Claude Code local settings（マシン固有設定は除外、agents は共有）
+.claude/settings.local.json
+.claude/settings.json
 
 # Firebase
 google-services.json
