@@ -5,24 +5,32 @@
  * タブアイコン・ラベル・アクティブ状態を既存の TabBarIcon で描画しつつ、
  * タブ切替時に AnimatedBackground.focusTab() を呼び出して背景ズームを発火する。
  *
+ * react-native-reanimated v3 を使用し、アイコンのバウンスアニメーションを
+ * useSharedValue / withSequence / withSpring で実現する。
+ *
  * 使用方法:
  *   <Tab.Navigator tabBar={(props) => (
  *     <CustomTabBar {...props} backgroundRef={bgRef} />
  *   )}>
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   TouchableOpacity,
   Text,
   StyleSheet,
-  Animated,
-  useWindowDimensions,
   Platform,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withSpring,
+} from 'react-native-reanimated';
 import { AnimatedBackgroundHandle } from './AnimatedBackground';
 import TabBarIcon from './TabBarIcon';
 import { MainTabParamList } from '../../types';
@@ -47,7 +55,75 @@ interface CustomTabBarProps extends BottomTabBarProps {
 }
 
 // ============================================================
-// コンポーネント本体
+// タブアイテム（SharedValue をタブごとに独立管理するために分離）
+// ============================================================
+
+interface TabItemProps {
+  routeKey: string;
+  routeName: string;
+  label: string;
+  isFocused: boolean;
+  accessibilityLabel?: string;
+  onPress: () => void;
+  onLongPress: () => void;
+}
+
+function TabItem({
+  routeName,
+  label,
+  isFocused,
+  accessibilityLabel,
+  onPress,
+  onLongPress,
+}: TabItemProps) {
+  const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
+
+  // タブアイコンのバウンスアニメーション（reanimated v3）
+  const iconScale = useSharedValue<number>(1);
+
+  const iconAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
+
+  const handlePress = useCallback(() => {
+    // バウンス: 縮む → バネで戻る
+    iconScale.value = withSequence(
+      withTiming(0.82, { duration: 80 }),
+      withSpring(1, { damping: 6, stiffness: 200 }),
+    );
+    onPress();
+  }, [iconScale, onPress]);
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={isFocused ? { selected: true } : {}}
+      accessibilityLabel={accessibilityLabel}
+      onPress={handlePress}
+      onLongPress={onLongPress}
+      style={styles.tabButton}
+      activeOpacity={1}
+    >
+      {/* アイコン（バウンスアニメーション付き） */}
+      <Animated.View style={[styles.iconWrapper, iconAnimStyle]}>
+        {/* アクティブタブの背景ピル */}
+        {isFocused && <View style={styles.activePill} />}
+        <TabBarIcon name={routeName} color={color} size={22} />
+      </Animated.View>
+
+      {/* ラベル */}
+      <Text
+        style={[styles.label, { color }, isFocused && styles.labelActive]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// ============================================================
+// CustomTabBar 本体
 // ============================================================
 
 export default function CustomTabBar({
@@ -58,28 +134,8 @@ export default function CustomTabBar({
 }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
 
-  // タブアイコンの微小バウンスアニメーション用（タブごとに独立した Animated.Value）
-  const scaleAnims = useRef<Animated.Value[]>(
-    state.routes.map(() => new Animated.Value(1)),
-  ).current;
-
   const handlePress = useCallback(
     (index: number, routeName: string, isFocused: boolean) => {
-      // ---- アイコンバウンス ----
-      Animated.sequence([
-        Animated.timing(scaleAnims[index], {
-          toValue: 0.82,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnims[index], {
-          toValue: 1,
-          useNativeDriver: true,
-          damping: 6,
-          stiffness: 200,
-        }),
-      ]).start();
-
       // ---- 背景ズームトリガー ----
       backgroundRef.current?.focusTab(routeName as keyof MainTabParamList);
 
@@ -95,7 +151,7 @@ export default function CustomTabBar({
         navigation.navigate({ name: routeName, merge: true });
       }
     },
-    [navigation, state.routes, scaleAnims, backgroundRef],
+    [navigation, state.routes, backgroundRef],
   );
 
   const handleLongPress = useCallback(
@@ -121,45 +177,20 @@ export default function CustomTabBar({
     >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
-        const isFocused = state.index === index;
-        const color     = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
-        const label     = (options.title ?? route.name) as string;
+        const isFocused   = state.index === index;
+        const label       = (options.title ?? route.name) as string;
 
         return (
-          <TouchableOpacity
+          <TabItem
             key={route.key}
-            accessibilityRole="button"
-            accessibilityState={isFocused ? { selected: true } : {}}
+            routeKey={route.key}
+            routeName={route.name}
+            label={label}
+            isFocused={isFocused}
             accessibilityLabel={options.tabBarAccessibilityLabel}
             onPress={() => handlePress(index, route.name, isFocused)}
             onLongPress={() => handleLongPress(index)}
-            style={styles.tabButton}
-            activeOpacity={1}
-          >
-            {/* アイコン（バウンスアニメーション付き） */}
-            <Animated.View
-              style={[
-                styles.iconWrapper,
-                { transform: [{ scale: scaleAnims[index] }] },
-              ]}
-            >
-              {/* アクティブタブの背景ピル */}
-              {isFocused && <View style={styles.activePill} />}
-              <TabBarIcon name={route.name} color={color} size={22} />
-            </Animated.View>
-
-            {/* ラベル */}
-            <Text
-              style={[
-                styles.label,
-                { color },
-                isFocused && styles.labelActive,
-              ]}
-              numberOfLines={1}
-            >
-              {label}
-            </Text>
-          </TouchableOpacity>
+          />
         );
       })}
     </View>

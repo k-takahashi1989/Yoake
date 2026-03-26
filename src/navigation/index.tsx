@@ -160,8 +160,11 @@ function MainTabs() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          // 画面コンテンツを半透明にして背景が透けるように
-          // 各画面の View background を透明にするのは各スクリーン側の責務
+          // 各スクリーンのシーンコンテナを透明にして AnimatedBackground が透けて見えるようにする。
+          // 個々のスクリーン側でも View の backgroundColor を transparent にすることで
+          // 背景ズーム演出が活きる（既存スクリーンの background をそのまま使いたい場合は
+          // 各スクリーンの最外 View に backgroundColor: 'transparent' を指定する）。
+          sceneStyle: { backgroundColor: 'transparent' },
         }}
         tabBar={(props) => (
           <CustomTabBar {...props} backgroundRef={bgRef} />
