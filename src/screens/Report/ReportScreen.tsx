@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
@@ -43,8 +43,9 @@ export default function ReportScreen() {
   const { t } = useTranslation();
   const { isPremium } = useAuthStore();
   const navigation = useNavigation<any>();
-  const { width } = useWindowDimensions();
+  const { width, height: screenH } = useWindowDimensions();
   const chartWidth = width - 64;
+  const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<Tab>('weekly');
   const [weeklyLogs, setWeeklyLogs] = useState<SleepLog[]>([]);
@@ -173,8 +174,10 @@ export default function ReportScreen() {
       t('report.paywallFeature4'),
     ];
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <View style={styles.root}>
+        {/* 上部スペーサー（夢の吹き出しを見せる） */}
+        <View style={{ height: screenH * 0.33 }} />
+        <View style={[styles.compactHeader, { paddingTop: insets.top }]}>
           <Text style={styles.title}>{t('report.title')}</Text>
         </View>
         <View style={styles.center}>
@@ -198,7 +201,7 @@ export default function ReportScreen() {
             <Text style={styles.upgradeBtnText}>{t('report.upgradeBtn', { days: SUBSCRIPTION.TRIAL_DAYS })}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -210,9 +213,12 @@ export default function ReportScreen() {
   const worstScore = logs.length > 0 ? Math.min(...logs.map(l => l.score)) : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* ヘッダー */}
-      <View style={styles.header}>
+    <View style={styles.root}>
+      {/* 上部スペーサー（夢の吹き出しを見せる） */}
+      <View style={{ height: screenH * 0.33 }} />
+
+      {/* コンパクトヘッダー */}
+      <View style={styles.compactHeader}>
         <Text style={styles.title}>{t('report.title')}</Text>
         <View style={styles.tabRow}>
           <TouchableOpacity
@@ -274,7 +280,7 @@ export default function ReportScreen() {
           <View style={styles.spacer} />
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -304,27 +310,30 @@ function StatCell({
 // ============================================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1A1A2E' },
-  header: {
+  root: { flex: 1 },
+  compactHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(13, 13, 30, 0.88)',
+    borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 20,
     padding: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
   tabBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 18 },
   tabBtnActive: { backgroundColor: '#6B5CE7' },
-  tabText: { fontSize: 13, color: '#888' },
+  tabText: { fontSize: 13, color: '#C8C8E0' },
   tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   lockIcon: { fontSize: 48, marginBottom: 16 },
@@ -333,21 +342,22 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginBottom: 12,
   },
   paywallFeatureCard: {
-    backgroundColor: '#2D2D44', borderRadius: 16, padding: 16,
+    backgroundColor: 'rgba(26, 26, 46, 0.75)', borderRadius: 16, padding: 16,
     width: '100%', marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(107, 92, 231, 0.25)',
   },
   paywallFeatureRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5 },
-  paywallFeatureCheck: { color: '#6B5CE7', fontSize: 14, fontWeight: 'bold', marginRight: 10 },
-  paywallFeatureText: { fontSize: 14, color: '#D0D0E8' },
-  paywallPrice: { fontSize: 13, color: '#888', marginBottom: 16 },
+  paywallFeatureCheck: { color: '#9C8FFF', fontSize: 14, fontWeight: 'bold', marginRight: 10 },
+  paywallFeatureText: { fontSize: 14, color: '#C8C8E0' },
+  paywallPrice: { fontSize: 13, color: '#C8C8E0', marginBottom: 16 },
   upgradeBtn: {
     backgroundColor: '#6B5CE7', paddingHorizontal: 32,
     paddingVertical: 16, borderRadius: 28, width: '100%', alignItems: 'center',
   },
   upgradeBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   emptyIcon: { fontSize: 48 },
-  emptyText: { fontSize: 16, color: '#888', marginTop: 8 },
-  emptySubText: { fontSize: 13, color: '#555', textAlign: 'center', marginTop: 4 },
+  emptyText: { fontSize: 16, color: '#C8C8E0', marginTop: 8 },
+  emptySubText: { fontSize: 13, color: '#C8C8E0', textAlign: 'center', marginTop: 4 },
   scroll: { flex: 1 },
   statsRow: {
     flexDirection: 'row',
@@ -358,12 +368,14 @@ const styles = StyleSheet.create({
   },
   statCell: {
     flex: 1,
-    backgroundColor: '#2D2D44',
+    backgroundColor: 'rgba(26, 26, 46, 0.75)',
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
   },
   statValue: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
-  statLabel: { fontSize: 10, color: '#888' },
+  statLabel: { fontSize: 10, color: '#C8C8E0' },
   spacer: { height: 32 },
 });
