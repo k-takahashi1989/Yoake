@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -15,6 +15,10 @@ import {
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n';
 import TabBarIcon from '../components/common/TabBarIcon';
+import AnimatedBackground, {
+  AnimatedBackgroundHandle,
+} from '../components/common/AnimatedBackground';
+import CustomTabBar from '../components/common/CustomTabBar';
 
 import HomeScreen from '../screens/Home/HomeScreen';
 import ScoreDetailScreen from '../screens/Home/ScoreDetailScreen';
@@ -139,25 +143,37 @@ function ProfileStackNavigator() {
 
 function MainTabs() {
   const { t } = useTranslation();
+
+  // AnimatedBackground への ref。CustomTabBar がズームをトリガーするために使う。
+  const bgRef = useRef<AnimatedBackgroundHandle>(null);
+
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused, color }) => (
-          <TabBarIcon name={route.name} color={color} size={22} />
-        ),
-        tabBarActiveTintColor: '#6B5CE7',
-        tabBarInactiveTintColor: '#9E9E9E',
-        tabBarStyle: { backgroundColor: '#1A1A2E', borderTopColor: '#2D2D44' },
-        tabBarLabelStyle: { fontSize: 10 },
-      })}
-    >
-      <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: t('nav.home') }} />
-      <Tab.Screen name="Diary" component={DiaryStackNavigator} options={{ title: t('nav.diary') }} />
-      <Tab.Screen name="Report" component={ReportScreen} options={{ title: t('nav.report') }} />
-      <Tab.Screen name="Alarm" component={AlarmScreen} options={{ title: t('nav.alarm') }} />
-      <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: t('nav.profile') }} />
-    </Tab.Navigator>
+    // 背景 + タブナビゲーター全体を包むコンテナ
+    <View style={styles.mainContainer}>
+      {/* ① 全画面背景：最背面に配置 */}
+      <AnimatedBackground
+        ref={bgRef}
+        // source={require('../assets/bedroom.png')}  // 背景画像を用意したらここを有効化
+      />
+
+      {/* ② タブナビゲーター：背景の上に重ねる */}
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          // 画面コンテンツを半透明にして背景が透けるように
+          // 各画面の View background を透明にするのは各スクリーン側の責務
+        }}
+        tabBar={(props) => (
+          <CustomTabBar {...props} backgroundRef={bgRef} />
+        )}
+      >
+        <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: t('nav.home') }} />
+        <Tab.Screen name="Diary" component={DiaryStackNavigator} options={{ title: t('nav.diary') }} />
+        <Tab.Screen name="Report" component={ReportScreen} options={{ title: t('nav.report') }} />
+        <Tab.Screen name="Alarm" component={AlarmScreen} options={{ title: t('nav.alarm') }} />
+        <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: t('nav.profile') }} />
+      </Tab.Navigator>
+    </View>
   );
 }
 
@@ -233,5 +249,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 8,
     marginTop: 8,
+  },
+  // MainTabs 用: 背景とタブナビゲーターを重ねるコンテナ
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#1A1A2E',
   },
 });
