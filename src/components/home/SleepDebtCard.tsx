@@ -5,6 +5,7 @@ import { SleepLog } from '../../types';
 import { calculateSleepDebt } from '../../utils/scoreCalculator';
 import { useTranslation } from '../../i18n';
 import Icon from '../common/Icon';
+import BatteryIcon from '../common/BatteryIcon';
 
 type DebtPeriod = '14' | '30' | 'month';
 
@@ -89,9 +90,13 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
         ))}
       </View>
 
-      <Text style={[styles.debtValue, { color: debtColor }]}>
-        {debtText}
-      </Text>
+      {/* 負債量テキストとバッテリーアイコンを横並びで表示 */}
+      <View style={styles.debtRow}>
+        <Text style={[styles.debtValue, { color: debtColor }]}>
+          {debtText}
+        </Text>
+        <BatteryIcon debtMinutes={debtMinutes} size="md" />
+      </View>
 
       {debtMinutes > 0 && (
         <Text style={styles.hint}>
@@ -118,7 +123,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    color: '#888',
+    color: '#9A9AB8',
     fontWeight: '600',
   },
   premiumBadge: {
@@ -151,20 +156,25 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 12,
-    color: '#888',
+    color: '#9A9AB8',
   },
   chipTextActive: {
     color: '#9C8FFF',
     fontWeight: '600',
   },
+  debtRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
   debtValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 6,
   },
   hint: {
     fontSize: 12,
-    color: '#888',
+    color: '#9A9AB8',
   },
   lockedRow: {
     flexDirection: 'row',

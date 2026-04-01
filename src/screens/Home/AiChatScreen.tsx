@@ -20,6 +20,10 @@ import { useSleepStore } from '../../stores/sleepStore';
 import { getGoal } from '../../services/firebase';
 import { sendChatMessage } from '../../services/claudeApi';
 import { UserGoal } from '../../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { haptics } from '../../utils/haptics';
+
+const CHAT_HISTORY_STORAGE_KEY = 'ai_chat_history';
 
 interface Message {
   id: string;
@@ -46,14 +50,53 @@ export default function AiChatScreen() {
   const [goal, setGoal] = useState<UserGoal | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // 起動時：AsyncStorageから履歴を復元
   useEffect(() => {
     loadRecent(14);
     getGoal().then(g => setGoal(g));
+    AsyncStorage.getItem(CHAT_HISTORY_STORAGE_KEY).then(raw => {
+      if (!raw) return;
+      try {
+        const saved: Array<{ id: string; role: 'user' | 'assistant'; content: string; timestamp: string }> = JSON.parse(raw);
+        if (saved.length > 0) {
+          setMessages(saved.map(m => ({ ...m, timestamp: new Date(m.timestamp) })));
+        }
+      } catch {
+        // 壊れていたら無視
+      }
+    });
   }, []);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  // メッセージ変化のたびに保存（ウェルカムのみの初期状態は除外）
+  const prevMessagesRef = useRef(messages);
+  useEffect(() => {
+    if (messages === prevMessagesRef.current) return;
+    prevMessagesRef.current = messages;
+    if (messages.length <= 1) return; // ウェルカムのみは保存しない
+    AsyncStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(messages)).catch(() => {});
+  }, [messages]);
+
+  const handleReset = () => {
+    Alert.alert(
+      t('aiChat.resetTitle'),
+      t('aiChat.resetMessage'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+            setMessages([{ id: 'welcome', role: 'assistant', content: t('aiChat.welcome'), timestamp: new Date() }]);
+          },
+        },
+      ],
+    );
+  };
 
   const handleSend = async () => {
     const text = inputText.trim();
@@ -89,11 +132,13 @@ export default function AiChatScreen() {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, assistantMsg]);
+      // メッセージ送信成功時に軽い触覚フィードバック
+      haptics.light();
     } catch (e: any) {
       if (e?.code === 'functions/resource-exhausted') {
-        Alert.alert('上限に達しました', e.message ?? '本日のチャット上限に達しました。');
+        Alert.alert(t('aiChat.limitReachedTitle'), e.message ?? t('aiChat.limitReachedMessage'));
       } else {
-        Alert.alert('エラー', 'AIの返答を取得できませんでした。');
+        Alert.alert(t('aiChat.errorTitle'), t('aiChat.errorMessage'));
       }
     } finally {
       setIsSending(false);
@@ -133,14 +178,21 @@ export default function AiChatScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.kvContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={90}
       >
+        {/* リセットボタン */}
+        <View style={styles.headerBar}>
+          <TouchableOpacity onPress={handleReset} style={styles.resetBtn}>
+            <Text style={styles.resetBtnText}>{t('aiChat.resetBtn')}</Text>
+          </TouchableOpacity>
+        </View>
         <ScrollView
           ref={scrollViewRef}
           style={styles.messageList}
           contentContainerStyle={styles.messageListContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.map(msg => (
             <MessageBubble key={msg.id} message={msg} />
@@ -205,6 +257,16 @@ const PAYWALL_FEATURES = [
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
   kvContainer: { flex: 1 },
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D2D44',
+  },
+  resetBtn: { paddingHorizontal: 12, paddingVertical: 4 },
+  resetBtnText: { color: '#9A9AB8', fontSize: 12 },
   messageList: { flex: 1 },
   messageListContent: { padding: 16, gap: 12, paddingBottom: 8 },
   bubbleWrapper: {
@@ -224,12 +286,13 @@ const styles = StyleSheet.create({
   bubbleUser: { backgroundColor: '#6B5CE7' },
   bubbleText: { fontSize: 14, color: '#E0E0F0', lineHeight: 22 },
   bubbleTextUser: { color: '#FFFFFF' },
-  bubbleTime: { fontSize: 10, color: '#888', marginTop: 4, textAlign: 'right' },
+  bubbleTime: { fontSize: 10, color: '#9A9AB8', marginTop: 4, textAlign: 'right' },
   inputArea: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: '#2D2D44',
     gap: 8,

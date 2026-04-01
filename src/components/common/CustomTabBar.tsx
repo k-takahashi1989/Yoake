@@ -5,8 +5,7 @@
  * タブアイコン・ラベル・アクティブ状態を既存の TabBarIcon で描画しつつ、
  * タブ切替時に AnimatedBackground.focusTab() を呼び出して背景ズームを発火する。
  *
- * react-native-reanimated v3 を使用し、アイコンのバウンスアニメーションを
- * useSharedValue / withSequence / withSpring で実現する。
+ * タブアイコンのバウンスアニメーションを RN 組み込みの Animated API で実現する。
  *
  * 使用方法:
  *   <Tab.Navigator tabBar={(props) => (
@@ -14,8 +13,9 @@
  *   )}>
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
+  Animated,
   View,
   TouchableOpacity,
   Text,
@@ -24,13 +24,6 @@ import {
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withSpring,
-} from 'react-native-reanimated';
 import { AnimatedBackgroundHandle } from './AnimatedBackground';
 import TabBarIcon from './TabBarIcon';
 import { MainTabParamList } from '../../types';
@@ -78,21 +71,26 @@ function TabItem({
 }: TabItemProps) {
   const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
 
-  // タブアイコンのバウンスアニメーション（reanimated v3）
-  const iconScale = useSharedValue<number>(1);
-
-  const iconAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
-  }));
+  // タブアイコンのバウンスアニメーション
+  const iconScaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = useCallback(() => {
     // バウンス: 縮む → バネで戻る
-    iconScale.value = withSequence(
-      withTiming(0.82, { duration: 80 }),
-      withSpring(1, { damping: 6, stiffness: 200 }),
-    );
+    Animated.sequence([
+      Animated.timing(iconScaleAnim, {
+        toValue: 0.82,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.spring(iconScaleAnim, {
+        toValue: 1,
+        damping: 6,
+        stiffness: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
     onPress();
-  }, [iconScale, onPress]);
+  }, [iconScaleAnim, onPress]);
 
   return (
     <TouchableOpacity
@@ -105,7 +103,7 @@ function TabItem({
       activeOpacity={1}
     >
       {/* アイコン（バウンスアニメーション付き） */}
-      <Animated.View style={[styles.iconWrapper, iconAnimStyle]}>
+      <Animated.View style={[styles.iconWrapper, { transform: [{ scale: iconScaleAnim }] }]}>
         {/* アクティブタブの背景ピル */}
         {isFocused && <View style={styles.activePill} />}
         <TabBarIcon name={routeName} color={color} size={22} />
@@ -115,6 +113,7 @@ function TabItem({
       <Text
         style={[styles.label, { color }, isFocused && styles.labelActive]}
         numberOfLines={1}
+        allowFontScaling={false}
       >
         {label}
       </Text>

@@ -4,12 +4,12 @@ import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 // Firestore Data Models
 // ============================================================
 
+export type AgeGroup = 'teens' | '20s_30s' | '40s_50s' | '60plus';
 export type AiPersonality = 'standard' | 'gentle' | 'passionate' | 'animal';
 
 export interface UserProfile {
   displayName: string | null;
-  height: number | null; // cm
-  weight: number | null; // kg
+  ageGroup?: AgeGroup | null; // 年代区分
   aiPersonality?: AiPersonality; // AI性格設定（未設定時はstandard扱い）
   createdAt: FirebaseFirestoreTypes.Timestamp;
   lastActiveAt: FirebaseFirestoreTypes.Timestamp;
@@ -147,36 +147,31 @@ export interface ScoreInfo {
 export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
-  AlarmFiring: undefined;
 };
 
 export type MainTabParamList = {
   Home: undefined;
   Diary: undefined;
   Report: undefined;
-  Alarm: undefined;
   Profile: undefined;
 };
 
 export type HomeStackParamList = {
   HomeScreen: undefined;
-  ScoreDetail: { date: string };
+  ScoreDetail: { date: string; scoreColor?: string };
+  RecordEdit: { date: string };
   AiChat: undefined;
 };
 
 export type DiaryStackParamList = {
   DiaryList: undefined;
-  RecordDetail: { date: string };
+  ScoreDetail: { date: string; scoreColor?: string };
   RecordEdit: { date: string };
+  RecordDetail: { date: string };
 };
 
 export type ReportStackParamList = {
   ReportScreen: undefined;
-};
-
-export type AlarmStackParamList = {
-  AlarmScreen: undefined;
-  AlarmFiring: undefined;
 };
 
 export type ProfileStackParamList = {

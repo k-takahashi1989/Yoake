@@ -102,11 +102,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
   cardSubTitle: { fontSize: 11, color: '#555', marginTop: -8, marginBottom: 12 },
   reportPlaceholder: { fontSize: 13, color: '#555', lineHeight: 20 },
   axisLabel: { color: '#666', fontSize: 9 },
-  axisLabelLarge: { color: '#888', fontSize: 13 },
+  axisLabelLarge: { color: '#9A9AB8', fontSize: 13 },
   habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   habitScoreChipMuted: { backgroundColor: '#1A1A2E', borderColor: '#333' },
-  habitScoreChipLabel: { fontSize: 8, color: '#888' },
+  habitScoreChipLabel: { fontSize: 8, color: '#9A9AB8' },
   habitScoreChipValue: { fontSize: 12, fontWeight: '600', color: '#9C8FFF' },
   habitDiff: { fontSize: 12, fontWeight: '700', minWidth: 28, textAlign: 'right' },
 });

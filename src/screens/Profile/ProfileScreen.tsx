@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Alert, ActivityIndicator, Linking,
   Modal, Animated,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +13,12 @@ import { ProfileStackParamList, AiPersonality } from '../../types';
 import { SUBSCRIPTION, LINKS, AI_PERSONALITIES } from '../../constants';
 import pkg from '../../../package.json';
 import { generateSeedData } from '../../utils/seedData';
+import { useSleepStore } from '../../stores/sleepStore';
+import { SLEEP_LOG_FETCH_LIMIT } from '../../constants';
 import { useTranslation, changeLanguage } from '../../i18n';
+import Icon, { IconName } from '../../components/common/Icon';
+
+const DEBT_PERIOD_KEY = '@yoake:sleep_debt_period';
 
 type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -23,6 +29,39 @@ export default function ProfileScreen() {
   const [showPersonality, setShowPersonality] = useState(false);
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const [debtPeriod, setDebtPeriod] = useState<'14' | '30' | 'month'>('14');
+
+  useEffect(() => {
+    AsyncStorage.getItem(DEBT_PERIOD_KEY).then(stored => {
+      if (stored === '14' || stored === '30' || stored === 'month') {
+        setDebtPeriod(stored);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const periodLabels: Record<'14' | '30' | 'month', string> = {
+    '14': t('sleepDebt.period14'),
+    '30': t('sleepDebt.period30'),
+    'month': t('sleepDebt.periodMonth'),
+  };
+
+  const handleDebtPeriodChange = () => {
+    Alert.alert(
+      t('profile.debtPeriodTitle'),
+      undefined,
+      [
+        { text: t('sleepDebt.period14'),    onPress: () => saveDebtPeriod('14') },
+        { text: t('sleepDebt.period30'),    onPress: () => saveDebtPeriod('30') },
+        { text: t('sleepDebt.periodMonth'), onPress: () => saveDebtPeriod('month') },
+        { text: t('common.cancel'), style: 'cancel' },
+      ]
+    );
+  };
+
+  const saveDebtPeriod = async (p: '14' | '30' | 'month') => {
+    await AsyncStorage.setItem(DEBT_PERIOD_KEY, p);
+    setDebtPeriod(p);
+  };
 
   const planText =
     subscription?.status === 'trial'
@@ -91,32 +130,37 @@ export default function ProfileScreen() {
           {/* メニュー */}
           <View style={styles.menuSection}>
             <MenuRow
-              emoji="👤"
+              iconName="user-edit"
               label={t('profile.menuEditProfile')}
               onPress={() => navigation.navigate('EditProfile')}
             />
             <MenuRow
-              emoji="💳"
+              iconName="crown"
               label={t('profile.menuSubscription')}
               onPress={() => navigation.navigate('SubscriptionManage')}
             />
             <MenuRow
-              emoji="❤️"
+              iconName="heart-beat"
               label={t('profile.menuHealthConnect')}
               onPress={() => navigation.navigate('HealthConnectSettings')}
             />
             <MenuRow
-              emoji="🔔"
+              iconName="bell"
               label={t('profile.menuNotification')}
               onPress={() => navigation.navigate('NotificationSettings')}
             />
             <MenuRow
-              emoji="💾"
+              iconName="data-analytics"
               label={t('profile.menuData')}
               onPress={() => navigation.navigate('DataManagement')}
             />
             <MenuRow
-              emoji="🌐"
+              iconName="clock"
+              label={`${t('profile.debtPeriod')}：${periodLabels[debtPeriod]}`}
+              onPress={handleDebtPeriodChange}
+            />
+            <MenuRow
+              iconName="globe"
               label={t('profile.language')}
               value={i18n.language === 'ja' ? '日本語' : 'English'}
               onPress={() => {
@@ -128,18 +172,18 @@ export default function ProfileScreen() {
               }}
             />
             <MenuRow
-              emoji="🤖"
+              iconName="sparkling"
               label={t('profile.aiPersonality')}
               value={t(`personality.${profile?.aiPersonality ?? 'standard'}`)}
               onPress={() => setShowPersonality(true)}
             />
             <MenuRow
-              emoji="📄"
+              iconName="padlock"
               label={t('profile.menuPrivacy')}
               onPress={() => Linking.openURL(LINKS.PRIVACY_POLICY)}
             />
             <MenuRow
-              emoji="📋"
+              iconName="note"
               label={t('profile.menuTerms')}
               onPress={() => Linking.openURL(LINKS.TERMS)}
               last
@@ -181,6 +225,8 @@ export default function ProfileScreen() {
                   setIsSeedLoading(true);
                   try {
                     await generateSeedData(90);
+                    // シード後にstoreを更新してホーム画面に即反映
+                    await useSleepStore.getState().loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
                     Alert.alert('完了', '90日分のシードデータを生成しました');
                   } catch (e: any) {
                     Alert.alert('エラー', e.message ?? '生成に失敗しました');
@@ -216,13 +262,15 @@ export default function ProfileScreen() {
 }
 
 function MenuRow({
-  emoji,
+  iconName,
+  iconColor,
   label,
   value,
   onPress,
   last = false,
 }: {
-  emoji: string;
+  iconName: IconName;
+  iconColor?: string;
   label: string;
   value?: string;
   onPress: () => void;
@@ -234,7 +282,9 @@ function MenuRow({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={styles.menuEmoji}>{emoji}</Text>
+      <View style={styles.menuIconWrapper}>
+        <Icon name={iconName} size={20} color={iconColor ?? '#9C8FFF'} />
+      </View>
       <Text style={styles.menuLabel}>{label}</Text>
       {value != null && <Text style={styles.menuValue}>{value}</Text>}
       <Text style={styles.menuArrow}>›</Text>
@@ -337,7 +387,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuRowLast: { borderBottomWidth: 0 },
-  menuEmoji: { fontSize: 18, width: 28 },
+  menuIconWrapper: { width: 28, alignItems: 'center', justifyContent: 'center' },
   menuLabel: { flex: 1, fontSize: 15, color: '#FFFFFF' },
   menuValue: { fontSize: 13, color: '#C8C8E0', marginRight: 4 },
   menuArrow: { fontSize: 20, color: '#C8C8E0' },

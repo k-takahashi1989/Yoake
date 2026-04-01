@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   toggleBtnActive: { backgroundColor: '#555' },
   toggleBtnPremium: { backgroundColor: '#6B5CE7' },
-  toggleText: { fontSize: 12, color: '#888', fontWeight: '600' },
+  toggleText: { fontSize: 12, color: '#9A9AB8', fontWeight: '600' },
   toggleTextActive: { color: '#FFFFFF' },
   closeBtn: {
     alignItems: 'center',

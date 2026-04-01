@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Share,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,6 +13,8 @@ import { getRecentSleepLogs } from '../../services/firebase';
 import { safeToDate } from '../../utils/dateUtils';
 import { useTranslation } from '../../i18n';
 
+const CHAT_HISTORY_STORAGE_KEY = 'ai_chat_history';
+
 type Props = NativeStackScreenProps<ProfileStackParamList, 'DataManagement'>;
 
 export default function DataManagementScreen({ navigation }: Props) {
@@ -19,6 +22,24 @@ export default function DataManagementScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleClearChatHistory = () => {
+    Alert.alert(
+      t('dataManagement.chatHistoryTitle'),
+      t('dataManagement.chatHistoryClearConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+            Alert.alert(t('dataManagement.chatHistoryClearedTitle'), t('dataManagement.chatHistoryClearedMessage'));
+          },
+        },
+      ],
+    );
+  };
 
   // ============================================================
   // データエクスポート
@@ -130,6 +151,15 @@ export default function DataManagementScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* AIチャット履歴 */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('dataManagement.chatHistoryTitle')}</Text>
+          <Text style={styles.cardDesc}>{t('dataManagement.chatHistoryDesc')}</Text>
+          <TouchableOpacity style={styles.clearChatBtn} onPress={handleClearChatHistory}>
+            <Text style={styles.clearChatBtnText}>{t('dataManagement.chatHistoryClearBtn')}</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 危険ゾーン */}
         <View style={[styles.card, styles.dangerCard]}>
           <Text style={[styles.cardTitle, styles.dangerTitle]}>{t('dataManagement.dangerZoneTitle')}</Text>
@@ -167,7 +197,7 @@ const styles = StyleSheet.create({
     borderColor: '#F4433640',
     backgroundColor: '#F4433608',
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 8 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 8 },
   dangerTitle: { color: '#F44336' },
   cardDesc: { fontSize: 13, color: '#B0B0C8', lineHeight: 20, marginBottom: 16 },
   exportBtn: {
@@ -186,4 +216,12 @@ const styles = StyleSheet.create({
   },
   deleteBtnText: { color: '#F44336', fontSize: 15, fontWeight: '600' },
   btnDisabled: { opacity: 0.5 },
+  clearChatBtn: {
+    borderWidth: 1,
+    borderColor: '#6B5CE7',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  clearChatBtnText: { color: '#9C8FFF', fontSize: 15, fontWeight: '600' },
 });

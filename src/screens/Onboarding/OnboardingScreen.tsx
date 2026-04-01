@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   Animated,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -94,30 +95,44 @@ export default function OnboardingScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* ステップインジケーター（ヘッダー固定 — フェードの対象外） */}
-      <View style={styles.indicator}>
-        {STEPS.map((step, i) => (
-          <ProgressDot
-            key={step}
-            isActive={i === stepIndex}
-            isDone={i < stepIndex}
-          />
-        ))}
-      </View>
+    <ImageBackground
+      source={require('../../assets/images/bg_home.png')}
+      style={styles.bg}
+      resizeMode="cover"
+    >
+      {/* 全体に薄いオーバーレイ：各ステップの文字・UIを読みやすく保つ */}
+      <View style={styles.overlay} />
+      <SafeAreaView style={styles.container}>
+        {/* ステップインジケーター（ヘッダー固定 — フェードの対象外） */}
+        <View style={styles.indicator}>
+          {STEPS.map((step, i) => (
+            <ProgressDot
+              key={step}
+              isActive={i === stepIndex}
+              isDone={i < stepIndex}
+            />
+          ))}
+        </View>
 
-      {/* コンテンツエリアのみフェードトランジションを適用 */}
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        {renderStep()}
-      </Animated.View>
-    </SafeAreaView>
+        {/* コンテンツエリアのみフェードトランジションを適用 */}
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          {renderStep()}
+        </Animated.View>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  bg: {
+    flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20, 18, 40, 0.72)',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
   },
   indicator: {
     flexDirection: 'row',

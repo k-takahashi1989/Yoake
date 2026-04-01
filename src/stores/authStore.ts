@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSubscription, saveSubscription, getProfile, saveProfile, deleteAllUserData } from '../services/firebase';
-import { Subscription, UserProfile, AiPersonality } from '../types';
+import { Subscription, UserProfile, AiPersonality, AgeGroup } from '../types';
 
 const ONBOARDING_KEY = '@yoake:onboarding_completed';
 
@@ -20,7 +20,7 @@ interface AuthState {
   completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
-  updateProfile: (data: { displayName?: string | null; height?: number | null; weight?: number | null; aiPersonality?: AiPersonality }) => Promise<void>;
+  updateProfile: (data: { displayName?: string | null; ageGroup?: AgeGroup | null; aiPersonality?: AiPersonality }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   /** DEV only: プレミアム状態を強制切替 */
   _devSetPremium: (value: boolean) => void;

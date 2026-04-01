@@ -6,12 +6,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import notifee, { AndroidImportance, TriggerType, TimestampTrigger } from '@notifee/react-native';
 import { useTranslation } from '../../i18n';
-
-const STORAGE_KEY = '@yoake:notification_settings';
-const CHANNEL_ID = 'yoake_reminders';
-const NOTIF_ID = 'yoake_morning_reminder';
+import {
+  schedulePersonalizedReminder,
+  cancelReminder,
+  NOTIF_STORAGE_KEY as STORAGE_KEY,
+  LAST_SCORE_KEY,
+} from '../../services/notificationService';
 
 interface NotifSettings {
   morningEnabled: boolean;
@@ -20,41 +21,6 @@ interface NotifSettings {
 }
 
 const DEFAULTS: NotifSettings = { morningEnabled: false, morningHour: 8, morningMinute: 0 };
-
-async function ensureReminderChannel() {
-  await notifee.createChannel({
-    id: CHANNEL_ID,
-    name: 'YOAKEリマインダー',
-    importance: AndroidImportance.DEFAULT,
-  });
-}
-
-async function scheduleReminder(hour: number, minute: number): Promise<void> {
-  await ensureReminderChannel();
-  const target = new Date();
-  target.setHours(hour, minute, 0, 0);
-  if (target <= new Date()) target.setDate(target.getDate() + 1);
-
-  const trigger: TimestampTrigger = {
-    type: TriggerType.TIMESTAMP,
-    timestamp: target.getTime(),
-    alarmManager: { allowWhileIdle: true },
-  };
-
-  await notifee.createTriggerNotification(
-    {
-      id: NOTIF_ID,
-      title: '☀️ おはようございます',
-      body: '今日の睡眠を記録しましょう！',
-      android: { channelId: CHANNEL_ID },
-    },
-    trigger,
-  );
-}
-
-async function cancelReminder(): Promise<void> {
-  await notifee.cancelNotification(NOTIF_ID);
-}
 
 export default function NotificationSettingsScreen() {
   const { t } = useTranslation();
@@ -73,7 +39,9 @@ export default function NotificationSettingsScreen() {
     setSettings(next);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     if (next.morningEnabled) {
-      await scheduleReminder(next.morningHour, next.morningMinute);
+      const scoreRaw = await AsyncStorage.getItem(LAST_SCORE_KEY);
+      const lastScore = scoreRaw ? parseInt(scoreRaw, 10) : null;
+      await schedulePersonalizedReminder(next.morningHour, next.morningMinute, lastScore);
     } else {
       await cancelReminder();
     }
@@ -167,7 +135,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', paddingVertical: 14 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', paddingVertical: 14 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -176,7 +144,7 @@ const styles = StyleSheet.create({
   },
   rowInfo: { flex: 1 },
   rowTitle: { fontSize: 15, color: '#FFFFFF', flex: 1 },
-  rowSubtitle: { fontSize: 12, color: '#888', marginTop: 3, lineHeight: 17 },
+  rowSubtitle: { fontSize: 12, color: '#9A9AB8', marginTop: 3, lineHeight: 17 },
   timeValue: {
     fontSize: 22,
     fontWeight: '600',

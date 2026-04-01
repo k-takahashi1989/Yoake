@@ -8,12 +8,17 @@ import {
 } from 'react-native';
 import { AiReport } from '../../../types';
 import { useTranslation } from '../../../i18n';
+import ScalePressable from '../../../components/common/ScalePressable';
 
 interface Props {
   weeklyReport: AiReport | null;
   pastReports: Array<{ key: string } & AiReport>;
   isLoadingReport: boolean;
   onGenerate: () => void;
+  /** 今週平均スコア（前週比表示用）。null/undefined の場合は前週比行を非表示 */
+  currentWeekAvgScore?: number | null;
+  /** 前週平均スコア（スコア前週比表示用）。null/undefined の場合は前週比を非表示 */
+  previousWeekAvgScore?: number | null;
 }
 
 export default function WeeklyReportCard({
@@ -21,6 +26,8 @@ export default function WeeklyReportCard({
   pastReports,
   isLoadingReport,
   onGenerate,
+  currentWeekAvgScore,
+  previousWeekAvgScore,
 }: Props) {
   const { t } = useTranslation();
   const [expandedReportKey, setExpandedReportKey] = useState<string | null>(null);
@@ -31,16 +38,35 @@ export default function WeeklyReportCard({
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('report.weeklyAIReportTitle')}</Text>
-          <TouchableOpacity
-            style={[styles.generateBtn, isLoadingReport && styles.generateBtnDisabled]}
-            onPress={onGenerate}
-            disabled={isLoadingReport}
-          >
-            <Text style={styles.generateBtnText}>
-              {isLoadingReport ? t('report.generatingBtn') : weeklyReport ? t('report.regenerateBtn') : t('report.generateBtn')}
-            </Text>
-          </TouchableOpacity>
+          {/* weeklyReport が未生成かつローディング中でないときだけボタンを表示 */}
+          {weeklyReport === null && !isLoadingReport && (
+            <ScalePressable
+              style={styles.generateBtn}
+              onPress={onGenerate}
+              scaleValue={0.94}
+            >
+              <Text style={styles.generateBtnText}>{t('report.generateBtn')}</Text>
+            </ScalePressable>
+          )}
         </View>
+        {/* 今週平均スコアと前週比 */}
+        {currentWeekAvgScore != null && (
+          <View style={styles.scoreRow}>
+            <Text style={styles.scoreText}>
+              {t('report.avgScore')}: {currentWeekAvgScore}{t('common.points')}
+            </Text>
+            {previousWeekAvgScore != null && (() => {
+              const diff = currentWeekAvgScore - previousWeekAvgScore;
+              if (diff > 0) {
+                return <Text style={[styles.diffText, { color: '#4CAF50' }]}>↑ +{diff}</Text>;
+              } else if (diff < 0) {
+                return <Text style={[styles.diffText, { color: '#FF5722' }]}>↓ {diff}</Text>;
+              } else {
+                return <Text style={[styles.diffText, { color: '#9A9AB8' }]}>→ {t('report.noChange')}</Text>;
+              }
+            })()}
+          </View>
+        )}
         {isLoadingReport ? (
           <ActivityIndicator color="#6B5CE7" style={{ marginTop: 8 }} />
         ) : weeklyReport ? (
@@ -94,7 +120,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
   generateBtn: {
     backgroundColor: '#6B5CE720',
     paddingHorizontal: 12,
@@ -105,6 +131,14 @@ const styles = StyleSheet.create({
   },
   generateBtnDisabled: { opacity: 0.5 },
   generateBtnText: { color: '#9C8FFF', fontSize: 12 },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  scoreText: { fontSize: 12, color: '#9A9AB8' },
+  diffText: { fontSize: 12, fontWeight: 'bold' },
   reportText: { fontSize: 14, color: '#D0D0E8', lineHeight: 22 },
   reportPlaceholder: { fontSize: 13, color: '#555', lineHeight: 20 },
   pastReportRow: {

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import { useTranslation } from '../../../i18n';
+import ScalePressable from '../../../components/common/ScalePressable';
 
 interface Props {
   onNext: (granted: boolean) => void;
@@ -85,25 +86,25 @@ export default function NotificationStep({ onNext }: Props) {
 
       <View style={styles.buttonGroup}>
         {status === 'idle' && (
-          <TouchableOpacity style={styles.buttonPrimary} onPress={requestPermission}>
+          <ScalePressable style={styles.buttonPrimary} onPress={requestPermission}>
             <Text style={styles.buttonTextPrimary}>{t('onboarding.notification.allowBtn')}</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         )}
 
         {status === 'requesting' && (
-          <TouchableOpacity style={[styles.buttonPrimary, styles.buttonDisabled]} disabled>
+          <ScalePressable style={[styles.buttonPrimary, styles.buttonDisabled]} disabled>
             <Text style={styles.buttonTextPrimary}>{t('onboarding.notification.checkingBtn')}</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         )}
 
-        <TouchableOpacity
+        <ScalePressable
           style={status === 'granted' ? styles.buttonPrimary : styles.buttonSecondary}
           onPress={() => onNext(status === 'granted')}
         >
           <Text style={status === 'granted' ? styles.buttonTextPrimary : styles.buttonTextSecondary}>
             {status === 'granted' ? t('onboarding.notification.nextBtn') : t('onboarding.notification.skipBtn')}
           </Text>
-        </TouchableOpacity>
+        </ScalePressable>
       </View>
     </View>
   );
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
   },
   notifDesc: {
     fontSize: 12,
-    color: '#888',
+    color: '#9A9AB8',
     lineHeight: 18,
   },
   successBanner: {
@@ -193,5 +194,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   buttonTextPrimary: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  buttonTextSecondary: { color: '#888', fontSize: 15 },
+  buttonTextSecondary: { color: '#9A9AB8', fontSize: 15 },
 });

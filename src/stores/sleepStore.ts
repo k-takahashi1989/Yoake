@@ -8,8 +8,15 @@ import {
 } from '../services/firebase';
 import { SleepLog, SleepInputForm, UserGoal } from '../types';
 import { calculateScore, calculateSleepDebt } from '../utils/scoreCalculator';
+import { calculateStreak } from '../utils/streakCalculator';
 import { SCORE_VERSION } from '../constants';
 import firestore from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  refreshMorningReminderIfEnabled,
+  notifyStreakMilestoneIfReached,
+  LAST_SCORE_KEY,
+} from '../services/notificationService';
 
 interface SleepState {
   todayLog: SleepLog | null;
@@ -83,12 +90,24 @@ export const useSleepStore = create<SleepState>((set, get) => ({
 
     await saveSleepLog(fullLog);
 
-    // キャッシュ更新
+    // 楽観的更新: Firestore再読みせずstoreを即時反映
     const today = format(new Date(), 'yyyy-MM-dd');
-    if (date === today) {
-      set({ todayLog: fullLog as SleepLog });
-    }
-    await get().loadRecent();
+    set(state => ({
+      todayLog: date === today ? (fullLog as SleepLog) : state.todayLog,
+      recentLogs: [
+        fullLog as SleepLog,
+        ...state.recentLogs.filter(l => l.date !== date),
+      ].sort((a, b) => b.date.localeCompare(a.date)),
+    }));
+
+    // 最終スコアを保存（通知パーソナライズ用）・朝通知を再スケジュール（両方 fire-and-forget）
+    AsyncStorage.setItem(LAST_SCORE_KEY, String(score)).catch(() => {});
+    refreshMorningReminderIfEnabled(score).catch(() => {});
+
+    // ストリーク達成通知（fire-and-forget）
+    const { recentLogs: updatedLogs } = get();
+    const streak = calculateStreak(updatedLogs);
+    notifyStreakMilestoneIfReached(streak).catch(() => {});
   },
 
   deleteLog: async (date: string) => {

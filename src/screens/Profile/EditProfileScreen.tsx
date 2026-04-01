@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ProfileStackParamList } from '../../types';
+import { ProfileStackParamList, AgeGroup } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useTranslation } from '../../i18n';
 
@@ -16,33 +16,15 @@ export default function EditProfileScreen({ navigation }: Props) {
   const { profile, updateProfile } = useAuthStore();
   const { t } = useTranslation();
   const [name, setName] = useState(profile?.displayName ?? '');
-  const [height, setHeight] = useState(
-    profile?.height != null ? String(profile.height) : '',
-  );
-  const [weight, setWeight] = useState(
-    profile?.weight != null ? String(profile.weight) : '',
-  );
+  const [ageGroup, setAgeGroup] = useState<AgeGroup | null>(profile?.ageGroup ?? null);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    const h = height ? parseFloat(height) : null;
-    const w = weight ? parseFloat(weight) : null;
-
-    if (h !== null && (isNaN(h) || h < 50 || h > 250)) {
-      Alert.alert(t('editProfile.inputError'), t('editProfile.heightError'));
-      return;
-    }
-    if (w !== null && (isNaN(w) || w < 20 || w > 300)) {
-      Alert.alert(t('editProfile.inputError'), t('editProfile.weightError'));
-      return;
-    }
-
     setIsSaving(true);
     try {
       await updateProfile({
         displayName: name.trim() || null,
-        height: h,
-        weight: w,
+        ageGroup,
       });
       navigation.goBack();
     } catch {
@@ -56,9 +38,9 @@ export default function EditProfileScreen({ navigation }: Props) {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <FieldLabel>{t('editProfile.nickname')}</FieldLabel>
             <TextInput
@@ -70,27 +52,20 @@ export default function EditProfileScreen({ navigation }: Props) {
               maxLength={20}
             />
 
-            <FieldLabel>{t('editProfile.height')}</FieldLabel>
-            <TextInput
-              style={styles.input}
-              value={height}
-              onChangeText={setHeight}
-              placeholder={t('editProfile.heightPlaceholder')}
-              placeholderTextColor="#555"
-              keyboardType="decimal-pad"
-              maxLength={5}
-            />
-
-            <FieldLabel>{t('editProfile.weight')}</FieldLabel>
-            <TextInput
-              style={styles.input}
-              value={weight}
-              onChangeText={setWeight}
-              placeholder={t('editProfile.weightPlaceholder')}
-              placeholderTextColor="#555"
-              keyboardType="decimal-pad"
-              maxLength={5}
-            />
+            <FieldLabel>{t('editProfile.ageGroup')}</FieldLabel>
+            <View style={styles.ageGroupRow}>
+              {(['teens', '20s_30s', '40s_50s', '60plus'] as AgeGroup[]).map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.ageBtn, ageGroup === g && styles.ageBtnActive]}
+                  onPress={() => setAgeGroup(ageGroup === g ? null : g)}
+                >
+                  <Text style={[styles.ageBtnText, ageGroup === g && styles.ageBtnTextActive]}>
+                    {t(`editProfile.ageGroup_${g}`)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           <TouchableOpacity
@@ -124,7 +99,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-  label: { fontSize: 12, color: '#888', marginBottom: 6, marginTop: 12 },
+  label: { fontSize: 12, color: '#9A9AB8', marginBottom: 6, marginTop: 12 },
   input: {
     backgroundColor: '#1A1A2E',
     borderRadius: 10,
@@ -143,4 +118,24 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  ageGroupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  ageBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1A1A2E',
+    borderWidth: 1,
+    borderColor: '#3D3D5E',
+  },
+  ageBtnActive: {
+    backgroundColor: '#6B5CE7',
+    borderColor: '#6B5CE7',
+  },
+  ageBtnText: { color: '#9A9AB8', fontSize: 14 },
+  ageBtnTextActive: { color: '#FFFFFF', fontWeight: '600' },
 });

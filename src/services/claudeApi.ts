@@ -1,4 +1,4 @@
-import functions from '@react-native-firebase/functions';
+import { getFunctions, httpsCallable as firebaseHttpsCallable } from '@react-native-firebase/functions';
 import firestore from '@react-native-firebase/firestore';
 import { SleepLog, UserGoal, AiReport, AiPersonality } from '../types';
 import { AI_CONFIG } from '../constants';
@@ -16,6 +16,7 @@ export interface SleepStats {
   threeMonthAvgScore: number | null;
   topPositiveHabit: { label: string; emoji: string; diff: number } | null;
   topNegativeHabit: { label: string; emoji: string; diff: number } | null;
+  ageGroup?: string | null; // 年代コンテキスト
 }
 
 interface FunctionResult {
@@ -28,13 +29,12 @@ interface FunctionResult {
 // Firebase Functions 呼び出し（API キーはサーバー側で管理）
 // ============================================================
 
-const cloudFunctions = functions();
-
 async function callCloudFunction(
   name: string,
   data: object,
 ): Promise<FunctionResult> {
-  const fn = cloudFunctions.httpsCallable(name);
+  const fns = getFunctions(undefined, 'asia-northeast1');
+  const fn = firebaseHttpsCallable(fns, name);
   const result = await fn(data);
   return result.data as FunctionResult;
 }
@@ -52,7 +52,7 @@ function formatSleepLogForPrompt(log: SleepLog): string {
   const mins = log.totalMinutes % 60;
 
   const wakeFeelingMap = { GOOD: 'すっきり', NORMAL: 'ふつう', BAD: 'つらい' };
-  const sleepOnsetMap = { FAST: '速い', NORMAL: '普通', SLOW: '遅い' };
+  const sleepOnsetMap = { FAST: '5分以内', NORMAL: '15〜30分', SLOW: '30分以上' };
 
   const checkedHabits = log.habits.filter(h => h.checked).map(h => `${h.emoji}${h.label}`);
 
@@ -62,7 +62,8 @@ function formatSleepLogForPrompt(log: SleepLog): string {
   ];
 
   if (log.deepSleepMinutes !== null) {
-    lines.push(`  深睡眠: ${log.deepSleepMinutes}分 / 覚醒: ${log.awakenings ?? 0}回`);
+    const remStr = log.remMinutes != null ? ` / REM: ${log.remMinutes}分` : '';
+    lines.push(`  深睡眠: ${log.deepSleepMinutes}分${remStr} / 覚醒: ${log.awakenings ?? 0}回`);
   }
   if (checkedHabits.length > 0) {
     lines.push(`  習慣: ${checkedHabits.join(', ')}`);
@@ -130,6 +131,17 @@ function buildStatsText(logs: SleepLog[], stats: Partial<SleepStats> | undefined
   if (pos) lines.push(`スコアが上がりやすい習慣: ${pos.emoji}${pos.label}（+${pos.diff}点）`);
   if (neg) lines.push(`スコアが下がりやすい習慣: ${neg.emoji}${neg.label}（${neg.diff}点）`);
 
+  // 年代別コンテキスト
+  const ageGroupMap: Record<string, string> = {
+    teens:    '10代（推奨8〜10時間。深睡眠が多い成長期）',
+    '20s_30s': '20〜30代（推奨7〜9時間。社会的ジェットラグに注意）',
+    '40s_50s': '40〜50代（推奨7〜9時間。深睡眠が減少し始める年代）',
+    '60plus':  '60代以上（推奨7〜8時間。深睡眠の減少は正常。早起きの傾向あり）',
+  };
+  if (stats?.ageGroup && ageGroupMap[stats.ageGroup]) {
+    lines.push(`ユーザー年代: ${ageGroupMap[stats.ageGroup]}`);
+  }
+
   return lines.join('\n');
 }
 
@@ -137,11 +149,17 @@ function buildStatsText(logs: SleepLog[], stats: Partial<SleepStats> | undefined
 // ① 毎朝ひとこと（無料）
 // ============================================================
 
-const DAILY_SYSTEM_PROMPT = `あなたは「ヨアケ」という名前の睡眠コーチAIです。
-毎朝、ユーザーの睡眠データを見てひとことアドバイスを日本語で伝えます。
+const DAILY_SYSTEM_PROMPT = `あなたは「しろくま」という名前の睡眠の友だちです。
+眠りが大好きな白熊として、毎朝ユーザーの睡眠データを見てひとことアドバイスを日本語で伝えます。
+
+キャラクター設定：
+・名前: しろくま
+・性格: 穏やかで優しく、少しだけマイペース。共感してから具体的なアドバイスをする
+・口調: 語尾に「〜だよ」「〜だね」「〜してみて」を自然に使う。押しつけがましくない
+・ユーザーへの呼びかけ: 文中に「きみ」を1回だけ自然に使う
 
 ルール：
-・2〜3文以内で簡潔に
+・2〜3文以内で簡潔に（200文字以内）
 ・ポジティブで前向きなトーン（ただし過度に明るくしない）
 ・具体的な数字を必ず1つ以上使う
 ・習慣とスコアの相関があれば積極的に言及する
@@ -150,8 +168,9 @@ const DAILY_SYSTEM_PROMPT = `あなたは「ヨアケ」という名前の睡眠
 ・説教くさくしない
 
 【良い出力の例】
-「昨夜は6時間50分でスコア74点。就寝前の入浴が効いたのか、深睡眠が15分増えてました。今日は水分補給をしっかりして夜に備えましょう。」
-「スコア68点、先週より3点ダウン。木曜の深夜就寝が響いてますね。今夜は0時前に布団に入ることだけ意識してみて。」`;
+「昨夜は6時間50分でスコア74点だったね。就寝前の入浴が効いたのか深睡眠が15分増えてたよ。きみ、今日は水分補給をしっかりして夜に備えてみて。」
+「スコア68点、先週より3点ダウンだね。木曜の深夜就寝が響いてるみたい。今夜は0時前に布団に入ることだけ意識してみてよ。」
+「きみの今週の平均スコア82点、いい感じだよ。このまま就寝リズムをキープしていこうね。」`;
 
 export async function generateDailyAdvice(
   recentLogs: SleepLog[],
@@ -162,7 +181,7 @@ export async function generateDailyAdvice(
   if (recentLogs.length === 0) {
     return {
       type: 'daily',
-      content: 'データが溜まったら分析します。まずは数日間記録を続けてみましょう！',
+      content: 'まだ睡眠データがないね。数日間記録してくれたら、しろくまが分析するよ。',
       generatedAt: firestore.Timestamp.now(),
       inputSummary: 'no_data',
       modelUsed: AI_CONFIG.MODEL,
@@ -219,16 +238,18 @@ export async function generateDailyAdvice(
 const WEEKLY_SYSTEM_PROMPT = `あなたは「ヨアケ」という名前の睡眠コーチAIです。
 ユーザーの1週間の睡眠データを分析し、週次レポートを日本語で作成してください。
 
-以下の構成で出力してください（合計300〜400文字）：
-📊 今週の総評（2文・平均スコアと前週比に必ず触れる）
-✅ 良かった点（1〜2点・具体的な日付や数値を含める）
-💡 改善できる点（1〜2点・原因を特定して具体的に）
-🎯 来週のアクション（2つ・習慣相関データがあれば活かす）
+以下の構成で出力してください（合計400〜500文字）：
+📊 今週の総評（2文・平均スコアと前週比に必ず触れる。目覚めや寝つきの傾向にも触れる）
+✅ 良かった点（1〜2点・具体的な日付や数値を含める。目覚めが「すっきり」の日があれば積極的に取り上げる）
+💡 改善できる点（1〜2点・原因を特定する。「〇〇をやめましょう」で終わらず、「どうすればやめられるか・始められるか」の具体的な1ステップ（行動置換・if-thenプランなど）まで必ず示す）
+🎯 来週のアクション（2つ・習慣相関データ・目覚め/寝つきのパターン・メモの内容があれば根拠として活かす）
 
 ルール：
 ・必ず上記の絵文字見出しを使う
 ・季節の要因があれば総評か改善点で触れる
 ・数値を積極的に使う（点数・時間・前週比など）
+・ユーザーがメモを書いている日がある場合、その内容をレポートに活かす
+・睡眠スコアが同じでも目覚めの主観（すっきり/ふつう/つらい）や寝つきの悪化が続く場合は必ず取り上げる
 ・医療的な表現は使わない`;
 
 export async function generateWeeklyReport(
@@ -294,7 +315,7 @@ const CHAT_SYSTEM_PROMPT_TEMPLATE = (
 
 トーン：
 ・フレンドリーなタメ口（馴れ馴れしすぎない）
-・200文字以内で返答（長くても300文字まで）
+・150〜300文字程度で返答（内容が長い場合は350文字まで可）
 ・共感してから具体的なアドバイスを1つ提示する
 ・データに基づいた根拠を必ず入れる
 ・医療的な断言はしない

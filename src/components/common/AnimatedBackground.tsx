@@ -38,19 +38,16 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
 } from 'react';
 import {
+  Animated,
+  Easing,
   Image,
   StyleSheet,
   useWindowDimensions,
   ImageSourcePropType,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
 import { MainTabParamList } from '../../types';
 
 // ============================================================
@@ -70,13 +67,15 @@ const TAB_FOCUS: Record<keyof MainTabParamList, FocusConfig> = {
   Home:    { x: 0.50, y: 0.60, scale: 1.0 },  // ベッド全体（ワイドショット）
   Diary:   { x: 0.30, y: 0.80, scale: 2.0 },  // 手前の日記
   Report:  { x: 0.50, y: 0.20, scale: 2.5 },  // 夢の吹き出し
-  Alarm:   { x: 0.20, y: 0.55, scale: 2.2 },  // 枕元の時計
   Profile: { x: 0.80, y: 0.30, scale: 2.0 },  // 鏡
 };
 
 // アニメーション設定
 const DURATION = 600;
 const ANIM_EASING = Easing.inOut(Easing.cubic);
+
+// アニメーション付き Image コンポーネント
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 // ============================================================
 // Ref 型（CustomTabBar から呼び出すインターフェース）
@@ -103,11 +102,12 @@ const AnimatedBackground = forwardRef<AnimatedBackgroundHandle, Props>(
   ({ source }, ref) => {
     const { width: screenW, height: screenH } = useWindowDimensions();
 
-    // ── SharedValue（reanimated v3）──────────────────────────
-    // 初期値は Home フォーカス位置（アニメーションなし）
-    const svScale = useSharedValue<number>(TAB_FOCUS.Home.scale);
-    const svTX    = useSharedValue<number>(0);
-    const svTY    = useSharedValue<number>(0);
+    // ── Animated.Value ──────────────────────────────────────
+    const scaleAnim    = useRef(new Animated.Value(TAB_FOCUS.Home.scale)).current;
+    const txAnim       = useRef(new Animated.Value(0)).current;
+    const tyAnim       = useRef(new Animated.Value(0)).current;
+    // 現在の scale を画面サイズ変更時の translate 再計算に利用
+    const currentScale = useRef(TAB_FOCUS.Home.scale);
 
     // ── 注目点 → translate を計算するヘルパー ─────────────────
     const calcTranslate = useCallback(
@@ -132,16 +132,19 @@ const AnimatedBackground = forwardRef<AnimatedBackgroundHandle, Props>(
     // マウント時に Home の初期位置を即時セット（アニメーションなし）
     useEffect(() => {
       const { tx, ty } = calcTranslate(TAB_FOCUS.Home);
-      svScale.value = TAB_FOCUS.Home.scale;
-      svTX.value    = tx;
-      svTY.value    = ty;
-    }, [calcTranslate, svScale, svTX, svTY]);
+      scaleAnim.setValue(TAB_FOCUS.Home.scale);
+      txAnim.setValue(tx);
+      tyAnim.setValue(ty);
+    }, [calcTranslate, scaleAnim, txAnim, tyAnim]);
 
     // 画面サイズが変わったときも即時リセット（回転対応）
     useEffect(() => {
-      const { tx, ty } = calcTranslate({ ...TAB_FOCUS.Home, scale: svScale.value });
-      svTX.value = tx;
-      svTY.value = ty;
+      const { tx, ty } = calcTranslate({
+        ...TAB_FOCUS.Home,
+        scale: currentScale.current,
+      });
+      txAnim.setValue(tx);
+      tyAnim.setValue(ty);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [screenW, screenH]);
 
@@ -150,35 +153,39 @@ const AnimatedBackground = forwardRef<AnimatedBackgroundHandle, Props>(
       focusTab: (tabName: keyof MainTabParamList) => {
         const cfg = TAB_FOCUS[tabName] ?? TAB_FOCUS.Home;
         const { tx, ty } = calcTranslate(cfg);
+        currentScale.current = cfg.scale;
 
         const timingConfig = {
           duration: DURATION,
           easing: ANIM_EASING,
+          useNativeDriver: true,
         };
 
-        svScale.value = withTiming(cfg.scale, timingConfig);
-        svTX.value    = withTiming(tx,        timingConfig);
-        svTY.value    = withTiming(ty,        timingConfig);
+        Animated.parallel([
+          Animated.timing(scaleAnim, { toValue: cfg.scale, ...timingConfig }),
+          Animated.timing(txAnim,    { toValue: tx,        ...timingConfig }),
+          Animated.timing(tyAnim,    { toValue: ty,        ...timingConfig }),
+        ]).start();
       },
     }));
 
-    // ── Animated スタイル ──────────────────────────────────────
+    // ── アニメーション style ──────────────────────────────────
     // transform 適用順: translate → scale
     // React Native は配列の先頭から順に apply するため、
     // translate を先に書くことで「ズーム原点を左上に固定」したまま
     // 画像をオフセットできる。
-    const animatedStyle = useAnimatedStyle(() => ({
+    const animatedStyle = {
       transform: [
-        { translateX: svTX.value },
-        { translateY: svTY.value },
-        { scale:      svScale.value },
+        { translateX: txAnim },
+        { translateY: tyAnim },
+        { scale:      scaleAnim },
       ],
-    }));
+    };
 
     return (
       <Animated.View style={[StyleSheet.absoluteFill, styles.container]}>
         {source ? (
-          <Animated.Image
+          <AnimatedImage
             source={source}
             style={[styles.image, { width: screenW, height: screenH }, animatedStyle]}
             resizeMode="cover"

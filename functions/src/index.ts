@@ -22,6 +22,8 @@ async function callClaudeApi(
   const apiKey = process.env.CLAUDE_API_KEY;
   if (!apiKey) throw new HttpsError('internal', 'Claude API key not configured');
 
+  console.log('[callClaudeApi] model:', CLAUDE_MODEL, 'maxTokens:', maxTokens, 'messages:', messages.length);
+
   const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
     headers: {
@@ -48,25 +50,35 @@ async function callClaudeApi(
     usage: { input_tokens: number; output_tokens: number };
   };
   const text = data.content?.find((c) => c.type === 'text')?.text ?? '';
-  return {
+  const result = {
     text,
     inputTokens: data.usage?.input_tokens ?? 0,
     outputTokens: data.usage?.output_tokens ?? 0,
   };
+  console.log('[callClaudeApi] done. inputTokens:', result.inputTokens, 'outputTokens:', result.outputTokens);
+  return result;
 }
 
 async function isPremiumUser(uid: string): Promise<boolean> {
+  console.log('[isPremiumUser] checking uid:', uid);
   const subSnap = await db
     .collection('users').doc(uid)
     .collection('subscription').doc('main')
     .get();
-  if (!subSnap.exists) return false;
+  if (!subSnap.exists) {
+    console.log('[isPremiumUser] no subscription doc found');
+    return false;
+  }
   const data = subSnap.data()!;
+  console.log('[isPremiumUser] status:', data.status);
   if (data.status === 'active' || data.status === 'trial') {
     const endAt: admin.firestore.Timestamp | null =
       data.currentPeriodEndAt ?? data.trialEndAt ?? null;
-    if (endAt && endAt.toDate() > new Date()) return true;
+    const now = new Date();
+    console.log('[isPremiumUser] endAt:', endAt?.toDate().toISOString(), 'now:', now.toISOString());
+    if (endAt && endAt.toDate() > now) return true;
   }
+  console.log('[isPremiumUser] not premium');
   return false;
 }
 
@@ -114,7 +126,7 @@ export const claudeGenerateWeekly = onCall(
     if (!systemPrompt || !userMessage) {
       throw new HttpsError('invalid-argument', 'systemPrompt and userMessage are required');
     }
-    return callClaudeApi(systemPrompt, [{ role: 'user', content: userMessage }], 500);
+    return callClaudeApi(systemPrompt, [{ role: 'user', content: userMessage }], 700);
   },
 );
 
@@ -122,13 +134,14 @@ export const claudeGenerateWeekly = onCall(
 // ③ AIチャット（有料）
 // ============================================================
 
-const DAILY_CHAT_LIMIT = 30;
+const DAILY_CHAT_LIMIT = 10;
 
 export const claudeSendChatMessage = onCall(
   { region: 'asia-northeast1', secrets: ['CLAUDE_API_KEY'] },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', '認証が必要です');
     const uid = request.auth.uid;
+    console.log('[claudeSendChatMessage] uid:', uid);
     if (!(await isPremiumUser(uid))) {
       throw new HttpsError('permission-denied', 'プレミアム機能です');
     }
@@ -138,6 +151,7 @@ export const claudeSendChatMessage = onCall(
     const usageRef = db.collection('users').doc(uid).collection('chatUsage').doc(today);
     const usageSnap = await usageRef.get();
     const count = usageSnap.exists ? ((usageSnap.data()!.count as number) ?? 0) : 0;
+    console.log('[claudeSendChatMessage] today:', today, 'count:', count);
     if (count >= DAILY_CHAT_LIMIT) {
       throw new HttpsError(
         'resource-exhausted',
@@ -152,10 +166,11 @@ export const claudeSendChatMessage = onCall(
     if (!systemPrompt || !Array.isArray(messages) || messages.length === 0) {
       throw new HttpsError('invalid-argument', 'systemPrompt and messages are required');
     }
-    const result = await callClaudeApi(systemPrompt, messages, 200);
+    const result = await callClaudeApi(systemPrompt, messages, 400);
 
     // 使用回数をインクリメント
     await usageRef.set({ count: admin.firestore.FieldValue.increment(1) }, { merge: true });
+    console.log('[claudeSendChatMessage] success. new count:', count + 1);
 
     return { text: result.text };
   },

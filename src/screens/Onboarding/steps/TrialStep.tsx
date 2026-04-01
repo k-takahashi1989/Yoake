@@ -24,6 +24,7 @@ import DeviceInfo from 'react-native-device-info';
 import { saveSubscription } from '../../../services/firebase';
 import { SUBSCRIPTION } from '../../../constants';
 import { useTranslation } from '../../../i18n';
+import ScalePressable from '../../../components/common/ScalePressable';
 
 interface Props {
   onComplete: () => void;
@@ -177,7 +178,7 @@ export default function TrialStep({ onComplete }: Props) {
       ) : isBillingAvailable ? (
         <View style={styles.planGroup}>
           {/* Monthly plan */}
-          <TouchableOpacity
+          <ScalePressable
             style={[styles.planCard, isPurchasing && styles.planCardDisabled]}
             onPress={() => handleStartTrial(SUBSCRIPTION.PRODUCT_IDS.MONTHLY)}
             disabled={isPurchasing}
@@ -189,10 +190,10 @@ export default function TrialStep({ onComplete }: Props) {
               </Text>
             </View>
             {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
-          </TouchableOpacity>
+          </ScalePressable>
 
           {/* Yearly plan (recommended) */}
-          <TouchableOpacity
+          <ScalePressable
             style={[styles.planCard, styles.planCardRecommended, isPurchasing && styles.planCardDisabled]}
             onPress={() => handleStartTrial(SUBSCRIPTION.PRODUCT_IDS.YEARLY)}
             disabled={isPurchasing}
@@ -212,7 +213,7 @@ export default function TrialStep({ onComplete }: Props) {
               <Text style={styles.savingsBadge}>{t('onboarding.trial.yearSavings')}</Text>
             </View>
             {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       ) : null}
 
@@ -221,9 +222,9 @@ export default function TrialStep({ onComplete }: Props) {
       </Text>
 
       {/* スキップボタン: marginTopを大きくして誤タップを防止 */}
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip} disabled={isPurchasing}>
+      <ScalePressable style={styles.skipButton} onPress={handleSkip} disabled={isPurchasing}>
         <Text style={styles.skipText}>{t('onboarding.trial.skipLater')}</Text>
-      </TouchableOpacity>
+      </ScalePressable>
     </View>
   );
 }
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
   recommendedText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
   planName: { fontSize: 14, color: '#B0B0C8', marginBottom: 2 },
   planPrice: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  planMonthly: { fontSize: 11, color: '#888', marginTop: 2 },
+  planMonthly: { fontSize: 11, color: '#9A9AB8', marginTop: 2 },
   billingUnavailable: {
     backgroundColor: '#2D2D44',
     borderRadius: 10,
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
   legal: { fontSize: 10, color: '#555', textAlign: 'center', lineHeight: 16, marginBottom: 12 },
   // スキップボタン: marginTopを増やしCTAとの距離を広げて誤タップを防止、色もWCAG AA準拠の#888以上に
   skipButton: { paddingVertical: 10, marginTop: 16, alignItems: 'center' },
-  skipText: { color: '#888', fontSize: 13, textDecorationLine: 'underline' },
+  skipText: { color: '#9A9AB8', fontSize: 13, textDecorationLine: 'underline' },
   // 年額節約額バッジ: 緑背景で月額より安い訴求を強調
   savingsBadge: {
     backgroundColor: '#4CAF50',

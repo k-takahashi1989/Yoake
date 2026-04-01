@@ -12,6 +12,7 @@ import {
 import { saveGoal } from '../../../services/firebase';
 import firestore from '@react-native-firebase/firestore';
 import { useTranslation } from '../../../i18n';
+import ScalePressable from '../../../components/common/ScalePressable';
 
 interface Props {
   onNext: () => void;
@@ -144,13 +145,13 @@ export default function GoalSetupStep({ onNext }: Props) {
         />
       </View>
 
-      <TouchableOpacity
+      <ScalePressable
         style={[styles.button, isSaving && styles.buttonDisabled]}
         onPress={handleSave}
         disabled={isSaving}
       >
         <Text style={styles.buttonText}>{isSaving ? t('onboarding.goal.saving') : t('common.next')}</Text>
-      </TouchableOpacity>
+      </ScalePressable>
     </ScrollView>
   );
 }
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: '#888',
+    color: '#9A9AB8',
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 13,
-    color: '#888',
+    color: '#9A9AB8',
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 8,

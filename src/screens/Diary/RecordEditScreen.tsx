@@ -8,6 +8,8 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,7 +22,9 @@ import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
 import { useTranslation } from '../../i18n';
 
-type Props = NativeStackScreenProps<DiaryStackParamList, 'RecordEdit'>;
+// HomeStack / DiaryStack 両方から遷移できる共通型
+type SharedParamList = { RecordEdit: { date: string } };
+type Props = NativeStackScreenProps<SharedParamList, 'RecordEdit'>;
 
 export default function RecordEditScreen({ route, navigation }: Props) {
   const { date } = route.params;
@@ -144,6 +148,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       {/* ヘッダー */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
@@ -164,7 +169,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* 睡眠時間プレビュー */}
         <View style={styles.durationPreview}>
           <Text style={styles.durationValue}>
@@ -246,6 +251,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
 
         <View style={styles.spacer} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -278,7 +284,7 @@ function getWakeFeelingOptions(t: (key: string) => string): Array<{ value: WakeF
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { color: '#888', fontSize: 15 },
+  errorText: { color: '#9A9AB8', fontSize: 15 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -289,7 +295,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2D2D44',
   },
   cancelBtn: { padding: 4 },
-  cancelText: { color: '#888', fontSize: 15 },
+  cancelText: { color: '#9A9AB8', fontSize: 15 },
   title: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   deleteBtn: { padding: 4 },
@@ -300,7 +306,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
   durationValue: { fontSize: 36, fontWeight: 'bold', color: '#6B5CE7' },
-  durationLabel: { fontSize: 13, color: '#888', marginTop: 4 },
+  durationLabel: { fontSize: 13, color: '#9A9AB8', marginTop: 4 },
   sectionCard: {
     marginHorizontal: 16,
     backgroundColor: '#2D2D44',
@@ -308,7 +314,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 14, color: '#888', fontWeight: '600', marginBottom: 12 },
+  sectionTitle: { fontSize: 14, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
   optionRow: { flexDirection: 'row', gap: 8 },
   optionChip: {
     flex: 1,
@@ -321,7 +327,7 @@ const styles = StyleSheet.create({
   },
   optionChipActive: { backgroundColor: '#6B5CE710', borderColor: '#6B5CE7' },
   optionEmoji: { fontSize: 22, marginBottom: 4 },
-  optionLabel: { fontSize: 10, color: '#888', textAlign: 'center' },
+  optionLabel: { fontSize: 10, color: '#9A9AB8', textAlign: 'center' },
   optionLabelActive: { color: '#6B5CE7', fontWeight: '600' },
   memoInput: {
     color: '#FFFFFF',

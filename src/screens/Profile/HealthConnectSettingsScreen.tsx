@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isHCAvailable, hasHCSleepPermission, requestHCPermissions } from '../../services/healthConnect';
 import { useTranslation } from '../../i18n';
+import { useSleepStore } from '../../stores/sleepStore';
 
 type Status = 'loading' | 'unavailable' | 'granted' | 'denied';
 
@@ -36,6 +37,8 @@ export default function HealthConnectSettingsScreen() {
     try {
       await requestHCPermissions();
       await checkStatus();
+      // 権限取得後にホーム画面のデータを即時更新
+      useSleepStore.getState().loadRecent();
     } catch {
       // ignore
     } finally {
@@ -138,12 +141,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
   statusRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   statusIcon: { fontSize: 24 },
   statusInfo: { flex: 1 },
   statusText: { fontSize: 16, color: '#FFFFFF', fontWeight: '600', marginBottom: 4 },
-  statusSubText: { fontSize: 13, color: '#888', lineHeight: 18 },
+  statusSubText: { fontSize: 13, color: '#9A9AB8', lineHeight: 18 },
   descText: { fontSize: 13, color: '#B0B0C8', lineHeight: 20 },
   actionBtn: {
     margin: 16,

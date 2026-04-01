@@ -1,27 +1,38 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../../i18n';
-import Icon from '../common/Icon';
+import ShirokumaIcon from '../common/ShirokumaIcon';
+import { ShirokumaMood } from '../common/ShirokumaIcon';
 
 interface Props {
   advice: string | null;
   isLoading: boolean;
   onRefresh?: () => void;
+  score?: number | null;   // 追加（未指定時は normal 扱い）
 }
 
-export default function AiAdviceCard({ advice, isLoading, onRefresh }: Props) {
+// スコア帯 → mood 変換
+function getMoodFromScore(score: number | null | undefined): ShirokumaMood {
+  if (score == null) return 'normal';
+  if (score >= 80) return 'happy';
+  if (score >= 60) return 'normal';
+  return 'cheer';
+}
+
+export default function AiAdviceCard({ advice, isLoading, onRefresh, score }: Props) {
   const { t } = useTranslation();
+  const mood = getMoodFromScore(score);
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Icon name="sparkling" size={18} />
+          <ShirokumaIcon size={24} mood={mood} />
           <Text style={styles.title}>{t('aiAdviceCard.title')}</Text>
         </View>
         {onRefresh && !isLoading && (
           <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-            <Text style={styles.refreshText}>{t('aiAdviceCard.refresh')}</Text>
+            <Text style={styles.refreshText}>{'🔄 '}{t('aiAdviceCard.refresh')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -57,10 +68,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { fontSize: 13, color: '#888', fontWeight: '600' },
-  refreshBtn: { paddingHorizontal: 8, paddingVertical: 2 },
+  title: { fontSize: 13, color: '#9A9AB8', fontWeight: '600' },
+  refreshBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#6B5CE7',
+    borderRadius: 12,
+  },
   refreshText: { fontSize: 11, color: '#6B5CE7' },
   advice: { fontSize: 15, color: '#E0E0F0', lineHeight: 24 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  loadingText: { color: '#888', fontSize: 14 },
+  loadingText: { color: '#9A9AB8', fontSize: 14 },
 });

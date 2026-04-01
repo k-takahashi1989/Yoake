@@ -24,11 +24,9 @@ import HomeScreen from '../screens/Home/HomeScreen';
 import ScoreDetailScreen from '../screens/Home/ScoreDetailScreen';
 import AiChatScreen from '../screens/Home/AiChatScreen';
 import DiaryListScreen from '../screens/Diary/DiaryScreen';
-import RecordDetailScreen from '../screens/Diary/RecordDetailScreen';
 import RecordEditScreen from '../screens/Diary/RecordEditScreen';
+import RecordDetailScreen from '../screens/Diary/RecordDetailScreen';
 import ReportScreen from '../screens/Report/ReportScreen';
-import AlarmScreen from '../screens/Alarm/AlarmScreen';
-import AlarmFiringScreen from '../screens/Alarm/AlarmFiringScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../screens/Profile/EditProfileScreen';
 import SubscriptionManageScreen from '../screens/Profile/SubscriptionManageScreen';
@@ -72,6 +70,11 @@ function HomeStackNavigator() {
         options={{ title: t('nav.scoreDetail'), headerBackTitle: '' }}
       />
       <HomeStack.Screen
+        name="RecordEdit"
+        component={RecordEditScreen}
+        options={{ title: t('nav.recordEdit'), headerBackTitle: '' }}
+      />
+      <HomeStack.Screen
         name="AiChat"
         component={AiChatScreen}
         options={{ title: t('nav.aiChat'), headerBackTitle: '' }}
@@ -90,14 +93,19 @@ function DiaryStackNavigator() {
         options={{ headerShown: false }}
       />
       <DiaryStack.Screen
-        name="RecordDetail"
-        component={RecordDetailScreen}
-        options={{ title: t('nav.recordDetail'), headerBackTitle: '' }}
+        name="ScoreDetail"
+        component={ScoreDetailScreen}
+        options={{ title: t('nav.scoreDetail'), headerBackTitle: '' }}
       />
       <DiaryStack.Screen
         name="RecordEdit"
         component={RecordEditScreen}
         options={{ title: t('nav.recordEdit'), headerBackTitle: '' }}
+      />
+      <DiaryStack.Screen
+        name="RecordDetail"
+        component={RecordDetailScreen}
+        options={{ title: t('nav.recordDetail'), headerBackTitle: '' }}
       />
     </DiaryStack.Navigator>
   );
@@ -173,7 +181,6 @@ function MainTabs() {
         <Tab.Screen name="Home" component={HomeStackNavigator} options={{ title: t('nav.home') }} />
         <Tab.Screen name="Diary" component={DiaryStackNavigator} options={{ title: t('nav.diary') }} />
         <Tab.Screen name="Report" component={ReportScreen} options={{ title: t('nav.report') }} />
-        <Tab.Screen name="Alarm" component={AlarmScreen} options={{ title: t('nav.alarm') }} />
         <Tab.Screen name="Profile" component={ProfileStackNavigator} options={{ title: t('nav.profile') }} />
       </Tab.Navigator>
     </View>
@@ -197,24 +204,21 @@ function SplashScreen() {
 export default function AppNavigator() {
   const { isInitialized, hasCompletedOnboarding } = useAuthStore();
 
-  // アラーム通知からアプリが起動された場合 → AlarmFiring へ遷移
+  // 起床リマインダー通知がタップされた場合 → Diary タブへ遷移
   const handleNavigationReady = useCallback(async () => {
     const initial = await notifee.getInitialNotification();
-    if (initial?.notification?.id === 'yoake_alarm') {
-      navigationRef.navigate('AlarmFiring');
+    if (initial?.notification?.id === 'wake_reminder_daily') {
+      navigationRef.navigate('Main');
     }
   }, []);
 
-  // フォアグラウンドでアラームが届いた場合 → AlarmFiring へ遷移
+  // フォアグラウンドで起床リマインダー通知がタップされた場合 → Diary タブへ遷移
   useEffect(() => {
     return notifee.onForegroundEvent(({ type, detail }) => {
-      const isAlarm = detail.notification?.id === 'yoake_alarm';
-      if (!isAlarm) return;
-      if (
-        (type === EventType.DELIVERED || type === EventType.PRESS) &&
-        navigationRef.isReady()
-      ) {
-        navigationRef.navigate('AlarmFiring');
+      const isWakeReminder = detail.notification?.id === 'wake_reminder_daily';
+      if (!isWakeReminder) return;
+      if (type === EventType.PRESS && navigationRef.isReady()) {
+        navigationRef.navigate('Main');
       }
     });
   }, []);
@@ -231,11 +235,6 @@ export default function AppNavigator() {
         ) : (
           <>
             <RootStack.Screen name="Main" component={MainTabs} />
-            <RootStack.Screen
-              name="AlarmFiring"
-              component={AlarmFiringScreen}
-              options={{ animation: 'fade' }}
-            />
           </>
         )}
       </RootStack.Navigator>

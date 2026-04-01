@@ -9,6 +9,9 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHabitStore } from '../../stores/habitStore';
@@ -134,6 +137,8 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
         {!isPremium ? (
           renderPaywall()
         ) : mode === 'add' ? (
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
           <View style={styles.addForm}>
             <Text style={styles.formLabel}>{t('habitCustomize.formEmojiLabel')}</Text>
             <View style={styles.emojiGrid}>
@@ -176,6 +181,8 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
               </TouchableOpacity>
             </View>
           </View>
+          </ScrollView>
+          </KeyboardAvoidingView>
         ) : (
           <>
             <Text style={styles.hint}>
@@ -206,7 +213,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2D2D44',
   },
   closeBtn: { padding: 4, minWidth: 60 },
-  closeText: { color: '#888', fontSize: 15 },
+  closeText: { color: '#9A9AB8', fontSize: 15 },
   title: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
   addBtn: { paddingHorizontal: 8, paddingVertical: 4, minWidth: 60, alignItems: 'flex-end' },
   addText: { color: '#6B5CE7', fontSize: 15, fontWeight: '600' },
@@ -240,7 +247,7 @@ const styles = StyleSheet.create({
   deleteText: { color: '#666', fontSize: 14 },
   // 追加フォーム
   addForm: { padding: 16, flex: 1 },
-  formLabel: { fontSize: 13, color: '#888', marginBottom: 10, marginTop: 16 },
+  formLabel: { fontSize: 13, color: '#9A9AB8', marginBottom: 10, marginTop: 16 },
   emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   emojiChip: {
     width: 44,
@@ -269,7 +276,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2D2D44',
     alignItems: 'center',
   },
-  cancelFormText: { color: '#888', fontSize: 15 },
+  cancelFormText: { color: '#9A9AB8', fontSize: 15 },
   saveFormBtn: {
     flex: 2,
     paddingVertical: 14,
@@ -284,5 +291,5 @@ const styles = StyleSheet.create({
   paywallIcon: { fontSize: 56, marginBottom: 16 },
   paywallTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   paywallDesc: { fontSize: 15, color: '#B0B0C8', textAlign: 'center', lineHeight: 24, marginBottom: 16 },
-  paywallCta: { fontSize: 13, color: '#888' },
+  paywallCta: { fontSize: 13, color: '#9A9AB8' },
 });

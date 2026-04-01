@@ -1,4 +1,21 @@
 {
   "name": "Yoake",
-  "displayName": "Yoake"
+  "displayName": "Yoake",
+  "expo": {
+    "name": "Yoake",
+    "slug": "yoake",
+    "version": "1.0.0",
+    "android": {
+      "package": "com.ktakahashi.yoake"
+    },
+    "ios": {
+      "bundleIdentifier": "com.ktakahashi.yoake"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "81734277-f9ab-4af7-8766-9ac9ef5f1e99"
+      }
+    },
+    "owner": "neighborhood1230"
+  }
 }

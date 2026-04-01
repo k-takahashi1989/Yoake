@@ -163,10 +163,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
   planBadgeRow: { marginBottom: 8 },
   planBadge: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
-  planNote: { fontSize: 13, color: '#888', marginTop: 4, lineHeight: 18 },
+  planNote: { fontSize: 13, color: '#9A9AB8', marginTop: 4, lineHeight: 18 },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   upgradeTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   yearlyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  upgradeSubtitle: { fontSize: 13, color: '#888' },
+  upgradeSubtitle: { fontSize: 13, color: '#9A9AB8' },
   discountBadge: {
     backgroundColor: '#6B5CE7',
     borderRadius: 8,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   discountText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
-  yearlyMonthly: { fontSize: 12, color: '#888', marginBottom: 8 },
+  yearlyMonthly: { fontSize: 12, color: '#9A9AB8', marginBottom: 8 },
   upgradeTrial: { fontSize: 14, color: '#9C8FFF', fontWeight: '600' },
   manageBtn: {
     margin: 16,

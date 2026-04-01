@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { isHCAvailable, hasHCSleepPermission } from '../../../services/healthConnect';
 import { useTranslation } from '../../../i18n';
+import ScalePressable from '../../../components/common/ScalePressable';
+import { useSleepStore } from '../../../stores/sleepStore';
 
 interface Props {
   onNext: () => void;
@@ -35,6 +37,10 @@ export default function HealthConnectStep({ onNext }: Props) {
         setStatus('checking');
         const granted = await hasHCSleepPermission();
         setStatus(granted ? 'connected' : 'denied');
+        // 権限取得済みの場合はホーム画面のデータを即時更新
+        if (granted) {
+          useSleepStore.getState().loadRecent();
+        }
       }
       appStateRef.current = next;
     });
@@ -129,7 +135,7 @@ export default function HealthConnectStep({ onNext }: Props) {
 
       <View style={styles.buttonGroup}>
         {status !== 'connected' && (
-          <TouchableOpacity
+          <ScalePressable
             style={[styles.button, styles.buttonPrimary, status === 'checking' && styles.buttonDisabled]}
             onPress={handleConnect}
             disabled={status === 'checking'}
@@ -137,17 +143,17 @@ export default function HealthConnectStep({ onNext }: Props) {
             <Text style={styles.buttonText}>
               {status === 'checking' ? t('onboarding.healthConnect.waitingBtn') : t('onboarding.healthConnect.connectBtn')}
             </Text>
-          </TouchableOpacity>
+          </ScalePressable>
         )}
 
-        <TouchableOpacity
+        <ScalePressable
           style={[styles.button, status === 'connected' ? styles.buttonPrimary : styles.buttonSecondary]}
           onPress={() => onNext()}
         >
           <Text style={[styles.buttonText, status !== 'connected' && styles.buttonTextSecondary]}>
             {status === 'connected' ? t('onboarding.healthConnect.nextBtn') : t('onboarding.healthConnect.skipBtn')}
           </Text>
-        </TouchableOpacity>
+        </ScalePressable>
       </View>
     </View>
   );
@@ -197,5 +203,5 @@ const styles = StyleSheet.create({
   buttonSecondary: { borderWidth: 1, borderColor: '#555' },
   buttonDisabled: { backgroundColor: '#6B5CE760' },
   buttonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  buttonTextSecondary: { color: '#888' },
+  buttonTextSecondary: { color: '#9A9AB8' },
 });

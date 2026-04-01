@@ -9,6 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format, subDays } from 'date-fns';
@@ -21,6 +24,8 @@ import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
 import { hasHCSleepPermission, readSleepForDate, HCSleepData } from '../../services/healthConnect';
 import { safeToDate } from '../../utils/dateUtils';
+import ScalePressable from '../../components/common/ScalePressable';
+import { haptics } from '../../utils/haptics';
 
 interface Props {
   visible: boolean;
@@ -28,11 +33,12 @@ interface Props {
   existingLog: SleepLog | null;
   goal: UserGoal | null;
   targetDate?: string; // 省略時は今日
+  onSave?: () => void; // 保存成功後に呼ばれるコールバック
 }
 
 type SourceMode = 'loading' | 'hc' | 'manual';
 
-export default function SleepInputModal({ visible, onClose, existingLog, goal, targetDate }: Props) {
+export default function SleepInputModal({ visible, onClose, existingLog, goal, targetDate, onSave }: Props) {
   const { t } = useTranslation();
   const { saveLog } = useSleepStore();
   const { getActiveEntries, isLoaded: habitsLoaded, loadHabits } = useHabitStore();
@@ -182,6 +188,9 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
         goal ?? { targetHours: 7.5, targetScore: 80, bedTimeTarget: null, updatedAt: null as any },
         source,
       );
+      // 保存成功後に触覚フィードバックを発火し、onSave コールバックを呼び出す
+      haptics.success();
+      onSave?.();
       onClose();
     } catch {
       Alert.alert(t('recordEdit.saveFailedTitle'), t('sleepInput.saveFailed'));
@@ -203,7 +212,15 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.container}>
+      <ImageBackground
+        source={require('../../assets/images/bg_home.png')}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        {/* ホーム画面と同じ背景を暗めのオーバーレイで薄く見せる */}
+        <View style={styles.bgOverlay} />
+        <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {/* ヘッダー */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
@@ -214,13 +231,14 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
               ? t('sleepInput.titleToday')
               : t('sleepInput.titlePast', { date: format(targetDateObj, 'M月d日（EEE）', { locale: ja }) })}
           </Text>
-          <TouchableOpacity
+          <ScalePressable
             onPress={handleSave}
             style={[styles.saveBtn, (isSaving || sourceMode === 'loading') && styles.saveBtnDisabled]}
             disabled={isSaving || sourceMode === 'loading'}
+            scaleValue={0.94}
           >
             <Text style={styles.saveText}>{isSaving ? t('common.saving') : t('common.save')}</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         {sourceMode === 'loading' ? (
@@ -229,12 +247,21 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
             <Text style={styles.loadingText}>{t('sleepInput.loadingHC')}</Text>
           </View>
         ) : (
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* 過去日バナー */}
             {!isToday && (
               <View style={styles.pastDateBanner}>
                 <Text style={styles.pastDateText}>
                   {t('sleepInput.pastDateBanner', { date: format(targetDateObj, 'M月d日（EEE）', { locale: ja }) })}
+                </Text>
+              </View>
+            )}
+
+            {/* 就寝時刻が前日にまたがるバナー（今日モーダルのみ） */}
+            {isToday && format(form.bedTime, 'yyyy-MM-dd') !== todayStr && (
+              <View style={styles.bedDateBanner}>
+                <Text style={styles.bedDateText}>
+                  {t('sleepInput.bedDateBanner', { date: format(form.bedTime, 'M月d日（EEE）', { locale: ja }) })}
                 </Text>
               </View>
             )}
@@ -355,7 +382,9 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
             <View style={styles.spacer} />
           </ScrollView>
         )}
-      </SafeAreaView>
+        </KeyboardAvoidingView>
+        </SafeAreaView>
+      </ImageBackground>
     </Modal>
   );
 }
@@ -403,7 +432,10 @@ const WAKE_FEELING_OPTIONS: Array<{ value: WakeFeeling; labelKey: string; emoji:
 ];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1A1A2E' },
+  container: { flex: 1 },
+  // 同じ背景画像を18%透けさせる暗オーバーレイ
+  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(13, 10, 35, 0.82)' },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -414,13 +446,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2D2D44',
   },
   cancelBtn: { padding: 4 },
-  cancelText: { color: '#888', fontSize: 15 },
+  cancelText: { color: '#9A9AB8', fontSize: 15 },
   title: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
   saveBtn: { backgroundColor: '#6B5CE7', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
   saveBtnDisabled: { opacity: 0.5 },
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingText: { color: '#888', fontSize: 14 },
+  loadingText: { color: '#9A9AB8', fontSize: 14 },
   scroll: { flex: 1 },
   pastDateBanner: {
     marginHorizontal: 16,
@@ -432,6 +464,16 @@ const styles = StyleSheet.create({
     borderColor: '#FF980040',
   },
   pastDateText: { color: '#FF9800', fontSize: 13, textAlign: 'center' },
+  bedDateBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#4FC3F715',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#4FC3F740',
+  },
+  bedDateText: { color: '#4FC3F7', fontSize: 13, textAlign: 'center' },
   hcBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -448,11 +490,11 @@ const styles = StyleSheet.create({
   hcBannerSwitch: { color: '#666', fontSize: 12, textDecorationLine: 'underline' },
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
   durationValue: { fontSize: 36, fontWeight: 'bold', color: '#6B5CE7' },
-  durationLabel: { fontSize: 13, color: '#888', marginTop: 4 },
+  durationLabel: { fontSize: 13, color: '#9A9AB8', marginTop: 4 },
   stageRow: { flexDirection: 'row', justifyContent: 'space-around' },
   stageItem: { alignItems: 'center' },
   stageValue: { fontSize: 16, fontWeight: 'bold' },
-  stageLabel: { fontSize: 10, color: '#888', marginTop: 4 },
+  stageLabel: { fontSize: 10, color: '#9A9AB8', marginTop: 4 },
   sectionCard: {
     marginHorizontal: 16,
     backgroundColor: '#2D2D44',
@@ -460,7 +502,19 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 14, color: '#888', fontWeight: '600', marginBottom: 12 },
+  sectionTitle: {
+    fontSize: 14,
+    color: '#9A9AB8',
+    fontWeight: '600',
+    marginBottom: 12,
+    backgroundColor: 'rgba(107, 92, 231, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginHorizontal: -16,
+    marginTop: -16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
   optionRow: { flexDirection: 'row', gap: 8 },
   optionChip: {
     flex: 1,
@@ -473,7 +527,7 @@ const styles = StyleSheet.create({
   },
   optionChipActive: { backgroundColor: '#6B5CE710', borderColor: '#6B5CE7' },
   optionEmoji: { fontSize: 22, marginBottom: 4 },
-  optionLabel: { fontSize: 10, color: '#888', textAlign: 'center' },
+  optionLabel: { fontSize: 10, color: '#9A9AB8', textAlign: 'center' },
   optionLabelActive: { color: '#6B5CE7', fontWeight: '600' },
   memoInput: {
     color: '#FFFFFF',
