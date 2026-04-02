@@ -3,6 +3,7 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSubscription, saveSubscription, getProfile, saveProfile, deleteAllUserData } from '../services/firebase';
 import { Subscription, UserProfile, AiPersonality, AgeGroup } from '../types';
+import { registerFcmToken, deleteFcmToken } from '../services/fcmService';
 
 const ONBOARDING_KEY = '@yoake:onboarding_completed';
 
@@ -58,6 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
         if (!user.isAnonymous) {
           await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+          registerFcmToken().catch(() => {});
         }
 
         set({
@@ -92,11 +94,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   completeOnboarding: async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     set({ hasCompletedOnboarding: true });
+    registerFcmToken().catch(() => {});
   },
 
   signOut: async () => {
     await AsyncStorage.removeItem(ONBOARDING_KEY);
     set({ hasCompletedOnboarding: false });
+    await deleteFcmToken().catch(() => {});
     await auth().signOut();
   },
 

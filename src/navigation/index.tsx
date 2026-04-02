@@ -5,6 +5,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import notifee, { EventType } from '@notifee/react-native';
+import messaging from '@react-native-firebase/messaging';
+import auth from '@react-native-firebase/auth';
+import { saveFcmToken } from '../services/fcmService';
 import {
   RootStackParamList,
   MainTabParamList,
@@ -35,7 +38,11 @@ import HealthConnectSettingsScreen from '../screens/Profile/HealthConnectSetting
 import NotificationSettingsScreen from '../screens/Profile/NotificationSettingsScreen';
 import DataManagementScreen from '../screens/Profile/DataManagementScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
-import { NOTIF_ID as MORNING_REMINDER_NOTIFICATION_ID } from '../services/notificationService';
+import {
+  NOTIF_ID as MORNING_REMINDER_NOTIFICATION_ID,
+  WEEKLY_REPORT_CHANNEL_ID,
+  ensureWeeklyReportChannel,
+} from '../services/notificationService';
 
 // ============================================================
 // ナビゲーションRef（コンポーネント外からでも使用可能）
@@ -227,11 +234,26 @@ function SplashScreen() {
 export default function AppNavigator() {
   const { isInitialized, hasCompletedOnboarding } = useAuthStore();
 
-  // 起床リマインダー通知がタップされた場合 → Diary タブへ遷移
+  // アプリ起動時の通知タップ処理（Notifee / FCM 両対応）
   const handleNavigationReady = useCallback(async () => {
+    // 週次レポートチャンネルを確保
+    ensureWeeklyReportChannel().catch(() => {});
+
+    // Notifee: 朝リマインダー通知タップ
     const initial = await notifee.getInitialNotification();
     if (initial?.notification?.id === MORNING_REMINDER_NOTIFICATION_ID) {
       navigationRef.navigate('Main');
+      return;
+    }
+
+    // FCM: アプリ終了状態から通知タップで起動した場合
+    const remoteMessage = await messaging().getInitialNotification();
+    if (remoteMessage?.data?.type === 'weekly_report' && navigationRef.isReady()) {
+      setTimeout(() => {
+        if (navigationRef.isReady()) {
+          (navigationRef as any).navigate('Main', { screen: 'Report' });
+        }
+      }, 500);
     }
   }, []);
 
@@ -245,6 +267,40 @@ export default function AppNavigator() {
         navigationRef.navigate('Main');
       }
     });
+  }, []);
+
+  // FCM: フォアグラウンド通知受信 + バックグラウンド→フォアグラウンド時のタップ + トークンリフレッシュ
+  useEffect(() => {
+    const unsubMessage = messaging().onMessage(async remoteMessage => {
+      if (remoteMessage.data?.type === 'weekly_report') {
+        await ensureWeeklyReportChannel();
+        await notifee.displayNotification({
+          title: remoteMessage.notification?.title ?? '週次レポート',
+          body: remoteMessage.notification?.body ?? '今週の睡眠レポートが届きました',
+          android: {
+            channelId: WEEKLY_REPORT_CHANNEL_ID,
+            pressAction: { id: 'default' },
+          },
+        });
+      }
+    });
+
+    const unsubOpened = messaging().onNotificationOpenedApp(remoteMessage => {
+      if (remoteMessage.data?.type === 'weekly_report' && navigationRef.isReady()) {
+        (navigationRef as any).navigate('Main', { screen: 'Report' });
+      }
+    });
+
+    const unsubRefresh = messaging().onTokenRefresh(async newToken => {
+      const user = auth().currentUser;
+      if (user) await saveFcmToken(user.uid, newToken).catch(() => {});
+    });
+
+    return () => {
+      unsubMessage();
+      unsubOpened();
+      unsubRefresh();
+    };
   }, []);
 
   if (!isInitialized) {

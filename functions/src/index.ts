@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { google } from 'googleapis';
 
@@ -87,6 +88,237 @@ async function getAndroidPublisher() {
     scopes: ['https://www.googleapis.com/auth/androidpublisher'],
   });
   return google.androidpublisher({ version: 'v3', auth });
+}
+
+// ============================================================
+// 週次レポート自動生成 — ヘルパー
+// ============================================================
+
+// サーバー側週次レポート生成用システムプロンプト
+const SERVER_WEEKLY_SYSTEM_PROMPT = `あなたは「ヨアケ」という名前の睡眠コーチAIです。
+ユーザーの1週間の睡眠データを分析し、週次レポートを日本語で作成してください。
+
+以下の構成で出力してください（合計400〜500文字）：
+📊 今週の総評（2文・平均スコアと前週比に必ず触れる）
+✅ 良かった点（1〜2点・具体的な日付や数値を含める）
+💡 改善できる点（1〜2点・原因特定と具体的な1ステップまで示す）
+🎯 来週のアクション（2つ・習慣相関・目覚め/寝つきのパターンを根拠に）
+
+ルール：
+・必ず上記の絵文字見出しを順番通り使う
+・数値を積極的に使う（スコア・時間・前週比）
+・メモを書いている日があれば内容をレポートに活かす
+・医療的な表現は使わない
+・データが3〜4日分しかない場合は冒頭で補足する`;
+
+// 配列をsize件ずつのチャンクに分割する
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
+// ISO週番号（月曜始まり）を "YYYY-WNN" 形式で返す
+function getISOWeekKey(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+// Claudeへ渡すユーザーメッセージを睡眠ログから組み立てる
+function buildServerWeeklyUserMessage(logs: any[], prevLogs: any[], goal: any | null): string {
+  const avgScore = logs.length > 0
+    ? Math.round(logs.reduce((s: number, l: any) => s + (l.score ?? 0), 0) / logs.length)
+    : 0;
+  const prevAvg = prevLogs.length > 0
+    ? Math.round(prevLogs.reduce((s: number, l: any) => s + (l.score ?? 0), 0) / prevLogs.length)
+    : null;
+
+  const scoreLine = prevAvg !== null
+    ? `平均スコア: ${avgScore}点（前週比 ${avgScore - prevAvg >= 0 ? '+' : ''}${avgScore - prevAvg}点）`
+    : `平均スコア: ${avgScore}点`;
+
+  const wakeFeelingMap: Record<string, string> = { GOOD: 'すっきり', NORMAL: 'ふつう', BAD: 'つらい' };
+  const sleepOnsetMap: Record<string, string> = { FAST: '5分以内', NORMAL: '15〜30分', SLOW: '30分以上' };
+  const seasonMap: Record<number, string> = {
+    1: '1月・冬', 2: '2月・冬', 3: '3月・春', 4: '4月・春', 5: '5月・春',
+    6: '6月・初夏', 7: '7月・夏', 8: '8月・真夏', 9: '9月・秋',
+    10: '10月・秋', 11: '11月・秋', 12: '12月・冬',
+  };
+
+  const logsText = logs.map((log: any) => {
+    const bedTime = log.bedTime?.toDate?.() ?? new Date(log.bedTime);
+    const wakeTime = log.wakeTime?.toDate?.() ?? new Date(log.wakeTime);
+    const h = Math.floor((log.totalMinutes ?? 0) / 60);
+    const m = (log.totalMinutes ?? 0) % 60;
+    const habits = ((log.habits ?? []) as any[])
+      .filter((hb: any) => hb.checked)
+      .map((hb: any) => `${hb.emoji}${hb.label}`)
+      .join(', ');
+    const lines = [
+      `【${log.date} ${bedTime.getHours()}:${String(bedTime.getMinutes()).padStart(2, '0')}就寝 → ${wakeTime.getHours()}:${String(wakeTime.getMinutes()).padStart(2, '0')}起床 / ${h}時間${m}分 / スコア${log.score}点】`,
+      `  目覚め: ${wakeFeelingMap[log.wakeFeeling] ?? log.wakeFeeling ?? '不明'} / 寝つき: ${sleepOnsetMap[log.sleepOnset] ?? log.sleepOnset ?? '不明'}`,
+    ];
+    if (log.deepSleepMinutes != null) lines.push(`  深睡眠: ${log.deepSleepMinutes}分 / 覚醒: ${log.awakenings ?? 0}回`);
+    if (habits) lines.push(`  習慣: ${habits}`);
+    if (log.memo) lines.push(`  メモ: ${log.memo}`);
+    return lines.join('\n');
+  }).join('\n');
+
+  const month = new Date().getMonth() + 1;
+  const goalText = goal ? `${goal.targetHours}時間 / スコア${goal.targetScore}点以上` : '未設定';
+
+  return [
+    `【季節】${seasonMap[month] ?? ''}`,
+    '',
+    `【直近7日の睡眠データ（${logs.length}日分）】`,
+    logsText,
+    '',
+    `【統計】${scoreLine}`,
+    '',
+    `【目標】${goalText}`,
+  ].join('\n');
+}
+
+// FCMプッシュ通知を送信し、無効トークンをFirestoreでフラグ更新する
+async function sendWeeklyReportNotification(uid: string): Promise<void> {
+  const tokensSnap = await db.collection('users').doc(uid)
+    .collection('fcmTokens')
+    .where('isValid', '==', true)
+    .get();
+  if (tokensSnap.empty) return;
+
+  const sendResults = await Promise.allSettled(
+    tokensSnap.docs.map(d =>
+      admin.messaging().send({
+        token: d.data().token as string,
+        notification: {
+          title: '📊 今週の睡眠レポートが届きました',
+          body: '先週の睡眠を振り返りましょう',
+        },
+        data: { type: 'weekly_report' },
+        android: { notification: { channelId: 'yoake_weekly_report' }, priority: 'high' },
+      })
+    )
+  );
+
+  // 無効トークンを Firestore でフラグ更新
+  const batch = db.batch();
+  let hasInvalid = false;
+  sendResults.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      const code = (result.reason as any)?.errorInfo?.code ?? '';
+      if (
+        code === 'messaging/registration-token-not-registered' ||
+        code === 'messaging/invalid-registration-token'
+      ) {
+        batch.update(tokensSnap.docs[i].ref, { isValid: false });
+        hasInvalid = true;
+      }
+    }
+  });
+  if (hasInvalid) await batch.commit();
+}
+
+// 1ユーザー分の週次レポートを生成・保存する（冪等）
+async function processUserWeeklyReport(uid: string, weekKey: string): Promise<void> {
+  // 冪等チェック — すでに生成済みなら何もしない
+  const reportRef = db.collection('users').doc(uid).collection('aiReports').doc(weekKey);
+  const existing = await reportRef.get();
+  if (existing.exists) return;
+
+  // 直近7日の sleepLogs を取得
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const startDate = sevenDaysAgo.toISOString().split('T')[0];
+  const logsSnap = await db.collection('users').doc(uid)
+    .collection('sleepLogs')
+    .where('date', '>=', startDate)
+    .orderBy('date', 'desc')
+    .limit(7)
+    .get();
+
+  // データが3日未満の場合はスキップ
+  if (logsSnap.docs.length < 3) return;
+
+  // 前週のログ（前週比計算用）
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const prevStart = fourteenDaysAgo.toISOString().split('T')[0];
+  const [prevLogsSnap, goalSnap] = await Promise.all([
+    db.collection('users').doc(uid)
+      .collection('sleepLogs')
+      .where('date', '>=', prevStart)
+      .where('date', '<', startDate)
+      .get(),
+    db.collection('users').doc(uid).collection('goal').doc('main').get(),
+  ]);
+
+  const logs = logsSnap.docs.map(d => ({ ...d.data(), date: d.id }));
+  const prevLogs = prevLogsSnap.docs.map(d => d.data());
+  const goal = goalSnap.exists ? goalSnap.data() ?? null : null;
+
+  const userMessage = buildServerWeeklyUserMessage(logs, prevLogs, goal);
+  const result = await callClaudeApi(
+    SERVER_WEEKLY_SYSTEM_PROMPT,
+    [{ role: 'user', content: userMessage }],
+    700,
+  );
+
+  await reportRef.set({
+    type: 'weekly',
+    content: result.text,
+    generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    inputSummary: `auto-generated ${weekKey}`,
+    tokenCount: result.inputTokens + result.outputTokens,
+  });
+
+  await sendWeeklyReportNotification(uid);
+}
+
+// プレミアムユーザー全員をページネーションしながら週次レポートを生成するバッチ
+async function runWeeklyReportBatch(): Promise<void> {
+  const weekKey = getISOWeekKey(new Date());
+  console.log('[weeklyBatch] start weekKey:', weekKey);
+
+  let lastDoc: admin.firestore.QueryDocumentSnapshot | null = null;
+  const PAGE_SIZE = 50;
+  let processedCount = 0;
+  let errorCount = 0;
+
+  while (true) {
+    let query = db.collection('users')
+      .where('isPremium', '==', true)
+      .orderBy('__name__')
+      .limit(PAGE_SIZE) as admin.firestore.Query;
+    if (lastDoc) query = query.startAfter(lastDoc);
+
+    const snap = await query.get();
+    if (snap.empty) break;
+
+    // 5件ずつ並列処理して API レート超過を防ぐ
+    const chunks = chunkArray(snap.docs, 5);
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(
+        chunk.map(doc => processUserWeeklyReport(doc.id, weekKey))
+      );
+      results.forEach(r => {
+        if (r.status === 'rejected') {
+          console.error('[weeklyBatch] error for user:', r.reason);
+          errorCount++;
+        } else {
+          processedCount++;
+        }
+      });
+    }
+
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < PAGE_SIZE) break;
+  }
+
+  console.log(`[weeklyBatch] done. processed: ${processedCount}, errors: ${errorCount}`);
 }
 
 // ============================================================
@@ -226,6 +458,12 @@ export const validatePurchase = onCall(
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
+      // isPremium フラグを users/{uid} ルートドキュメントに denormalize（バッチクエリ用）
+      await db.collection('users').doc(uid).set(
+        { isPremium: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+
       return { success: true, expiryTime: expiryTime.toISOString() };
     } catch (e: unknown) {
       if (e instanceof HttpsError) throw e;
@@ -298,6 +536,11 @@ export const activateTrial = onCall(
             trialUsed: true,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           }),
+        // isPremium フラグを users/{uid} ルートドキュメントに denormalize（バッチクエリ用）
+        db.collection('users').doc(uid).set(
+          { isPremium: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+          { merge: true }
+        ),
       ]);
 
       return { success: true };
@@ -307,5 +550,25 @@ export const activateTrial = onCall(
       console.error('activateTrial error:', msg);
       throw new HttpsError('internal', `トライアル開始エラー: ${msg}`);
     }
+  },
+);
+
+// ============================================================
+// ⑥ 週次レポート自動生成（Scheduled Function）
+//    毎週月曜 07:00 JST に全プレミアムユーザー分を生成
+// ============================================================
+
+export const weeklyReportScheduler = onSchedule(
+  {
+    schedule: '0 7 * * 1',
+    timeZone: 'Asia/Tokyo',
+    region: 'asia-northeast1',
+    secrets: ['CLAUDE_API_KEY'],
+    memory: '512MiB',
+    timeoutSeconds: 540,
+    maxInstances: 1,
+  },
+  async () => {
+    await runWeeklyReportBatch();
   },
 );

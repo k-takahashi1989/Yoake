@@ -40,6 +40,7 @@
 - **検証**: Cloud Functions で Google Play レシートを検証 → Admin SDKでFirestore書き込み
 - **クライアント書き込み禁止**: `subscription` ドキュメントへの直接書き込みはFirestore Rulesで拒否
 - **トライアル重複防止**: `react-native-device-info` の `getUniqueId()` とCloud Functionsで照合
+- **isPremium denormalization**: `validatePurchase` / `activateTrial` 実行時に `users/{uid}.isPremium = true` を merge 書き込み。`weeklyReportScheduler` のバッチクエリに使用
 - **ステータス**: ✅ 実装済み
 
 ---
@@ -150,7 +151,13 @@ Health Connect（自動） → データなし/未連携 → 手動入力
 
 ### 週次AIレポート（🔒 有料）
 - **ステータス**: ✅ 実装済み
-- トリガー: 月曜日の初回アプリ起動（直近7日に3件以上のログ）【確定】
+- トリガー①（サーバー）: **Scheduled Function `weeklyReportScheduler`** が毎週月曜 07:00 JST に全プレミアムユーザー分を自動生成
+  - 実装: `functions/src/index.ts` — `weeklyReportScheduler` / `runWeeklyReportBatch`
+  - 条件: 直近7日に3件以上のsleepLogsがある場合のみ生成
+  - 冪等: `aiReports/{weekKey}` が既存なら生成をスキップ
+  - 生成後: FCMプッシュ通知「📊 今週の睡眠レポートが届きました」を送信
+  - ページネーション: 50件ずつ取得 / 5件ずつ並列処理でAPI負荷を分散
+- トリガー②（クライアント）: 月曜日の初回アプリ起動（サーバー生成前の場合のフォールバック）
 - 再生成ボタン: レポート未生成時のみ表示（生成済みの場合は非表示）
 - 保存先: `aiReports/{"YYYY-WNN"}`
 - 出力構成: 今週の総評 / 良かった点 / 改善できる点 / 来週のアクション
@@ -345,3 +352,5 @@ service cloud.firestore {
 | 2026-04-01 | NotificationSettingsScreen: インライン通知関数を notificationService から呼び出しに置き換え |
 | 2026-04-01 | sleepStore.saveLog: LAST_SCORE_KEY 保存 + refreshMorningReminderIfEnabled fire-and-forget 追加 |
 | 2026-04-01 | B5 しろくまペルソナ導入: `ShirokumaIcon.tsx`（SVGアイコン・表情3種・groomアニメ）+ `ShirokumaBubble.tsx`（吹き出し複合コンポーネント）新規作成。HomeScreen の dreamBubble ゾーンを ShirokumaBubble に差し替え。`DAILY_SYSTEM_PROMPT` をしろくま口調に変更（既適用済）。WelcomeStep に feature0 追加。i18n キー `shirokuma.name` / `aiAdviceCard.title` 更新。 |
+| 2026-04-02 | `weeklyReportScheduler` 追加: 毎週月曜 07:00 JST に全プレミアムユーザーの週次レポートをサーバー側で自動生成・FCM通知送信。`functions/src/index.ts` に `onSchedule` import・`SERVER_WEEKLY_SYSTEM_PROMPT` / `chunkArray` / `getISOWeekKey` / `buildServerWeeklyUserMessage` / `sendWeeklyReportNotification` / `processUserWeeklyReport` / `runWeeklyReportBatch` を追加。 |
+| 2026-04-02 | `validatePurchase` / `activateTrial` に `users/{uid}.isPremium = true` の denormalization を追加。`weeklyReportScheduler` のバッチクエリ（`isPremium == true` フィルタ）で利用。 |

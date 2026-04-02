@@ -10,6 +10,15 @@ export const NOTIF_STORAGE_KEY = '@yoake:notification_settings';
 export const LAST_SCORE_KEY = '@yoake:last_score';
 export const CHANNEL_ID = 'yoake_reminders';
 export const NOTIF_ID = 'yoake_morning_reminder';
+export const WEEKLY_REPORT_CHANNEL_ID = 'yoake_weekly_report';
+
+export async function ensureWeeklyReportChannel(): Promise<void> {
+  await notifee.createChannel({
+    id: WEEKLY_REPORT_CHANNEL_ID,
+    name: 'YOAKE週次レポート',
+    importance: AndroidImportance.HIGH,
+  });
+}
 
 export async function ensureReminderChannel(): Promise<void> {
   await notifee.createChannel({

@@ -71,6 +71,15 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   }
 });
 
+// FCM バックグラウンドメッセージハンドラ（最外スコープに登録が必要）
+// バックグラウンド・終了状態で FCM メッセージを受信した場合の処理
+// 通知ペイロードがあれば FCM が自動で通知を表示するため、追加処理は不要
+require('@react-native-firebase/messaging').default().setBackgroundMessageHandler(
+  async (_remoteMessage) => {
+    // 自動表示に任せるため処理なし
+  },
+);
+
 // AppRegistry は同期的に登録する必要がある（非同期の中で呼ぶとクラッシュする）
 // i18n の初期化は App コンポーネント内で行う
 AppRegistry.registerComponent(appName, () => App);
