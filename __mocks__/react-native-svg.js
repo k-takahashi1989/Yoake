@@ -10,6 +10,7 @@ const mockComponent = (displayName) => {
 };
 
 module.exports = {
+  __esModule: true,
   default: mockComponent('Svg'),
   Svg: mockComponent('Svg'),
   SvgXml: mockComponent('SvgXml'),

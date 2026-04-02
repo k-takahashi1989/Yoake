@@ -19,6 +19,8 @@ interface AuthState {
   ensureSignedIn: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
+  linkEmail: (email: string, password: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   refreshSubscription: () => Promise<void>;
   updateProfile: (data: { displayName?: string | null; ageGroup?: AgeGroup | null; aiPersonality?: AiPersonality }) => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -26,7 +28,7 @@ interface AuthState {
   _devSetPremium: (value: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   profile: null,
   subscription: null,
@@ -54,7 +56,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           subscription !== null &&
           (subscription.status === 'active' || subscription.status === 'trial');
 
-        set({ profile, subscription, isPremium });
+        if (!user.isAnonymous) {
+          await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+        }
+
+        set({
+          profile,
+          subscription,
+          isPremium,
+          hasCompletedOnboarding: user.isAnonymous ? false : true,
+        });
 
         // lastActiveAt を更新
         await saveProfile({});
@@ -89,6 +100,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await auth().signOut();
   },
 
+  linkEmail: async (email: string, password: string) => {
+    const currentUser = auth().currentUser;
+    if (!currentUser) throw new Error('Not authenticated');
+
+    set({ isLoading: true });
+    try {
+      const credential = auth.EmailAuthProvider.credential(email.trim(), password);
+      await currentUser.linkWithCredential(credential);
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      set({ user: auth().currentUser, hasCompletedOnboarding: true });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  signInWithEmail: async (email: string, password: string) => {
+    set({ isLoading: true });
+    try {
+      await auth().signInWithEmailAndPassword(email.trim(), password);
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      set({ user: auth().currentUser, hasCompletedOnboarding: true });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   refreshSubscription: async () => {
     const sub = await getSubscription();
     const isPremium =
@@ -105,14 +142,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   _devSetPremium: (value: boolean) => {
     if (!__DEV__) return;
-    set({ isPremium: value });
-    saveSubscription({
+    const nextSubscription: Subscription = {
       plan: value ? 'monthly' : 'free',
       status: value ? 'active' : 'expired',
       trialStartAt: null,
       trialEndAt: null,
       currentPeriodEndAt: null,
       trialUsed: false,
+    };
+    set({ isPremium: value, subscription: nextSubscription });
+    saveSubscription({
+      ...nextSubscription,
     }).catch(e => console.warn('_devSetPremium failed:', e));
   },
 

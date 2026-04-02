@@ -46,7 +46,16 @@ export default function WelcomeStep({ onNext }: Props) {
       reveal(featuresOpacity, featuresY, 260),
       reveal(buttonOpacity,   buttonY,   400),
     ]).start();
-  }, []);
+  }, [
+    buttonOpacity,
+    buttonY,
+    contentOpacity,
+    contentY,
+    featuresOpacity,
+    featuresY,
+    logoOpacity,
+    logoY,
+  ]);
 
   return (
     <View style={styles.container}>

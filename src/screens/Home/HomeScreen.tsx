@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, subDays, startOfMonth } from 'date-fns';
 import { format as dateFnsFormat } from 'date-fns';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../../i18n';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSleepStore } from '../../stores/sleepStore';
@@ -36,7 +36,7 @@ import ShirokumaBubble from '../../components/home/ShirokumaBubble';
 type HomeNav = NativeStackNavigationProp<HomeStackParamList>;
 
 const DISMISSED_BANNER_KEY = '@yoake:dismissed_banner_date';
-const DEBT_PERIOD_KEY = '@yoake:sleep_debt_period';
+const HOME_TUTORIAL_SEEN_KEY = '@yoake:home_tutorial_seen_v1';
 
 
 export default function HomeScreen() {
@@ -54,7 +54,8 @@ export default function HomeScreen() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [yesterdayMissed, setYesterdayMissed] = useState(false);
   const [dismissedYesterday, setDismissedYesterday] = useState(false);
-  const [debtPeriod, setDebtPeriod] = useState<'14' | '30' | 'month'>('14');
+  const [showHomeGuide, setShowHomeGuide] = useState(false);
+  const [debtPeriod] = useState<'14' | '30' | 'month'>('14');
   const [isPanelExpanded, setIsPanelExpanded] = useState(true);
   const [isDreamExpanded, setIsDreamExpanded] = useState(false);
   const [dotsVisible, setDotsVisible] = useState(true);
@@ -109,18 +110,10 @@ export default function HomeScreen() {
       navigation.navigate('ScoreDetail', { date: dateStr, scoreColor: color });
       // リセットは戻ってきた時（focusイベント）で行う → チラ見え防止
     });
-  }, [navigation, zoomAnim, overlayAnim]);
+  }, [navigation, overlayAnim, zoomAnim]);
 
-  const hour = new Date().getHours();
   const dateLabel = format(new Date(), 'M月d日（EEE）', { locale: getDateFnsLocale() });
 
-  const greeting =
-    hour >= 5 && hour < 12  ? t('home.greetingMorning')
-    : hour >= 12 && hour < 18 ? t('home.greetingAfternoon')
-    : hour >= 18 && hour < 23 ? t('home.greetingEvening')
-    :                            t('home.greetingNight');
-  // greeting variable kept for potential future use
-  void greeting;
 
   useEffect(() => {
     Animated.loop(
@@ -139,7 +132,7 @@ export default function HomeScreen() {
         Animated.delay(900),
       ])
     ).start();
-  }, []);
+  }, [ecgAnim]);
 
   // マウント時：各コンテンツ要素を stagger で fade-in + translateY（0ms / 100ms / 180ms / 240ms）
   useEffect(() => {
@@ -164,18 +157,17 @@ export default function HomeScreen() {
       makeReveal(revealScoreOpacity, revealScoreY, 0),
       makeReveal(revealAiOpacity, revealAiY, 100),
       makeReveal(revealDotsOpacity, revealDotsY, 180),
-      makeReveal(revealDebtOpacity, revealDebtY, 240),
     ]).start();
-  }, []);
+  }, [
+    revealAiOpacity,
+    revealAiY,
+    revealDotsOpacity,
+    revealDotsY,
+    revealScoreOpacity,
+    revealScoreY,
+  ]);
 
-  useEffect(() => {
-    loadToday();
-    loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
-    loadGoalAndAi();
-    checkYesterdayMissed();
-    checkDismissedBanner();
-    loadDebtPeriod();
-  }, []);
+
 
   // ナビゲーション離脱／復帰でゴールドット上昇↔落下
   useEffect(() => {
@@ -277,47 +269,48 @@ export default function HomeScreen() {
       }
     });
     return unsub;
-  }, [navigation, zoomAnim, overlayAnim]);
+  }, [navigation, overlayAnim, screenH, screenW, zoomAnim]);
 
-  const loadDebtPeriod = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(DEBT_PERIOD_KEY);
-      if (stored === '14' || stored === '30' || stored === 'month') {
-        setDebtPeriod(stored);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const checkYesterdayMissed = async () => {
+  const checkYesterdayMissed = useCallback(async () => {
     try {
       const log = await getSleepLog(yesterday);
       setYesterdayMissed(!log);
     } catch {
       // ignore
     }
-  };
+  }, [yesterday]);
 
-  const checkDismissedBanner = async () => {
+  const checkDismissedBanner = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(DISMISSED_BANNER_KEY);
       setDismissedYesterday(stored === today);
     } catch {
       // ignore
     }
-  };
+  }, [today]);
 
-  const handleDismissBanner = async () => {
+  const checkHomeGuideSeen = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(HOME_TUTORIAL_SEEN_KEY);
+      if (!stored) {
+        setShowHomeGuide(true);
+        await AsyncStorage.setItem(HOME_TUTORIAL_SEEN_KEY, 'seen');
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleDismissBanner = useCallback(async () => {
     try {
       await AsyncStorage.setItem(DISMISSED_BANNER_KEY, today);
     } catch {
       // ignore
     }
     setDismissedYesterday(true);
-  };
+  }, [today]);
 
-  const loadGoalAndAi = async () => {
+  const loadGoalAndAi = useCallback(async () => {
     const g = await getGoal();
     setGoal(g);
     if (g) {
@@ -327,9 +320,9 @@ export default function HomeScreen() {
         setAiAdvice(cached.content);
       }
     }
-  };
+  }, [today]);
 
-  const loadAiAdvice = async (g: UserGoal, forceRefresh = false) => {
+  const loadAiAdvice = useCallback(async (g: UserGoal, forceRefresh = false) => {
     // 当日のレポートキャッシュを確認
     if (!forceRefresh) {
       const cached = await getAiReport(today);
@@ -359,24 +352,50 @@ export default function HomeScreen() {
     } finally {
       setIsLoadingAi(false);
     }
-  };
+  }, [t, today]);
+
+  useEffect(() => {
+    loadToday();
+    loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
+    loadGoalAndAi();
+    checkYesterdayMissed();
+    checkDismissedBanner();
+    checkHomeGuideSeen();
+  }, [
+    checkHomeGuideSeen,
+    checkDismissedBanner,
+    checkYesterdayMissed,
+    loadGoalAndAi,
+    loadRecent,
+    loadToday,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadToday();
+      void loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
+    }, [loadRecent, loadToday]),
+  );
+
+  const animatePanel = useCallback((expanded: boolean) => {
+    Animated.timing(panelAnim, {
+      toValue: expanded ? 1 : 0,
+      duration: 280,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    setIsPanelExpanded(expanded);
+  }, [panelAnim]);
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await Promise.all([loadToday(), loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME)]);
     setIsRefreshing(false);
-  }, []);
+  }, [loadRecent, loadToday]);
 
   const togglePanel = useCallback(() => {
-    const toValue = isPanelExpanded ? 0 : 1;
-    Animated.timing(panelAnim, {
-      toValue,
-      duration: 280,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-    setIsPanelExpanded(prev => !prev);
-  }, [isPanelExpanded, panelAnim]);
+    animatePanel(!isPanelExpanded);
+  }, [animatePanel, isPanelExpanded]);
 
   const toggleDreamExpand = useCallback(() => {
     setIsDreamExpanded(prev => {
@@ -387,9 +406,10 @@ export default function HomeScreen() {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
+      animatePanel(!next);
       return next;
     });
-  }, [dreamExpandAnim]);
+  }, [animatePanel, dreamExpandAnim]);
 
   // スコアが null→数値に変わった瞬間に軽い触覚フィードバック
   const prevTodayLogRef = useRef<typeof todayLog>(undefined);
@@ -402,18 +422,13 @@ export default function HomeScreen() {
     prevTodayLogRef.current = todayLog;
   }, [todayLog]);
 
-  const scoreInfo = todayLog ? getScoreInfo(todayLog.score) : null;
-  const scoreColor = scoreInfo ? SCORE_COLORS[scoreInfo.color] : '#6B5CE7';
 
   // 連続記録日数（recentLogs は降順で渡す）
   const streak = calculateStreak(recentLogs);
 
   // スコアコンテキスト（前日比・今週平均）
-  const prevScore = recentLogs[1]?.score ?? null;
-  const scoreDiff = todayLog && prevScore !== null ? todayLog.score - prevScore : null;
 
   // 今週の目標達成
-  const weekLogs = recentLogs.slice(0, 7);
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -426,19 +441,39 @@ export default function HomeScreen() {
         return log ? log.score >= goal.targetScore : false;
       }).length
     : 0;
-  void achievedDays;
-
-  // クマの画面座標（Home: focusX=0.5, focusY=0.43, scale=1.0）
-  const bearX = screenW * 0.4 + 40;
-  const bearY = screenH * 0.35 + 70;
-  const dotRadius = 108; // 弧の半径(px)
-  // 夢吹き出し展開時の最大テキスト高（画面下端 - bubble上端 - bottomPanel分 の余裕）
-  const dreamExpandedH = Math.max(180, Math.round(screenH * 0.65 - 260));
-  const DOT_HALF = 18;   // ドットの半径(36/2)
-  // 7日分を上半分の弧（-150° 〜 -30°）に均等配置
-  const goalDotAngles = [-150, -125, -100, -75, -50, -25, 0];
-
-  // 睡眠負債計算
+  const todayDurationText = todayLog
+    ? `${Math.floor(todayLog.totalMinutes / 60)}h${todayLog.totalMinutes % 60}m`
+    : t('home.noData');
+  const todayBedtimeText = todayLog
+    ? format(safeToDate(todayLog.bedTime), 'HH:mm')
+    : '--:--';
+  const todayWakeText = todayLog
+    ? format(safeToDate(todayLog.wakeTime), 'HH:mm')
+    : '--:--';
+  const heroSubtitle = todayLog ? t('home.heroReadySub') : t('home.heroEmptySub');
+  const isEnglishUi = t('nav.aiChat') === 'AI Chat';
+  const primaryActionLabel = todayLog
+    ? (isEnglishUi ? 'Result' : '結果')
+    : (isEnglishUi ? 'Log sleep' : '睡眠登録');
+  const secondaryActionLabel = todayLog
+    ? t('common.edit')
+    : (isEnglishUi ? 'Yesterday' : '昨日記録');
+  const statusTone = todayLog ? '#79E0B5' : '#FFD36E';
+  const progressMeta = (
+    <View style={styles.heroMetaColumn}>
+      <View style={styles.heroBadge}>
+        <View style={[styles.heroBadgeDot, { backgroundColor: statusTone }]} />
+        <Text style={styles.heroBadgeText}>
+          {goal ? t('home.weekGoalCompact', { achieved: achievedDays }) : t('home.todaySleep')}
+        </Text>
+      </View>
+      {streak >= 2 && (
+        <View style={styles.heroStreakBadge}>
+          <Text style={styles.heroStreakText}>🔥 {streak}日連続</Text>
+        </View>
+      )}
+    </View>
+  );
   const monthStart = dateFnsFormat(startOfMonth(new Date()), 'yyyy-MM-dd');
   const debtLogs =
     debtPeriod === '14' ? recentLogs.slice(0, 14)
@@ -451,6 +486,18 @@ export default function HomeScreen() {
     ? t('sleepDebt.none')
     : `${debtHours > 0 ? `${debtHours}${t('common.hours')}` : ''}${debtMins > 0 ? `${debtMins}${t('common.minutes')}` : ''}`;
   const debtColor = debtMinutes === 0 ? '#4CAF50' : debtMinutes < 120 ? '#FFC107' : '#F44336';
+
+  // クマの画面座標（Home: focusX=0.5, focusY=0.43, scale=1.0）
+  const bearX = screenW * 0.4 + 40;
+  const bearY = screenH * 0.35 + 70;
+  const dotRadius = 108; // 弧の半径(px)
+  // 夢吹き出し展開時の最大テキスト高（画面下端 - bubble上端 - bottomPanel分 の余裕）
+  const dreamExpandedH = Math.max(180, Math.round(screenH * 0.65 - 260));
+  const DOT_HALF = 18;   // ドットの半径(36/2)
+  // 7日分を上半分の弧（-150° 〜 -30°）に均等配置
+  const goalDotAngles = [-150, -125, -100, -75, -50, -25, 0];
+
+  // 睡眠負債計算
 
   // カメラズーム用トランスフォーム（ドット座標をピボットにスケールアップ）
   const ZOOM_SCALE = 8;
@@ -474,6 +521,12 @@ export default function HomeScreen() {
       }),
     },
   ] : undefined;
+  const guideItems = [
+    { key: 'hero', title: t('home.guideHeroTitle'), body: t('home.guideHeroBody') },
+    { key: 'note', title: t('home.guideNoteTitle'), body: t('home.guideNoteBody') },
+    { key: 'dots', title: t('home.guideDotsTitle'), body: t('home.guideDotsBody') },
+    { key: 'panel', title: t('home.guidePanelTitle'), body: t('home.guidePanelBody') },
+  ];
 
   return (
     <View style={[styles.root, { overflow: 'hidden' }]}>
@@ -485,13 +538,70 @@ export default function HomeScreen() {
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         >
+      <View style={[styles.guideAnchor, { top: insets.top + 14 }]}>
+        <TouchableOpacity
+          style={styles.guideButton}
+          activeOpacity={0.85}
+          onPress={() => setShowHomeGuide(prev => !prev)}
+        >
+          <Icon name="note" size={13} color="#F7EBC0" />
+          <Text style={styles.guideButtonText}>{t('home.guideButton')}</Text>
+        </TouchableOpacity>
+
+        {showHomeGuide && (
+          <View style={[styles.guideCard, { width: Math.min(248, screenW * 0.68) }]}>
+            <View style={styles.guideCardHeader}>
+              <Text style={styles.guideCardTitle}>{t('home.guideTitle')}</Text>
+              <TouchableOpacity onPress={() => setShowHomeGuide(false)} hitSlop={8}>
+                <Text style={styles.guideCardClose}>{t('common.close')}</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.guideCardHint}>{t('home.guideHint')}</Text>
+
+            <View style={styles.guideList}>
+              {guideItems.map((item, index) => (
+                <View key={item.key} style={styles.guideItem}>
+                  <View style={styles.guideItemIndex}>
+                    <Text style={styles.guideItemIndexText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.guideItemCopy}>
+                    <Text style={styles.guideItemTitle}>{item.title}</Text>
+                    <Text style={styles.guideItemBody}>{item.body}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
       {/* 上部：日付（左）+ 雲＋サマリー（右）― stagger reveal [0ms] */}
       <Animated.View style={{ opacity: revealScoreOpacity, transform: [{ translateY: revealScoreY }] }}>
+        {false && <View style={[styles.heroCard, { marginTop: insets.top + 8 }]}>
+          <View style={styles.heroCardHeader}>
+            <View style={styles.heroCopy}>
+              {!todayLog && <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>}
+            </View>
+            <View style={styles.heroMetaColumn}>
+              <View style={styles.heroBadge}>
+                <View style={[styles.heroBadgeDot, { backgroundColor: statusTone }]} />
+                <Text style={styles.heroBadgeText}>
+                  {goal ? t('home.weekGoalCompact', { achieved: achievedDays }) : t('home.todaySleep')}
+                </Text>
+              </View>
+              {streak >= 2 && (
+                <View style={styles.heroStreakBadge}>
+                  <Text style={styles.heroStreakText}>🔥 {streak}日連続</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>}
+
       <View style={[styles.topZone, { paddingTop: insets.top + 8 }]}>
         {/* 左：日付 + ストリークバッジ */}
         <View style={styles.dateColumn}>
           <Text style={styles.dateText}>{dateLabel}</Text>
-          {streak >= 2 && (
+          {false && streak >= 2 && (
             <View style={styles.streakBadge}>
               <Text style={styles.streakText}>🔥 {streak}日連続</Text>
             </View>
@@ -502,38 +612,15 @@ export default function HomeScreen() {
         <View style={styles.topRightColumn}>
 
           {/* 睡眠サマリー */}
-          {todayLog && (
-            <View style={styles.topSummaryColumn}>
-              <View style={styles.topSummaryItem}>
-                <Text style={styles.topSummaryLabel}>{t('home.duration')}</Text>
-                <Text style={styles.topSummaryValue}>{`${Math.floor(todayLog.totalMinutes / 60)}h${todayLog.totalMinutes % 60}m`}</Text>
-              </View>
-              <View style={styles.topSummaryItem}>
-                <Text style={styles.topSummaryLabel}>{t('home.bedtime')}</Text>
-                <Text style={styles.topSummaryValue}>{format(safeToDate(todayLog.bedTime), 'HH:mm')}</Text>
-              </View>
-              <View style={styles.topSummaryItem}>
-                <Text style={styles.topSummaryLabel}>{t('home.wakeup')}</Text>
-                <Text style={styles.topSummaryValue}>{format(safeToDate(todayLog.wakeTime), 'HH:mm')}</Text>
-              </View>
-            </View>
-          )}
 
           {/* 記録ボタン（未記録時のみ、スコアリングの下） */}
-          {!todayLog && (
-            <ScalePressable
-              style={styles.miniRecordButton}
-              onPress={() => { setModalTargetDate(today); setShowInputModal(true); }}
-            >
-              <Text style={styles.miniRecordButtonText}>＋ 記録</Text>
-            </ScalePressable>
-          )}
+          {progressMeta}
         </View>
       </View>
       </Animated.View>
 
       {/* 睡眠負債 付箋紙（プレミアムのみ）― stagger reveal [240ms] */}
-      {isPremium && (
+      {false && isPremium && (
         <Animated.View style={{ opacity: revealDebtOpacity, transform: [{ translateY: revealDebtY }] }}>
           <StickyNoteDebt
             label={t('sleepDebt.title')}
@@ -554,8 +641,8 @@ export default function HomeScreen() {
         const rad = (goalDotAngles[i] * Math.PI) / 180;
         const isTodayDot = i === 6;
         // 今日のドットは1.6倍サイズ（57×44）なので中心合わせのオフセットを調整
-        const dotHalfW = isTodayDot ? 28 : DOT_HALF;
-        const dotHalfH = isTodayDot ? 22 : DOT_HALF;
+        const dotHalfW = DOT_HALF;
+        const dotHalfH = DOT_HALF;
         const dotX = bearX + dotRadius * Math.cos(rad) - dotHalfW;
         const dotY = bearY + dotRadius * Math.sin(rad) - dotHalfH;
         const dotScoreColor = log ? SCORE_COLORS[getScoreInfo(log.score).color] : '#555577';
@@ -566,8 +653,13 @@ export default function HomeScreen() {
             onPress={() => log && handleDotPress(dateStr, dotX + dotHalfW, dotY + dotHalfH, dotScoreColor)}
             activeOpacity={log ? 0.7 : 1}
           >
+            {isTodayDot && (
+              <View style={styles.todayMarker}>
+                <Text style={styles.todayMarkerText}>{t('home.todayMarker')}</Text>
+              </View>
+            )}
             <CloudDot score={log?.score} scoreColor={dotScoreColor} achieved={achieved} empty={!log} index={i} visible={dotsVisible} isToday={isTodayDot} />
-            <Text style={[styles.goalDayLabel, isTodayDot && styles.todayDayLabel]}>{dayLabel}</Text>
+            <Text style={styles.goalDayLabel}>{dayLabel}</Text>
           </TouchableOpacity>
         );
       })}
@@ -578,17 +670,18 @@ export default function HomeScreen() {
         <Animated.View
           style={{
             position: 'absolute',
-            left: screenW * 0.08,
-            top: bearY + 80,
-            width: screenW * 0.84,
+            left: Math.max(12, screenW - 350),
+            top: bearY + 28,
+            width: isDreamExpanded ? Math.min(screenW * 0.72, 280) : 150,
+            alignItems: 'flex-start',
             opacity: revealAiOpacity,
             transform: [{ translateY: revealAiY }],
           }}
         >
           <ShirokumaBubble
             advice={aiAdvice}
+            compactLabel={t('home.todayBrief')}
             isLoading={isLoadingAi}
-            score={todayLog?.score ?? null}
             isDreamExpanded={isDreamExpanded}
             onToggleExpand={toggleDreamExpand}
             dreamExpandAnim={dreamExpandAnim}
@@ -604,13 +697,94 @@ export default function HomeScreen() {
           <View style={styles.handle} />
         </TouchableOpacity>
         <Animated.View style={{
-          maxHeight: panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 90] }),
+          maxHeight: panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 228] }),
           overflow: 'hidden',
         }}>
           <ScrollView
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#6B5CE7" />}
           >
+            <View style={styles.panelActionGroup}>
+              <View style={styles.panelQuickStats}>
+                <Text style={styles.panelQuickStatsTitle}>{t('home.quickStatsTitle')}</Text>
+                <View style={styles.panelQuickStatsRow}>
+                  <View style={styles.panelQuickStat}>
+                    <Text style={styles.panelQuickLabel}>{t('home.duration')}</Text>
+                    <Text style={styles.panelQuickValue}>{todayDurationText}</Text>
+                  </View>
+                  <View style={styles.panelQuickStat}>
+                    <Text style={styles.panelQuickLabel}>{t('home.bedtime')}</Text>
+                    <Text style={styles.panelQuickValue}>{todayBedtimeText}</Text>
+                  </View>
+                  <View style={styles.panelQuickStat}>
+                    <Text style={styles.panelQuickLabel}>{t('home.wakeup')}</Text>
+                    <Text style={styles.panelQuickValue}>{todayWakeText}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.panelActionRow}>
+                <ScalePressable
+                  style={[styles.heroPrimaryAction, !todayLog && styles.heroPrimaryActionWarm]}
+                  onPress={() => {
+                    if (todayLog) {
+                      navigation.navigate('ScoreDetail', { date: today });
+                    } else {
+                      setModalTargetDate(today);
+                      setShowInputModal(true);
+                    }
+                  }}
+                >
+                  <Text style={styles.heroPrimaryActionText} numberOfLines={1}>
+                    {primaryActionLabel}
+                  </Text>
+                </ScalePressable>
+
+                {(todayLog || yesterdayMissed) && (
+                  <ScalePressable
+                    style={styles.heroSecondaryAction}
+                    onPress={() => {
+                      if (todayLog) {
+                        setModalTargetDate(today);
+                        setShowInputModal(true);
+                      } else if (yesterdayMissed) {
+                        setModalTargetDate(yesterday);
+                        setShowInputModal(true);
+                      }
+                    }}
+                  >
+                    <Icon
+                      name={todayLog ? 'user-edit' : 'calendar-warning'}
+                      size={14}
+                      color="#CFC9FF"
+                    />
+                    <Text style={styles.heroSecondaryActionText} numberOfLines={1}>
+                      {secondaryActionLabel}
+                    </Text>
+                  </ScalePressable>
+                )}
+
+                <ScalePressable
+                  style={[styles.heroSecondaryAction, styles.heroAiAction, !isPremium && styles.heroAiActionLocked]}
+                  onPress={() => navigation.navigate('AiChat')}
+                >
+                  <Icon
+                    name="speech-bubble"
+                    size={14}
+                    color={isPremium ? '#CFC9FF' : '#A8A4CC'}
+                  />
+                  <Text style={styles.heroSecondaryActionText} numberOfLines={1}>
+                    {t('nav.aiChat')}
+                  </Text>
+                </ScalePressable>
+              </View>
+
+              {!todayLog && (
+                <Text style={styles.panelEmptyHint}>{heroSubtitle}</Text>
+              )}
+
+            </View>
+
             {/* ウェルカムカード（初回） */}
             {!todayLog && recentLogs.length === 0 && (
               <View style={styles.firstTimeCard}>
@@ -637,17 +811,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* AIチャットボタン */}
-            <TouchableOpacity
-              style={[styles.aiChatPanelButton, !isPremium && styles.aiChatPanelButtonLocked]}
-              onPress={() => navigation.navigate('AiChat')}
-              activeOpacity={0.85}
-            >
-              <Icon name="speech-bubble" size={16} color="#9C8FFF" />
-              <Text style={styles.aiChatPanelButtonText}>
-                {isPremium ? t('home.aiChatButton') : t('home.aiChatLocked')}
-              </Text>
-            </TouchableOpacity>
           </ScrollView>
         </Animated.View>
 
@@ -793,7 +956,7 @@ function CloudDot({
 
       return () => clearTimeout(riseTimeout);
     }
-  }, [visible, index]);
+  }, [dropOpacity, dropY, floatAnim, index, visible]);
 
   const bgColor = empty
     ? 'rgba(107, 92, 231, 0.18)'
@@ -817,12 +980,6 @@ function CloudDot({
         },
         // 今日のドット: 1.6倍サイズ＋発光ボーダー＋影
         isToday && {
-          width: 57,
-          height: 44,
-          borderTopLeftRadius: 22,
-          borderTopRightRadius: 14,
-          borderBottomLeftRadius: 16,
-          borderBottomRightRadius: 19,
           borderWidth: 1.5,
           borderColor: (scoreColor ?? '#9C8FFF') + 'AA',
           shadowColor: scoreColor ?? '#6B5CE7',
@@ -834,7 +991,7 @@ function CloudDot({
         empty && styles.goalDotEmpty,
       ]}
     >
-      {/* スコア数値はドット内に表示しない（色のみで表現） */}
+      {!empty && score != null && <Text style={styles.goalDotScore}>{score}</Text>}
     </Animated.View>
   );
 }
@@ -909,24 +1066,197 @@ const stickyStyles = StyleSheet.create({
   },
 });
 
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.summaryItem}>
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  heroCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: 'rgba(10, 14, 36, 0.76)',
+    borderWidth: 1,
+    borderColor: 'rgba(186, 177, 255, 0.22)',
+    shadowColor: '#000814',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
+  },
+  heroCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroCopy: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  heroMetaColumn: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  heroEyebrow: {
+    fontSize: 12,
+    color: '#BDB7F5',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#D6D4EE',
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  heroBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  heroBadgeText: {
+    fontSize: 11,
+    color: '#F8F7FF',
+    fontWeight: '700',
+  },
+  heroStreakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 152, 0, 0.18)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 152, 0, 0.35)',
+  },
+  heroStreakText: {
+    fontSize: 11,
+    color: '#FFA726',
+    fontWeight: '700',
+  },
+  heroPrimaryAction: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6257DA',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 14,
+    shadowColor: '#7A70F4',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  heroPrimaryActionWarm: {
+    backgroundColor: '#E88954',
+    shadowColor: '#E88954',
+  },
+  heroPrimaryActionText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  heroSecondaryAction: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 12,
+    shadowColor: '#000814',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  heroSecondaryActionText: {
+    color: '#E9E7FF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  heroAiAction: {
+    backgroundColor: 'rgba(156,143,255,0.1)',
+  },
+  heroAiActionLocked: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  panelActionGroup: {
+    marginBottom: 12,
+  },
+  panelQuickStats: {
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  panelQuickStatsTitle: {
+    fontSize: 11,
+    color: '#A8A4CC',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  panelQuickStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  panelQuickStat: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  panelQuickLabel: {
+    fontSize: 10,
+    color: '#A8A4CC',
+    marginBottom: 4,
+  },
+  panelQuickValue: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  panelActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   // 上部ゾーン（日付左・ScoreRing右）
+  panelEmptyHint: {
+    marginTop: 10,
+    color: '#A8A4CC',
+    fontSize: 12,
+    lineHeight: 18,
+  },
   topZone: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingLeft: 16,
     paddingRight: 0,
+    marginTop: 4,
   },
   dateColumn: {
     alignItems: 'flex-start',
@@ -996,6 +1326,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 5,
   },
+  todayMarker: {
+    position: 'absolute',
+    right: -12,
+    bottom: -6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(11, 10, 28, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000814',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  todayMarkerText: {
+    fontSize: 7,
+    color: '#F6F2D6',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   cloudDot: {
     width: 36,
     height: 28,
@@ -1009,11 +1361,103 @@ const styles = StyleSheet.create({
   goalDotEmpty: { opacity: 0.35 },
   goalDotScore: { fontSize: 13, fontFamily: 'KiwiMaru-Regular', color: '#FFFFFF', lineHeight: 16, includeFontPadding: false },
   // 今日のドット：雲が1.6倍サイズなのでスコアも大きく
-  goalDotScoreToday: { fontSize: 18, lineHeight: 22 },
   goalDayLabel: { fontSize: 9, color: '#FFFFFF', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   // 今日の曜日ラベル（少し大きく）
-  todayDayLabel: { fontSize: 11, fontWeight: '600' },
   // AIチャットボタン（ECG枠線アニメ）
+  guideAnchor: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 30,
+  },
+  guideButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(11, 10, 28, 0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  guideButtonText: {
+    color: '#F5F2DE',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  guideCard: {
+    marginTop: 8,
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(11, 10, 28, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#000814',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  guideCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  guideCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  guideCardClose: {
+    color: '#BDB7F5',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  guideCardHint: {
+    color: '#B9B5DA',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  guideList: {
+    gap: 10,
+  },
+  guideItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  guideItemIndex: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(107, 92, 231, 0.24)',
+    borderWidth: 1,
+    borderColor: 'rgba(156,143,255,0.35)',
+  },
+  guideItemIndexText: {
+    color: '#EFEAFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  guideItemCopy: {
+    flex: 1,
+  },
+  guideItemTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  guideItemBody: {
+    color: '#C9C6E8',
+    fontSize: 11,
+    lineHeight: 16,
+  },
   chatButtonShell: {
     position: 'absolute',
     borderRadius: 20,
@@ -1098,12 +1542,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    maxHeight: 280,
-    backgroundColor: 'rgba(13, 13, 30, 0.88)',
+    maxHeight: 392,
+    backgroundColor: 'rgba(13, 13, 30, 0.8)',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.3)',
+    borderColor: 'rgba(194, 205, 255, 0.18)',
     paddingHorizontal: 16,
     paddingTop: 12,
   },

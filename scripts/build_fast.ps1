@@ -37,7 +37,7 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Bundle failed"; exit 1 }
 Write-Host "[2/3] Building APK (incremental, no clean)..." -ForegroundColor Cyan
 Set-Location "android"
 
-.\gradlew.bat installDebug 2>&1
+.\gradlew.bat installDebug
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build failed. If you added native packages, run build_native.ps1 instead."

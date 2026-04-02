@@ -14,7 +14,7 @@ import { DiaryStackParamList, SleepLog } from '../../types';
 import { getSleepLog } from '../../services/firebase';
 import { getScoreInfo } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
-import { useTranslation } from '../../i18n';
+import { i18n, useTranslation } from '../../i18n';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
 
 type Props = NativeStackScreenProps<DiaryStackParamList, 'RecordDetail'>;
@@ -68,6 +68,9 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
 
   const checkedHabits = log.habits.filter(h => h.checked);
   const uncheckedHabits = log.habits.filter(h => !h.checked);
+  const actionsTitle = i18n.language === 'ja' ? '記録した行動' : t('recordDetail.habitsTitle');
+  const checkedLabel = i18n.language === 'ja' ? '記録あり' : t('recordDetail.habitsChecked');
+  const uncheckedLabel = i18n.language === 'ja' ? '記録なし' : t('recordDetail.habitsUnchecked');
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -113,11 +116,11 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
 
         {/* 習慣チェック */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('recordDetail.habitsTitle')}</Text>
+          <Text style={styles.cardTitle}>{actionsTitle}</Text>
 
           {checkedHabits.length > 0 && (
             <>
-              <Text style={styles.habitGroupLabel}>{t('recordDetail.habitsChecked')}</Text>
+              <Text style={styles.habitGroupLabel}>{checkedLabel}</Text>
               <View style={styles.habitsGrid}>
                 {checkedHabits.map(h => (
                   <View key={h.id} style={[styles.habitChip, styles.habitChipChecked]}>
@@ -132,7 +135,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
           {uncheckedHabits.length > 0 && (
             <>
               <Text style={[styles.habitGroupLabel, { marginTop: checkedHabits.length > 0 ? 12 : 0 }]}>
-                {t('recordDetail.habitsUnchecked')}
+                {uncheckedLabel}
               </Text>
               <View style={styles.habitsGrid}>
                 {uncheckedHabits.map(h => (

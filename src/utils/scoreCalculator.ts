@@ -1,5 +1,5 @@
 import { SleepLog, ScoreBreakdown, ScoreInfo } from '../types';
-import { SCORE_THRESHOLDS, SCORE_COLORS } from '../constants';
+import { SCORE_THRESHOLDS } from '../constants';
 import { safeToDate } from './dateUtils';
 
 // ============================================================

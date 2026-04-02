@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,11 +20,12 @@ function useCountUp(target: number, duration = 700, delay = 0): number {
   const [display, setDisplay] = useState(0);
   const animRef = useRef(new Animated.Value(0));
   useEffect(() => {
-    animRef.current.setValue(0);
+    const anim = animRef.current;
+    anim.setValue(0);
     setDisplay(0);
-    const listenerId = animRef.current.addListener(({ value }) => setDisplay(Math.round(value)));
+    const listenerId = anim.addListener(({ value }) => setDisplay(Math.round(value)));
     const timer = setTimeout(() => {
-      Animated.timing(animRef.current, {
+      Animated.timing(anim, {
         toValue: target,
         duration,
         easing: Easing.out(Easing.cubic),
@@ -33,9 +34,9 @@ function useCountUp(target: number, duration = 700, delay = 0): number {
     }, delay);
     return () => {
       clearTimeout(timer);
-      animRef.current.removeListener(listenerId);
+      anim.removeListener(listenerId);
     };
-  }, [target]);
+  }, [delay, duration, target]);
   return display;
 }
 
@@ -43,7 +44,7 @@ type SharedParamList = {
   ScoreDetail: { date: string; scoreColor?: string };
   RecordEdit: { date: string };
 };
-import { useTranslation } from '../../i18n';
+import { i18n, useTranslation } from '../../i18n';
 import { getSleepLog } from '../../services/firebase';
 import { getScoreInfo, calculateScore } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
@@ -163,6 +164,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const wakeStr = format(safeToDate(log.wakeTime), 'HH:mm');
   const hours = Math.floor(log.totalMinutes / 60);
   const mins = log.totalMinutes % 60;
+  const actionsTitle = i18n.language === 'ja' ? '記録した行動' : t('scoreDetail.habitsTitle');
 
   const gradientStyle = {
     opacity: gradientAnim,
@@ -302,7 +304,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
         {/* 習慣・メモ */}
         {animatedCard(4, <>
           {log.habits.length > 0 && (
-            <SectionCard title={t('scoreDetail.habitsTitle')}>
+            <SectionCard title={actionsTitle}>
               <View style={styles.habitsGrid}>
                 {log.habits.map(h => (
                   <View
@@ -363,7 +365,7 @@ function ScoreBar({
   label,
   score,
   maxScore,
-  allowNegative = false,
+  allowNegative: _allowNegative = false,
   delay = 0,
 }: {
   label: string;
@@ -386,7 +388,7 @@ function ScoreBar({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [progress]);
+  }, [animWidth, delay, progress]);
 
   const widthInterpolated = animWidth.interpolate({
     inputRange: [0, 1],

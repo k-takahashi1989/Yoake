@@ -18,7 +18,7 @@ import { useHabitStore } from '../../stores/habitStore';
 import { useAuthStore } from '../../stores/authStore';
 import { HabitTemplate } from '../../types';
 import { FREE_LIMITS } from '../../constants';
-import { useTranslation } from '../../i18n';
+import { i18n, useTranslation } from '../../i18n';
 
 function getHabitDisplayLabel(habit: { id: string; label: string }, t: (key: string, opts?: any) => string): string {
   if (habit.id.startsWith('default_')) {
@@ -47,15 +47,32 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
 
   const customTemplates = templates.filter(tmpl => !tmpl.isDefault);
   const canAddMore = customTemplates.length < FREE_LIMITS.MAX_HABIT_ITEMS;
+  const remainingCustomItems = FREE_LIMITS.MAX_HABIT_ITEMS - customTemplates.length;
+  const customizeTitle = i18n.language === 'ja' ? '記録項目を編集' : t('habitCustomize.title');
+  const customizeHint = i18n.language === 'ja'
+    ? `記録時に表示する項目を切り替えられます。\nカスタム項目はあと${remainingCustomItems}件追加できます。`
+    : t('habitCustomize.hint', { count: remainingCustomItems });
+  const inputErrorMessage = i18n.language === 'ja' ? '項目名を入力してください。' : t('habitCustomize.inputErrorMessage');
+  const limitErrorMessage = i18n.language === 'ja'
+    ? `カスタム項目は${FREE_LIMITS.MAX_HABIT_ITEMS}件まで追加できます。`
+    : t('habitCustomize.limitErrorMessage', { max: FREE_LIMITS.MAX_HABIT_ITEMS });
+  const deleteConfirmTitle = i18n.language === 'ja' ? '記録項目を削除' : t('habitCustomize.deleteConfirmTitle');
+  const paywallTitle = i18n.language === 'ja' ? '記録項目を編集' : t('habitCustomize.paywallTitle');
+  const paywallDesc = i18n.language === 'ja'
+    ? 'オリジナルの記録項目を追加して\n睡眠への影響を詳しく振り返れます。'
+    : t('habitCustomize.paywallDesc');
+  const formNameLabel = i18n.language === 'ja' ? '項目名' : t('habitCustomize.formNameLabel');
+  const formPlaceholder = i18n.language === 'ja' ? '例：読書した' : t('habitCustomize.formPlaceholder');
+  const formAddButton = i18n.language === 'ja' ? '追加する' : t('habitCustomize.formAddButton');
 
   const handleAdd = async () => {
     const trimmed = newLabel.trim();
     if (!trimmed) {
-      Alert.alert(t('habitCustomize.inputError'), t('habitCustomize.inputErrorMessage'));
+      Alert.alert(t('habitCustomize.inputError'), inputErrorMessage);
       return;
     }
     if (!canAddMore) {
-      Alert.alert(t('habitCustomize.limitError'), t('habitCustomize.limitErrorMessage', { count: FREE_LIMITS.MAX_HABIT_ITEMS }));
+      Alert.alert(t('habitCustomize.limitError'), limitErrorMessage);
       return;
     }
     setIsSaving(true);
@@ -70,9 +87,13 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
   };
 
   const handleDelete = (template: HabitTemplate) => {
+    const label = getHabitDisplayLabel(template, t);
+    const deleteConfirmMessage = i18n.language === 'ja'
+      ? `「${label}」を削除しますか？`
+      : t('habitCustomize.deleteConfirmMessage', { label });
     Alert.alert(
-      t('habitCustomize.deleteConfirmTitle'),
-      t('habitCustomize.deleteConfirmMessage', { label: getHabitDisplayLabel(template, t) }),
+      deleteConfirmTitle,
+      deleteConfirmMessage,
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -87,8 +108,8 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
   const renderPaywall = () => (
     <View style={styles.paywall}>
       <Text style={styles.paywallIcon}>⚙️</Text>
-      <Text style={styles.paywallTitle}>{t('habitCustomize.paywallTitle')}</Text>
-      <Text style={styles.paywallDesc}>{t('habitCustomize.paywallDesc')}</Text>
+      <Text style={styles.paywallTitle}>{paywallTitle}</Text>
+      <Text style={styles.paywallDesc}>{paywallDesc}</Text>
       <Text style={styles.paywallCta}>{t('habitCustomize.paywallCta')}</Text>
     </View>
   );
@@ -124,7 +145,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Text style={styles.closeText}>{t('common.close')}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>{t('habitCustomize.title')}</Text>
+          <Text style={styles.title}>{customizeTitle}</Text>
           {isPremium && mode === 'list' ? (
             <TouchableOpacity onPress={() => setMode('add')} style={styles.addBtn}>
               <Text style={styles.addText}>{t('habitCustomize.add')}</Text>
@@ -152,12 +173,12 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={styles.formLabel}>{t('habitCustomize.formNameLabel')}</Text>
+            <Text style={styles.formLabel}>{formNameLabel}</Text>
             <TextInput
               style={styles.labelInput}
               value={newLabel}
               onChangeText={setNewLabel}
-              placeholder="例: 瞑想した"
+              placeholder={formPlaceholder}
               placeholderTextColor="#555"
               maxLength={20}
               autoFocus
@@ -176,7 +197,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
               >
                 {isSaving
                   ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Text style={styles.saveFormText}>{t('habitCustomize.formAddButton')}</Text>
+                  : <Text style={styles.saveFormText}>{formAddButton}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -186,7 +207,7 @@ export default function HabitCustomizeModal({ visible, onClose }: Props) {
         ) : (
           <>
             <Text style={styles.hint}>
-              {t('habitCustomize.hint', { count: FREE_LIMITS.MAX_HABIT_ITEMS - customTemplates.length })}
+              {customizeHint}
             </Text>
             <FlatList
               data={templates}

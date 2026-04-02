@@ -20,3 +20,11 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+subprojects {
+    plugins.withId("com.android.library") {
+        android {
+            compileSdkVersion rootProject.ext.compileSdkVersion
+        }
+    }
+}

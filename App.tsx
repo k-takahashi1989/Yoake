@@ -5,6 +5,15 @@ import { useAuthStore } from './src/stores/authStore';
 import AppNavigator from './src/navigation';
 import { initI18n } from './src/i18n';
 
+const styles = {
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#1A1A2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  } as const,
+};
+
 export default function App() {
   const { initialize, ensureSignedIn } = useAuthStore();
   const [i18nReady, setI18nReady] = useState(false);
@@ -19,11 +28,11 @@ export default function App() {
     // 未サインインの場合は匿名で自動サインイン
     ensureSignedIn();
     return unsubscribe;
-  }, [i18nReady]);
+  }, [ensureSignedIn, i18nReady, initialize]);
 
   if (!i18nReady) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator color="#6B5CE7" />
       </View>
     );

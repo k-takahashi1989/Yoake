@@ -11,18 +11,17 @@ import {
   TextInput,
   ImageBackground,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { SleepLog, SleepInputForm, SleepOnset, WakeFeeling, HabitEntry, UserGoal } from '../../types';
-import { useTranslation } from '../../i18n';
+import { SleepLog, SleepInputForm, SleepOnset, WakeFeeling, UserGoal } from '../../types';
+import { i18n, useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
 import { useHabitStore } from '../../stores/habitStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
-import { hasHCSleepPermission, readSleepForDate, HCSleepData } from '../../services/healthConnect';
+import { hasHCSleepPermission, readSleepForDate } from '../../services/healthConnect';
 import { safeToDate } from '../../utils/dateUtils';
 import ScalePressable from '../../components/common/ScalePressable';
 import { haptics } from '../../utils/haptics';
@@ -44,13 +43,12 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
   const { getActiveEntries, isLoaded: habitsLoaded, loadHabits } = useHabitStore();
   const [isSaving, setIsSaving] = useState(false);
   const [sourceMode, setSourceMode] = useState<SourceMode>('loading');
-  const [hcData, setHcData] = useState<HCSleepData | null>(null);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const today = targetDate ?? todayStr;
   const isToday = today === todayStr;
 
-  const targetDateObj = new Date(today.replace(/-/g, '/'));
+  const targetDateObj = safeToDate(today);
 
   // 今日なら「8時間前〜今」、過去日なら「前夜23時〜当日7時」をデフォルトに
   const defaultBedTime = (() => {
@@ -88,7 +86,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
   // 習慣テンプレートを初回ロード
   useEffect(() => {
     if (!habitsLoaded) loadHabits();
-  }, []);
+  }, [habitsLoaded, loadHabits]);
 
   // モーダルが開いたとき、既存ログまたは HC データで初期化
   useEffect(() => {
@@ -114,49 +112,45 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
 
     // 新規記録: 習慣テンプレートをリセットしてから HC を試みる
     setForm(prev => ({ ...prev, habits: getActiveEntries() }));
-    loadHCData();
-  }, [visible]);
+    void (async () => {
+      setSourceMode('loading');
+      const timeoutId = setTimeout(() => {
+        setSourceMode('manual');
+        Alert.alert(t('sleepInput.hcTimeoutTitle'), t('sleepInput.hcTimeoutMessage'));
+      }, 5000);
+      try {
+        const permitted = await hasHCSleepPermission();
+        if (!permitted) {
+          clearTimeout(timeoutId);
+          setSourceMode('manual');
+          return;
+        }
 
-  const loadHCData = async () => {
-    setSourceMode('loading');
-    const timeoutId = setTimeout(() => {
-      setSourceMode('manual');
-      Alert.alert(t('sleepInput.hcTimeoutTitle'), t('sleepInput.hcTimeoutMessage'));
-    }, 5000);
-    try {
-      const permitted = await hasHCSleepPermission();
-      if (!permitted) {
+        const data = await readSleepForDate(today);
+        clearTimeout(timeoutId);
+        if (data) {
+          setForm(prev => ({
+            ...prev,
+            bedTime: data.bedTime,
+            wakeTime: data.wakeTime,
+            deepSleepMinutes: data.deepSleepMinutes,
+            remMinutes: data.remMinutes,
+            lightSleepMinutes: data.lightSleepMinutes,
+            awakenings: data.awakenings,
+            heartRateAvg: data.heartRateAvg,
+          }));
+          setSourceMode('hc');
+        } else {
+          setSourceMode('manual');
+        }
+      } catch {
         clearTimeout(timeoutId);
         setSourceMode('manual');
-        return;
       }
-
-      const data = await readSleepForDate(today);
-      clearTimeout(timeoutId);
-      if (data) {
-        setHcData(data);
-        setForm(prev => ({
-          ...prev,
-          bedTime: data.bedTime,
-          wakeTime: data.wakeTime,
-          deepSleepMinutes: data.deepSleepMinutes,
-          remMinutes: data.remMinutes,
-          lightSleepMinutes: data.lightSleepMinutes,
-          awakenings: data.awakenings,
-          heartRateAvg: data.heartRateAvg,
-        }));
-        setSourceMode('hc');
-      } else {
-        setSourceMode('manual');
-      }
-    } catch {
-      clearTimeout(timeoutId);
-      setSourceMode('manual');
-    }
-  };
+    })();
+  }, [existingLog, getActiveEntries, t, today, visible]);
 
   const switchToManual = () => {
-    setHcData(null);
     setForm(prev => ({
       ...prev,
       deepSleepMinutes: null,
@@ -187,6 +181,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
         correctedForm,
         goal ?? { targetHours: 7.5, targetScore: 80, bedTimeTarget: null, updatedAt: null as any },
         source,
+        targetDate,
       );
       // 保存成功後に触覚フィードバックを発火し、onSave コールバックを呼び出す
       haptics.success();
@@ -209,6 +204,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
   const totalMinutes = Math.round(
     (resolvedWakeTime.getTime() - form.bedTime.getTime()) / 60000,
   );
+  const actionsTitle = i18n.language === 'ja' ? '昨夜の行動' : t('sleepInput.habitsTitle');
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -355,7 +351,7 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
             </SectionCard>
 
             {/* 習慣チェック */}
-            <SectionCard title={t('sleepInput.habitsTitle')}>
+            <SectionCard title={actionsTitle}>
               {form.habits.map(habit => (
                 <HabitCheckRow
                   key={habit.id}

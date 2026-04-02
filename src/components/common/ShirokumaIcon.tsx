@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Animated, View, StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 
 export type ShirokumaMood = 'happy' | 'normal' | 'cheer';

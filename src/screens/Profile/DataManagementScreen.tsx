@@ -17,7 +17,7 @@ const CHAT_HISTORY_STORAGE_KEY = 'ai_chat_history';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'DataManagement'>;
 
-export default function DataManagementScreen({ navigation }: Props) {
+export default function DataManagementScreen({ navigation: _navigation }: Props) {
   const { deleteAccount } = useAuthStore();
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);

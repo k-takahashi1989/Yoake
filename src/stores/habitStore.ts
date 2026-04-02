@@ -45,7 +45,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         await Promise.all(defaults.map(t => saveHabitTemplate(t)));
         set({ templates: defaults, isLoaded: true });
       }
-    } catch (e) {
+    } catch {
       // オフラインなどで失敗した場合はデフォルトをローカルで使う
       const defaults: HabitTemplate[] = DEFAULT_HABITS.map((h, i) => ({
         id: h.id,

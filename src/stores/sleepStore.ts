@@ -25,7 +25,12 @@ interface SleepState {
 
   loadToday: () => Promise<void>;
   loadRecent: (days?: number) => Promise<void>;
-  saveLog: (form: SleepInputForm, goal: UserGoal, source: 'HEALTH_CONNECT' | 'MANUAL') => Promise<void>;
+  saveLog: (
+    form: SleepInputForm,
+    goal: UserGoal,
+    source: 'HEALTH_CONNECT' | 'MANUAL',
+    targetDate?: string,
+  ) => Promise<void>;
   deleteLog: (date: string) => Promise<void>;
 }
 
@@ -44,15 +49,20 @@ export const useSleepStore = create<SleepState>((set, get) => ({
     set({ isLoading: true });
     try {
       const logs = await getRecentSleepLogs(days);
-      set({ recentLogs: logs });
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const todayLogFromRecent = logs.find(log => log.date === today) ?? null;
+      set(state => ({
+        recentLogs: logs,
+        todayLog: todayLogFromRecent ?? state.todayLog,
+      }));
     } finally {
       set({ isLoading: false });
     }
   },
 
-  saveLog: async (form, goal, source) => {
+  saveLog: async (form, goal, source, targetDate) => {
     const { recentLogs } = get();
-    const date = format(form.bedTime, 'yyyy-MM-dd');
+    const date = targetDate ?? format(form.bedTime, 'yyyy-MM-dd');
 
     const totalMinutes = Math.round(
       (form.wakeTime.getTime() - form.bedTime.getTime()) / 60000,

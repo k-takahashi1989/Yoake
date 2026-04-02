@@ -604,7 +604,6 @@ Week8  Closed Beta配布
 Week10 Google Play 本番リリース
 ```
 
-2
 ### リスクと対策
 | リスク | 対策 |
 |---|---|

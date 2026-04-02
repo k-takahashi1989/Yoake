@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking,
-  Modal, Animated,
+  Modal, Animated, ImageBackground,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,12 +24,13 @@ type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
 export default function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
-  const { profile, subscription, isPremium, signOut, updateProfile, _devSetPremium } = useAuthStore();
+  const { user, profile, subscription, isPremium, signOut, updateProfile, _devSetPremium } = useAuthStore();
   const [isSeedLoading, setIsSeedLoading] = useState(false);
   const [showPersonality, setShowPersonality] = useState(false);
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const [debtPeriod, setDebtPeriod] = useState<'14' | '30' | 'month'>('14');
+  const isJa = i18n.language === 'ja';
 
   useEffect(() => {
     AsyncStorage.getItem(DEBT_PERIOD_KEY).then(stored => {
@@ -69,9 +70,22 @@ export default function ProfileScreen() {
       : isPremium
       ? t('profile.premium')
       : t('profile.free');
+  const accountName = profile?.displayName?.trim() || (user?.email?.split('@')[0] ?? t('profile.guest'));
+  const accountStatusText = user?.email ?? (isJa ? 'メール未登録' : 'Email not linked');
+  const accountHintText = isJa ? 'プロフィール編集' : 'Edit profile';
+  const guestWarningText = isJa
+    ? 'このままだと再インストールや機種変更時にデータを復旧できません。メールで保護すると、同じアカウントで睡眠記録を引き継げます。'
+    : 'Without email protection, you cannot restore your data after reinstalling or changing devices. Link an email to keep your sleep records.';
+  const protectButtonText = isJa ? 'メールで保護する' : 'Protect with Email';
+  const signInButtonText = isJa ? 'ログイン' : 'Sign In';
+  const signOutMessage = user?.isAnonymous
+    ? t('profile.signOutMessage')
+    : isJa
+    ? 'この端末からログアウトします。メールアドレスで再度ログインすれば、データを復旧できます。'
+    : 'You will be signed out on this device. You can restore your data by signing in again with your email.';
 
   const handleSignOut = () => {
-    Alert.alert(t('profile.signOutTitle'), t('profile.signOutMessage'), [
+    Alert.alert(t('profile.signOutTitle'), signOutMessage, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('profile.signOut'), style: 'destructive', onPress: signOut },
     ]);
@@ -79,37 +93,33 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.root}>
-      {/* 鏡の位置に重なる右上フローティングユーザーカード */}
-      <View style={[styles.mirrorCard, { top: insets.top + 8 }]}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {profile?.displayName ? profile.displayName[0].toUpperCase() : '?'}
-          </Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {profile?.displayName ?? t('profile.guest')}
-          </Text>
-          <Text style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
-            {planText}
-          </Text>
-        </View>
-      </View>
+      <ImageBackground
+        source={require('../../assets/images/bg_home.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      <View style={styles.bgOverlay} />
+      {/* 髀｡縺ｮ菴咲ｽｮ縺ｫ驥阪↑繧句承荳翫ヵ繝ｭ繝ｼ繝・ぅ繝ｳ繧ｰ繝ｦ繝ｼ繧ｶ繝ｼ繧ｫ繝ｼ繝・*/}
 
-      {/* ボトムシート（メニュー一覧） */}
-      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 8 }]}>
+      {/* 繝懊ヨ繝繧ｷ繝ｼ繝茨ｼ医Γ繝九Η繝ｼ荳隕ｧ・・*/}
+      <View
+        style={[
+          styles.bottomSheet,
+          { paddingBottom: insets.bottom + 8, paddingTop: insets.top + 10 },
+        ]}
+      >
         <View style={styles.handle} />
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* ゲスト警告バナー */}
-          {!profile?.displayName && (
+          {/* 繧ｲ繧ｹ繝郁ｭｦ蜻翫ヰ繝翫・ */}
+          {user?.isAnonymous && (
             <View style={styles.guestWarning}>
               <Text style={styles.guestWarningText}>
-                {t('profile.guestWarning')}
+                {guestWarningText}
               </Text>
             </View>
           )}
 
-          {/* アップグレード（無料ユーザーのみ） */}
+          {/* 繧｢繝・・繧ｰ繝ｬ繝ｼ繝会ｼ育┌譁吶Θ繝ｼ繧ｶ繝ｼ縺ｮ縺ｿ・・*/}
           {!isPremium && (
             <TouchableOpacity
               style={styles.upgradeCard}
@@ -127,13 +137,34 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {/* メニュー */}
+          {/* 繝｡繝九Η繝ｼ */}
           <View style={styles.menuSection}>
-            <MenuRow
-              iconName="user-edit"
-              label={t('profile.menuEditProfile')}
+            <AccountRow
+              displayName={accountName}
+              planText={planText}
+              isPremium={isPremium}
+              subtitle={accountStatusText}
+              hint={accountHintText}
               onPress={() => navigation.navigate('EditProfile')}
             />
+            {user?.isAnonymous && (
+              <View style={styles.accountActions}>
+                <TouchableOpacity
+                  style={styles.accountPrimaryAction}
+                  onPress={() => navigation.navigate('LinkEmail')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.accountPrimaryActionText}>{protectButtonText}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.accountSecondaryAction}
+                  onPress={() => navigation.navigate('SignIn')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.accountSecondaryActionText}>{signInButtonText}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <MenuRow
               iconName="crown"
               label={t('profile.menuSubscription')}
@@ -156,7 +187,7 @@ export default function ProfileScreen() {
             />
             <MenuRow
               iconName="clock"
-              label={`${t('profile.debtPeriod')}：${periodLabels[debtPeriod]}`}
+              label={`${t('profile.debtPeriod')}: ${periodLabels[debtPeriod]}`}
               onPress={handleDebtPeriodChange}
             />
             <MenuRow
@@ -190,19 +221,19 @@ export default function ProfileScreen() {
             />
           </View>
 
-          {/* ログアウト */}
+          {/* 繝ｭ繧ｰ繧｢繧ｦ繝・*/}
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
             <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </TouchableOpacity>
 
           <Text style={styles.version}>{t('profile.version', { version: pkg.version })}</Text>
 
-          {/* DEV セクション */}
+          {/* DEV 繧ｻ繧ｯ繧ｷ繝ｧ繝ｳ */}
           {__DEV__ && (
             <View style={styles.devSection}>
-              <Text style={styles.devTitle}>── DEV ──────────────────────</Text>
+              <Text style={styles.devTitle}>DEBUG MENU</Text>
               <View style={styles.devRow}>
-                <Text style={styles.devLabel}>プレミアム切替</Text>
+                <Text style={styles.devLabel}>プレミアム状態</Text>
                 <View style={styles.devToggle}>
                   <TouchableOpacity
                     style={[styles.devBtn, !isPremium && styles.devBtnActive]}
@@ -214,7 +245,7 @@ export default function ProfileScreen() {
                     style={[styles.devBtn, isPremium && styles.devBtnPremium]}
                     onPress={() => _devSetPremium(true)}
                   >
-                    <Text style={[styles.devBtnText, isPremium && styles.devBtnTextActive]}>⭐ PRO</Text>
+                    <Text style={[styles.devBtnText, isPremium && styles.devBtnTextActive]}>PRO</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -225,9 +256,9 @@ export default function ProfileScreen() {
                   setIsSeedLoading(true);
                   try {
                     await generateSeedData(90);
-                    // シード後にstoreを更新してホーム画面に即反映
+                    // 繧ｷ繝ｼ繝牙ｾ後↓store繧呈峩譁ｰ縺励※繝帙・繝逕ｻ髱｢縺ｫ蜊ｳ蜿肴丐
                     await useSleepStore.getState().loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
-                    Alert.alert('完了', '90日分のシードデータを生成しました');
+                    Alert.alert('成功', '90日分のシードデータを生成しました');
                   } catch (e: any) {
                     Alert.alert('エラー', e.message ?? '生成に失敗しました');
                   } finally {
@@ -238,16 +269,16 @@ export default function ProfileScreen() {
                 {isSeedLoading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.devSeedBtnText}>90日分シードデータ生成</Text>
+                  <Text style={styles.devSeedBtnText}>90日分のシードデータ生成</Text>
                 )}
               </TouchableOpacity>
-              <Text style={styles.devTitle}>──────────────────────────────</Text>
+              <Text style={styles.devTitle}>DEBUG MENU</Text>
             </View>
           )}
         </ScrollView>
       </View>
 
-      {/* AI性格選択ボトムシート */}
+      {/* AI諤ｧ譬ｼ驕ｸ謚槭・繝医Β繧ｷ繝ｼ繝・*/}
       <PersonalityBottomSheet
         visible={showPersonality}
         currentPersonality={profile?.aiPersonality ?? 'standard'}
@@ -292,9 +323,54 @@ function MenuRow({
   );
 }
 
+function AccountRow({
+  displayName,
+  planText,
+  isPremium,
+  subtitle,
+  hint,
+  onPress,
+}: {
+  displayName: string;
+  planText: string;
+  isPremium: boolean;
+  subtitle: string;
+  hint: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.menuRow, styles.accountRow]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.avatarCircle}>
+        <Text style={styles.avatarText}>
+          {displayName ? displayName[0].toUpperCase() : '?'}
+        </Text>
+      </View>
+      <View style={styles.accountTextBlock}>
+        <View style={styles.accountTitleRow}>
+          <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
+          <Text style={[styles.planBadge, isPremium && styles.planBadgePremium]}>
+            {planText}
+          </Text>
+        </View>
+        <Text style={styles.accountSubtitle}>{subtitle}</Text>
+        <Text style={styles.accountHint}>{hint}</Text>
+      </View>
+      <Text style={styles.menuArrow}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  // 右上フローティングユーザーカード（鏡の位置に重ねる）
+  root: { flex: 1, backgroundColor: '#0D0D1A' },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 12, 24, 0.52)',
+  },
+  // 蜿ｳ荳翫ヵ繝ｭ繝ｼ繝・ぅ繝ｳ繧ｰ繝ｦ繝ｼ繧ｶ繝ｼ繧ｫ繝ｼ繝会ｼ磯升縺ｮ菴咲ｽｮ縺ｫ驥阪・繧具ｼ・
   mirrorCard: {
     position: 'absolute',
     right: 12,
@@ -322,20 +398,15 @@ const styles = StyleSheet.create({
   userName: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginBottom: 2 },
   planBadge: { fontSize: 11, color: '#C8C8E0' },
   planBadgePremium: { color: '#FFD700' },
-  // ボトムシート
+  // 繝懊ヨ繝繧ｷ繝ｼ繝・
   bottomSheet: {
     position: 'absolute',
+    top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    height: '62%',
-    backgroundColor: 'rgba(13, 13, 30, 0.88)',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.3)',
+    backgroundColor: 'rgba(13, 13, 30, 0.72)',
     paddingHorizontal: 16,
-    paddingTop: 12,
   },
   handle: {
     width: 36,
@@ -385,6 +456,57 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(107, 92, 231, 0.25)',
     gap: 12,
+  },
+  accountRow: {
+    alignItems: 'flex-start',
+    paddingVertical: 16,
+  },
+  accountTextBlock: {
+    flex: 1,
+    gap: 4,
+    paddingTop: 1,
+  },
+  accountTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  accountSubtitle: { fontSize: 12, color: '#9A9AB8' },
+  accountHint: { fontSize: 12, color: '#78789B' },
+  accountActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(107, 92, 231, 0.25)',
+  },
+  accountPrimaryAction: {
+    flex: 1,
+    backgroundColor: '#6B5CE7',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  accountPrimaryActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  accountSecondaryAction: {
+    minWidth: 88,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.45)',
+    backgroundColor: 'rgba(107, 92, 231, 0.08)',
+  },
+  accountSecondaryActionText: {
+    color: '#D9D5FF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   menuRowLast: { borderBottomWidth: 0 },
   menuIconWrapper: { width: 28, alignItems: 'center', justifyContent: 'center' },
@@ -445,7 +567,7 @@ const styles = StyleSheet.create({
 });
 
 // ============================================================
-// AI性格選択ボトムシートコンポーネント
+// AI諤ｧ譬ｼ驕ｸ謚槭・繝医Β繧ｷ繝ｼ繝医さ繝ｳ繝昴・繝阪Φ繝・
 // ============================================================
 
 function PersonalityBottomSheet({
@@ -463,7 +585,7 @@ function PersonalityBottomSheet({
   const [selected, setSelected] = useState<AiPersonality>(currentPersonality);
   const [confirming, setConfirming] = useState(false);
 
-  // 各カードのアニメーション値（4枚分）
+  // 蜷・き繝ｼ繝峨・繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ蛟､・・譫壼・・・
   const anims = useRef(
     AI_PERSONALITIES.map(() => ({
       translateY: new Animated.Value(30),
@@ -471,17 +593,17 @@ function PersonalityBottomSheet({
     }))
   ).current;
 
-  // モーダルが開いたときにstaggerアニメーション実行
+  // 繝｢繝ｼ繝繝ｫ縺碁幕縺・◆縺ｨ縺阪↓stagger繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ螳溯｡・
   useEffect(() => {
     if (visible) {
-      // 選択状態を現在値にリセット
+      // 驕ｸ謚樒憾諷九ｒ迴ｾ蝨ｨ蛟､縺ｫ繝ｪ繧ｻ繝・ヨ
       setSelected(currentPersonality);
-      // アニメーションをリセット
+      // 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ繧偵Μ繧ｻ繝・ヨ
       anims.forEach(a => {
         a.translateY.setValue(30);
         a.opacity.setValue(0);
       });
-      // staggerアニメーション開始
+      // stagger繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ髢句ｧ・
       Animated.stagger(
         60,
         anims.map(a =>
@@ -518,13 +640,13 @@ function PersonalityBottomSheet({
       transparent
       onRequestClose={onClose}
     >
-      {/* 背景タップで閉じる */}
+      {/* 閭梧勹繧ｿ繝・・縺ｧ髢峨§繧・*/}
       <TouchableOpacity
         style={personalityStyles.overlay}
         activeOpacity={1}
         onPress={onClose}
       >
-        {/* シート本体（タップが背景に伝播しないよう stopPropagation） */}
+        {/* 繧ｷ繝ｼ繝域悽菴難ｼ医ち繝・・縺瑚レ譎ｯ縺ｫ莨晄眺縺励↑縺・ｈ縺・stopPropagation・・*/}
         <TouchableOpacity
           style={personalityStyles.sheet}
           activeOpacity={1}
@@ -533,7 +655,7 @@ function PersonalityBottomSheet({
           <Text style={personalityStyles.sheetTitle}>{t('personality.sheetTitle')}</Text>
           <Text style={personalityStyles.sheetSub}>{t('personality.sheetSub')}</Text>
 
-          {/* カードグリッド（2列） */}
+          {/* 繧ｫ繝ｼ繝峨げ繝ｪ繝・ラ・・蛻暦ｼ・*/}
           <View style={personalityStyles.grid}>
             {AI_PERSONALITIES.map((p, i) => {
               const isSelected = selected === p.id;
@@ -558,16 +680,16 @@ function PersonalityBottomSheet({
                     onPress={() => setSelected(p.id)}
                     activeOpacity={0.8}
                   >
-                    {/* 選択中チェックマーク */}
+                    {/* 驕ｸ謚樔ｸｭ繝√ぉ繝・け繝槭・繧ｯ */}
                     {isSelected && (
                       <Text style={[personalityStyles.checkMark, { color: p.themeColor }]}>✓</Text>
                     )}
                     <Text style={personalityStyles.cardEmoji}>{p.emoji}</Text>
                     <Text style={personalityStyles.cardTitle}>{t(p.labelKey)}</Text>
                     <Text style={personalityStyles.cardSub}>{t(p.subKey)}</Text>
-                    {/* 区切り線 */}
+                    {/* 蛹ｺ蛻・ｊ邱・*/}
                     <View style={personalityStyles.divider} />
-                    {/* プレビュー文 */}
+                    {/* 繝励Ξ繝薙Η繝ｼ譁・*/}
                     <Text style={personalityStyles.cardPreview}>{t(p.previewKey)}</Text>
                   </TouchableOpacity>
                 </Animated.View>
@@ -575,7 +697,7 @@ function PersonalityBottomSheet({
             })}
           </View>
 
-          {/* 決定ボタン */}
+          {/* 豎ｺ螳壹・繧ｿ繝ｳ */}
           <TouchableOpacity
             style={[personalityStyles.confirmBtn, confirming && { opacity: 0.6 }]}
             onPress={handleConfirm}
@@ -678,3 +800,6 @@ const personalityStyles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+
+

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -14,7 +14,6 @@ import {
 } from '../types';
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n';
-import TabBarIcon from '../components/common/TabBarIcon';
 import AnimatedBackground, {
   AnimatedBackgroundHandle,
 } from '../components/common/AnimatedBackground';
@@ -29,11 +28,14 @@ import RecordDetailScreen from '../screens/Diary/RecordDetailScreen';
 import ReportScreen from '../screens/Report/ReportScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../screens/Profile/EditProfileScreen';
+import LinkEmailScreen from '../screens/Profile/LinkEmailScreen';
+import SignInScreen from '../screens/Profile/SignInScreen';
 import SubscriptionManageScreen from '../screens/Profile/SubscriptionManageScreen';
 import HealthConnectSettingsScreen from '../screens/Profile/HealthConnectSettingsScreen';
 import NotificationSettingsScreen from '../screens/Profile/NotificationSettingsScreen';
 import DataManagementScreen from '../screens/Profile/DataManagementScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
+import { NOTIF_ID as MORNING_REMINDER_NOTIFICATION_ID } from '../services/notificationService';
 
 // ============================================================
 // ナビゲーションRef（コンポーネント外からでも使用可能）
@@ -57,6 +59,8 @@ const HEADER_OPTS = {
   headerTitleStyle: { fontWeight: '600' as const },
   headerShadowVisible: false,
 };
+
+const HOME_BG_SOURCE = require('../assets/images/bg_home.png');
 
 
 function HomeStackNavigator() {
@@ -112,7 +116,8 @@ function DiaryStackNavigator() {
 }
 
 function ProfileStackNavigator() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isJa = i18n.language === 'ja';
   return (
     <ProfileStack.Navigator screenOptions={HEADER_OPTS}>
       <ProfileStack.Screen
@@ -124,6 +129,16 @@ function ProfileStackNavigator() {
         name="EditProfile"
         component={EditProfileScreen}
         options={{ title: t('nav.editProfile'), headerBackTitle: '' }}
+      />
+      <ProfileStack.Screen
+        name="LinkEmail"
+        component={LinkEmailScreen}
+        options={{ title: isJa ? 'メールで保護する' : 'Protect with Email', headerBackTitle: '' }}
+      />
+      <ProfileStack.Screen
+        name="SignIn"
+        component={SignInScreen}
+        options={{ title: isJa ? 'ログイン' : 'Sign In', headerBackTitle: '' }}
       />
       <ProfileStack.Screen
         name="SubscriptionManage"
@@ -154,6 +169,14 @@ function MainTabs() {
 
   // AnimatedBackground への ref。CustomTabBar がズームをトリガーするために使う。
   const bgRef = useRef<AnimatedBackgroundHandle>(null);
+
+  useEffect(() => {
+    const asset = Image.resolveAssetSource(HOME_BG_SOURCE);
+    if (!asset?.uri) return;
+    Image.prefetch(asset.uri).catch(() => {
+      // ignore preload failures and fall back to normal decode
+    });
+  }, []);
 
   return (
     // 背景 + タブナビゲーター全体を包むコンテナ
@@ -207,7 +230,7 @@ export default function AppNavigator() {
   // 起床リマインダー通知がタップされた場合 → Diary タブへ遷移
   const handleNavigationReady = useCallback(async () => {
     const initial = await notifee.getInitialNotification();
-    if (initial?.notification?.id === 'wake_reminder_daily') {
+    if (initial?.notification?.id === MORNING_REMINDER_NOTIFICATION_ID) {
       navigationRef.navigate('Main');
     }
   }, []);
@@ -215,7 +238,8 @@ export default function AppNavigator() {
   // フォアグラウンドで起床リマインダー通知がタップされた場合 → Diary タブへ遷移
   useEffect(() => {
     return notifee.onForegroundEvent(({ type, detail }) => {
-      const isWakeReminder = detail.notification?.id === 'wake_reminder_daily';
+      const isWakeReminder =
+        detail.notification?.id === MORNING_REMINDER_NOTIFICATION_ID;
       if (!isWakeReminder) return;
       if (type === EventType.PRESS && navigationRef.isReady()) {
         navigationRef.navigate('Main');

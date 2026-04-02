@@ -177,6 +177,8 @@ export type ReportStackParamList = {
 export type ProfileStackParamList = {
   ProfileScreen: undefined;
   EditProfile: undefined;
+  LinkEmail: undefined;
+  SignIn: undefined;
   SubscriptionManage: undefined;
   HealthConnectSettings: undefined;
   NotificationSettings: undefined;

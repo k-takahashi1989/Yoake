@@ -27,7 +27,7 @@ if (-not $devices) {
 # -- 1. Gradle clean --
 Write-Host "[1/4] Gradle clean..." -ForegroundColor Cyan
 Set-Location "android"
-.\gradlew.bat clean 2>&1
+.\gradlew.bat clean
 if ($LASTEXITCODE -ne 0) { Write-Error "Gradle clean failed"; exit 1 }
 Set-Location $ROOT
 
@@ -48,7 +48,7 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Bundle failed"; exit 1 }
 Write-Host "[3/4] Building APK (full build)..." -ForegroundColor Cyan
 Set-Location "android"
 
-.\gradlew.bat installDebug 2>&1
+.\gradlew.bat installDebug
 
 if ($LASTEXITCODE -ne 0) { Write-Error "Build failed"; exit 1 }
 Set-Location $ROOT

@@ -3,10 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function DevToolbar() {
-  if (!__DEV__) return null;
-
   const { isPremium, _devSetPremium } = useAuthStore();
   const [expanded, setExpanded] = useState(false);
+
+  if (!__DEV__) return null;
 
   return (
     <View style={styles.container} pointerEvents="box-none">

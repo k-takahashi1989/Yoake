@@ -93,7 +93,7 @@ describe('colorize()', () => {
 // ============================================================
 
 describe('TabBarIcon', () => {
-  const VALID_NAMES = ['Home', 'Diary', 'Report', 'Alarm', 'Profile'];
+  const VALID_NAMES = ['Home', 'Diary', 'Report', 'Profile'];
   const COLOR = '#6B5CE7';
   const INACTIVE_COLOR = '#9E9E9E';
 

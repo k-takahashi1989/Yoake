@@ -14,13 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { subHours } from 'date-fns';
-import { DiaryStackParamList, SleepLog, SleepInputForm, SleepOnset, WakeFeeling } from '../../types';
+import { SleepLog, SleepInputForm, SleepOnset, WakeFeeling } from '../../types';
 import { getSleepLog, getGoal } from '../../services/firebase';
 import { safeToDate } from '../../utils/dateUtils';
 import { useSleepStore } from '../../stores/sleepStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
-import { useTranslation } from '../../i18n';
+import { i18n, useTranslation } from '../../i18n';
 
 // HomeStack / DiaryStack 両方から遷移できる共通型
 type SharedParamList = { RecordEdit: { date: string } };
@@ -127,6 +127,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
 
   const SLEEP_ONSET_OPTIONS = getSleepOnsetOptions(t);
   const WAKE_FEELING_OPTIONS = getWakeFeelingOptions(t);
+  const actionsTitle = i18n.language === 'ja' ? '行動' : t('recordEdit.habitsTitle');
 
   if (isLoading) {
     return (
@@ -229,7 +230,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         </SectionCard>
 
         {/* 習慣 */}
-        <SectionCard title={t('recordEdit.habitsTitle')}>
+        <SectionCard title={actionsTitle}>
           {form.habits.map(habit => (
             <HabitCheckRow key={habit.id} habit={habit} onToggle={() => toggleHabit(habit.id)} />
           ))}

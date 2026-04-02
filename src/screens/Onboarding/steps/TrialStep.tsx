@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import {
   initConnection,
@@ -36,63 +36,76 @@ const PRODUCT_IDS = [
 ];
 
 export default function TrialStep({ onComplete }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isJa = i18n.language === 'ja';
+  const isAndroid = Platform.OS === 'android';
+
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [isBillingAvailable, setIsBillingAvailable] = useState(true);
+  const [purchasingProductId, setPurchasingProductId] = useState<string | null>(null);
 
   useEffect(() => {
     let purchaseUpdateSub: EventSubscription | null = null;
     let purchaseErrorSub: EventSubscription | null = null;
 
     const setup = async () => {
+      if (!isAndroid) {
+        setIsBillingAvailable(false);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         await initConnection();
         setIsBillingAvailable(true);
 
         purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
           const token = (purchase as any).purchaseToken ?? (purchase as any).transactionId;
-          if (token) {
-            await finishTransaction({ purchase });
-            try {
-              const deviceId = await DeviceInfo.getUniqueId();
-              const activateTrial = functions().httpsCallable('activateTrial');
-              await activateTrial({
-                purchaseToken: token,
-                productId: purchase.productId,
-                deviceId,
-              });
-              setIsPurchasing(false);
-              onComplete();
-            } catch (err: any) {
-              setIsPurchasing(false);
-              const code = err?.code ?? '';
-              if (code === 'functions/already-exists') {
-                Alert.alert(
-                  t('onboarding.trial.alreadyUsedTitle'),
-                  t('onboarding.trial.alreadyUsedMessage'),
-                );
-              } else {
-                Alert.alert(t('common.error'), t('onboarding.trial.errorMessage'));
-                console.error('activateTrial error:', err);
-              }
+          if (!token) return;
+
+          await finishTransaction({ purchase });
+          try {
+            const deviceId = await DeviceInfo.getUniqueId();
+            const activateTrial = functions().httpsCallable('activateTrial');
+            await activateTrial({
+              purchaseToken: token,
+              productId: purchase.productId,
+              deviceId,
+            });
+            setIsPurchasing(false);
+            setPurchasingProductId(null);
+            onComplete();
+          } catch (error: any) {
+            setIsPurchasing(false);
+            setPurchasingProductId(null);
+            const code = error?.code ?? '';
+            if (code === 'functions/already-exists') {
+              Alert.alert(
+                t('onboarding.trial.alreadyUsedTitle'),
+                t('onboarding.trial.alreadyUsedMessage'),
+              );
+            } else {
+              Alert.alert(t('common.error'), t('onboarding.trial.errorMessage'));
+              console.error('activateTrial error:', error);
             }
           }
         });
 
         purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
-          console.error('購入エラー:', error);
+          console.error('purchaseErrorListener:', error);
           setIsPurchasing(false);
+          setPurchasingProductId(null);
           if (!error.message?.toLowerCase().includes('cancel')) {
             Alert.alert(t('onboarding.trial.purchaseError'), error.message);
           }
         });
 
-        const subs = await fetchProducts({ skus: PRODUCT_IDS, type: 'subs' });
-        setProducts(subs as Product[]);
-      } catch (e) {
-        console.error('IAP初期化エラー:', e);
+        const fetched = await fetchProducts({ skus: PRODUCT_IDS, type: 'subs' });
+        setProducts(fetched as Product[]);
+      } catch (error) {
+        console.error('IAP setup failed:', error);
         setIsBillingAvailable(false);
       } finally {
         setIsLoading(false);
@@ -105,22 +118,78 @@ export default function TrialStep({ onComplete }: Props) {
       purchaseUpdateSub?.remove();
       purchaseErrorSub?.remove();
     };
-  }, []);
+  }, [isAndroid, onComplete, t]);
+
+  const getProductId = (product: Product) => (product as any).productId ?? (product as any).id;
+  const monthlyProduct = products.find(product => getProductId(product) === SUBSCRIPTION.PRODUCT_IDS.MONTHLY);
+  const yearlyProduct = products.find(product => getProductId(product) === SUBSCRIPTION.PRODUCT_IDS.YEARLY);
+
+  const copy = useMemo(
+    () => ({
+      icon: 'PRO',
+      title: isJa ? '睡眠記録を、次の改善につなげる' : 'Turn your logs into better sleep',
+      description: isJa
+        ? `${SUBSCRIPTION.TRIAL_DAYS}日間の無料体験で、週次レポートとAIアドバイスをまとめて試せます。`
+        : `Start with a ${SUBSCRIPTION.TRIAL_DAYS}-day free trial and try weekly reports plus AI guidance.`,
+      billingUnavailable: !isAndroid
+        ? isJa
+          ? 'iOS課金はまだこのビルドで有効化していません。RevenueCat への移行後にプレミアム購入へ対応予定です。'
+          : 'iOS billing is not enabled in this build yet. Premium purchase will be available after the RevenueCat migration.'
+        : isJa
+          ? 'この環境では Google Play の課金を利用できません。Play ストア対応端末でお試しください。'
+          : 'Google Play billing is not available in this environment. Please try on a Play Store-enabled device.',
+      monthlyPlan: isJa ? '月額プラン' : 'Monthly plan',
+      yearlyPlan: isJa ? '年額プラン' : 'Yearly plan',
+      perMonth: isJa ? '/月' : '/month',
+      perYear: isJa ? '/年' : '/year',
+      recommended: isJa ? 'おすすめ' : 'Recommended',
+      yearSavings: isJa ? '年額のほうがおトク' : 'Best value',
+      legal: !isAndroid
+        ? isJa
+          ? 'iOS版の課金導線は現在準備中です。プレミアム購入・管理は RevenueCat 対応後に有効化する予定です。'
+          : 'The iOS billing flow is not enabled yet. Premium purchase and management will be enabled after the RevenueCat migration.'
+        : isJa
+          ? '課金は Google Play で管理されます。無料体験終了前にキャンセルしない場合は自動更新されます。'
+          : 'Managed on Google Play. Cancel before the trial ends to avoid charges.',
+      skipLater: isJa ? 'まずは無料プランで使ってみる' : 'Keep using the free plan',
+      startLabel: isJa ? '始める' : 'Start',
+      yearlyEquivalent: isJa
+        ? `月あたり 約${Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString()}円`
+        : `$${Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString()}/mo equivalent`,
+      featureList: isJa
+        ? [
+            '週次レポートで睡眠の流れをまとめて確認',
+            'AIに相談して次の改善アクションを整理',
+            '行動とスコアの関係を振り返りやすくする',
+            '長めの履歴や過去レポートを見返せる',
+            '自分の生活に合わせて記録項目を調整できる',
+          ]
+        : [
+            'See your weekly trend at a glance',
+            'Ask AI what to improve next',
+            'Understand which actions affect your score',
+            'Review longer history and past reports',
+            'Customize tracking items for your routine',
+          ],
+    }),
+    [isAndroid, isJa],
+  );
 
   const handleStartTrial = async (productId: string) => {
-    if (!isBillingAvailable) return;
+    if (!isAndroid || !isBillingAvailable || isPurchasing) return;
     setIsPurchasing(true);
+    setPurchasingProductId(productId);
     try {
       await requestPurchase({
         request: { google: { skus: [productId] } },
         type: 'subs',
       });
-    } catch (e: any) {
+    } catch (error: any) {
       setIsPurchasing(false);
-      console.error('購入リクエストエラー:', e);
-      const msg: string = e?.message ?? '';
-      if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('user')) {
-        Alert.alert(t('onboarding.trial.purchaseError'), msg || t('onboarding.trial.errorMessage'));
+      setPurchasingProductId(null);
+      const message = error?.message ?? '';
+      if (!message.toLowerCase().includes('cancel') && !message.toLowerCase().includes('user')) {
+        Alert.alert(t('onboarding.trial.purchaseError'), message || t('onboarding.trial.errorMessage'));
       }
     }
   };
@@ -137,93 +206,81 @@ export default function TrialStep({ onComplete }: Props) {
     onComplete();
   };
 
-  const monthlyProduct = products.find(p => (p as any).id === SUBSCRIPTION.PRODUCT_IDS.MONTHLY);
-  const yearlyProduct = products.find(p => (p as any).id === SUBSCRIPTION.PRODUCT_IDS.YEARLY);
-
-  const premiumFeatures = [
-    t('onboarding.trial.feature1'),
-    t('onboarding.trial.feature2'),
-    t('onboarding.trial.feature3'),
-    t('onboarding.trial.feature4'),
-    t('onboarding.trial.feature5'),
-  ];
+  const getDisplayPrice = (product: Product | undefined, fallback: number) =>
+    product ? (product as any).displayPrice ?? `¥${fallback.toLocaleString()}` : `¥${fallback.toLocaleString()}`;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>⭐</Text>
-      <Text style={styles.title}>{t('onboarding.trial.title')}</Text>
-      <Text style={styles.description}>
-        {t('onboarding.trial.desc', { days: SUBSCRIPTION.TRIAL_DAYS })}
-      </Text>
+      <Text style={styles.icon}>{copy.icon}</Text>
+      <Text style={styles.title}>{copy.title}</Text>
+      <Text style={styles.description}>{copy.description}</Text>
 
       <View style={styles.featureList}>
-        {premiumFeatures.map(f => (
-          <View key={f} style={styles.featureRow}>
-            <Text style={styles.checkIcon}>✓</Text>
-            <Text style={styles.featureText}>{f}</Text>
+        {copy.featureList.map(feature => (
+          <View key={feature} style={styles.featureRow}>
+            <Text style={styles.checkIcon}>+</Text>
+            <Text style={styles.featureText}>{feature}</Text>
           </View>
         ))}
       </View>
 
       {!isBillingAvailable && !isLoading && (
         <View style={styles.billingUnavailable}>
-          <Text style={styles.billingUnavailableText}>
-            {t('onboarding.trial.billingUnavailable')}
-          </Text>
+          <Text style={styles.billingUnavailableText}>{copy.billingUnavailable}</Text>
         </View>
       )}
 
       {isLoading ? (
-        <ActivityIndicator color="#6B5CE7" style={{ marginVertical: 16 }} />
+        <ActivityIndicator color="#6B5CE7" style={styles.loader} />
       ) : isBillingAvailable ? (
         <View style={styles.planGroup}>
-          {/* Monthly plan */}
           <ScalePressable
             style={[styles.planCard, isPurchasing && styles.planCardDisabled]}
             onPress={() => handleStartTrial(SUBSCRIPTION.PRODUCT_IDS.MONTHLY)}
             disabled={isPurchasing}
           >
             <View>
-              <Text style={styles.planName}>{t('onboarding.trial.monthlyPlan')}</Text>
+              <Text style={styles.planName}>{copy.monthlyPlan}</Text>
               <Text style={styles.planPrice}>
-                {(monthlyProduct as any)?.displayPrice ?? `¥${SUBSCRIPTION.MONTHLY_PRICE}`} {t('onboarding.trial.perMonth')}
+                {getDisplayPrice(monthlyProduct, SUBSCRIPTION.MONTHLY_PRICE)} {copy.perMonth}
               </Text>
             </View>
-            {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
+            {purchasingProductId === SUBSCRIPTION.PRODUCT_IDS.MONTHLY ? (
+              <ActivityIndicator size="small" color="#6B5CE7" />
+            ) : (
+              <Text style={styles.planAction}>{copy.startLabel}</Text>
+            )}
           </ScalePressable>
 
-          {/* Yearly plan (recommended) */}
           <ScalePressable
             style={[styles.planCard, styles.planCardRecommended, isPurchasing && styles.planCardDisabled]}
             onPress={() => handleStartTrial(SUBSCRIPTION.PRODUCT_IDS.YEARLY)}
             disabled={isPurchasing}
           >
             <View style={styles.recommendedBadge}>
-              <Text style={styles.recommendedText}>{t('onboarding.trial.recommended')}</Text>
+              <Text style={styles.recommendedText}>{copy.recommended}</Text>
             </View>
             <View>
-              <Text style={styles.planName}>{t('onboarding.trial.yearlyPlan')}</Text>
+              <Text style={styles.planName}>{copy.yearlyPlan}</Text>
               <Text style={styles.planPrice}>
-                {(yearlyProduct as any)?.displayPrice ?? `¥${SUBSCRIPTION.YEARLY_PRICE}`} {t('onboarding.trial.perYear')}
+                {getDisplayPrice(yearlyProduct, SUBSCRIPTION.YEARLY_PRICE)} {copy.perYear}
               </Text>
-              <Text style={styles.planMonthly}>
-                {t('onboarding.trial.monthlyEquivalent', { price: Math.round(SUBSCRIPTION.YEARLY_PRICE / 12) })}
-              </Text>
-              {/* 年額節約額バッジ: 月額との差額を緑バッジで訴求 */}
-              <Text style={styles.savingsBadge}>{t('onboarding.trial.yearSavings')}</Text>
+              <Text style={styles.planMonthly}>{copy.yearlyEquivalent}</Text>
+              <Text style={styles.savingsBadge}>{copy.yearSavings}</Text>
             </View>
-            {isPurchasing && <ActivityIndicator size="small" color="#6B5CE7" />}
+            {purchasingProductId === SUBSCRIPTION.PRODUCT_IDS.YEARLY ? (
+              <ActivityIndicator size="small" color="#6B5CE7" />
+            ) : (
+              <Text style={styles.planAction}>{copy.startLabel}</Text>
+            )}
           </ScalePressable>
         </View>
       ) : null}
 
-      <Text style={styles.legal}>
-        {t('onboarding.trial.legal')}
-      </Text>
+      <Text style={styles.legal}>{copy.legal}</Text>
 
-      {/* スキップボタン: marginTopを大きくして誤タップを防止 */}
       <ScalePressable style={styles.skipButton} onPress={handleSkip} disabled={isPurchasing}>
-        <Text style={styles.skipText}>{t('onboarding.trial.skipLater')}</Text>
+        <Text style={styles.skipText}>{copy.skipLater}</Text>
       </ScalePressable>
     </View>
   );
@@ -231,9 +288,28 @@ export default function TrialStep({ onComplete }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center' },
-  icon: { fontSize: 56, textAlign: 'center', marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 8 },
-  description: { fontSize: 14, color: '#B0B0C8', textAlign: 'center', marginBottom: 16, lineHeight: 22 },
+  icon: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 12,
+    color: '#CFCBFF',
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    color: '#B0B0C8',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 22,
+  },
   featureList: {
     backgroundColor: '#2D2D44',
     borderRadius: 14,
@@ -242,8 +318,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   featureRow: { flexDirection: 'row', alignItems: 'center' },
-  checkIcon: { color: '#6B5CE7', fontSize: 13, fontWeight: 'bold', marginRight: 8, width: 16 },
+  checkIcon: {
+    color: '#6B5CE7',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginRight: 8,
+    width: 16,
+  },
   featureText: { fontSize: 13, color: '#D0D0E8' },
+  loader: { marginVertical: 16 },
   planGroup: { gap: 10, marginBottom: 12 },
   planCard: {
     backgroundColor: '#2D2D44',
@@ -273,18 +356,28 @@ const styles = StyleSheet.create({
   planName: { fontSize: 14, color: '#B0B0C8', marginBottom: 2 },
   planPrice: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
   planMonthly: { fontSize: 11, color: '#9A9AB8', marginTop: 2 },
+  planAction: { color: '#D9D5FF', fontSize: 14, fontWeight: '700' },
   billingUnavailable: {
     backgroundColor: '#2D2D44',
     borderRadius: 10,
     padding: 14,
     marginBottom: 12,
   },
-  billingUnavailableText: { fontSize: 13, color: '#B0B0C8', textAlign: 'center', lineHeight: 20 },
-  legal: { fontSize: 10, color: '#555', textAlign: 'center', lineHeight: 16, marginBottom: 12 },
-  // スキップボタン: marginTopを増やしCTAとの距離を広げて誤タップを防止、色もWCAG AA準拠の#888以上に
+  billingUnavailableText: {
+    fontSize: 13,
+    color: '#B0B0C8',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  legal: {
+    fontSize: 10,
+    color: '#555',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
   skipButton: { paddingVertical: 10, marginTop: 16, alignItems: 'center' },
   skipText: { color: '#9A9AB8', fontSize: 13, textDecorationLine: 'underline' },
-  // 年額節約額バッジ: 緑背景で月額より安い訴求を強調
   savingsBadge: {
     backgroundColor: '#4CAF50',
     color: '#FFFFFF',

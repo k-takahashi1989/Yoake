@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../stores/authStore';
 import { useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
 import { getGoal } from '../../services/firebase';
 import { sendChatMessage } from '../../services/claudeApi';
 import { UserGoal } from '../../types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { haptics } from '../../utils/haptics';
 
 const CHAT_HISTORY_STORAGE_KEY = 'ai_chat_history';
@@ -33,10 +33,13 @@ interface Message {
 }
 
 export default function AiChatScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isPremium } = useAuthStore();
   const navigation = useNavigation<any>();
   const { recentLogs, loadRecent } = useSleepStore();
+  const isJa = i18n.language === 'ja';
+  const scrollViewRef = useRef<ScrollView>(null);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -48,68 +51,91 @@ export default function AiChatScreen() {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [goal, setGoal] = useState<UserGoal | null>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
 
-  // 起動時：AsyncStorageから履歴を復元
   useEffect(() => {
     loadRecent(14);
     getGoal().then(g => setGoal(g));
     AsyncStorage.getItem(CHAT_HISTORY_STORAGE_KEY).then(raw => {
       if (!raw) return;
       try {
-        const saved: Array<{ id: string; role: 'user' | 'assistant'; content: string; timestamp: string }> = JSON.parse(raw);
+        const saved: Array<{
+          id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          timestamp: string;
+        }> = JSON.parse(raw);
         if (saved.length > 0) {
           setMessages(saved.map(m => ({ ...m, timestamp: new Date(m.timestamp) })));
         }
       } catch {
-        // 壊れていたら無視
+        // Ignore corrupted local history.
       }
     });
-  }, []);
+  }, [loadRecent]);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  // メッセージ変化のたびに保存（ウェルカムのみの初期状態は除外）
-  const prevMessagesRef = useRef(messages);
+  const previousMessagesRef = useRef(messages);
   useEffect(() => {
-    if (messages === prevMessagesRef.current) return;
-    prevMessagesRef.current = messages;
-    if (messages.length <= 1) return; // ウェルカムのみは保存しない
+    if (messages === previousMessagesRef.current) return;
+    previousMessagesRef.current = messages;
+    if (messages.length <= 1) return;
     AsyncStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(messages)).catch(() => {});
   }, [messages]);
 
+  const paywallFeatures = useMemo(
+    () =>
+      isJa
+        ? [
+            '直近の睡眠記録をもとに回答',
+            '行動の影響や改善ポイントを質問できる',
+            '今の自分に合う次の一手が分かる',
+            '記録を続けるほど相談の精度が上がる',
+          ]
+        : [
+            'Answers based on your recent sleep logs',
+            'Ask about action impacts and improvement points',
+            'Get the next step that fits your current pattern',
+            'Advice gets sharper as you keep logging',
+          ],
+    [isJa],
+  );
+
   const handleReset = () => {
-    Alert.alert(
-      t('aiChat.resetTitle'),
-      t('aiChat.resetMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
-            setMessages([{ id: 'welcome', role: 'assistant', content: t('aiChat.welcome'), timestamp: new Date() }]);
-          },
+    Alert.alert(t('aiChat.resetTitle'), t('aiChat.resetMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: t('aiChat.welcome'),
+              timestamp: new Date(),
+            },
+          ]);
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || isSending) return;
 
-    const userMsg: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: text,
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsSending(true);
 
@@ -122,21 +148,29 @@ export default function AiChatScreen() {
         text,
         history,
         recentLogs,
-        goal ?? { targetHours: 7.5, targetScore: 80, bedTimeTarget: null, updatedAt: null },
+        goal ?? {
+          targetHours: 7.5,
+          targetScore: 80,
+          bedTimeTarget: null,
+          updatedAt: null,
+        },
       );
 
-      const assistantMsg: Message = {
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: reply,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, assistantMsg]);
-      // メッセージ送信成功時に軽い触覚フィードバック
+
+      setMessages(prev => [...prev, assistantMessage]);
       haptics.light();
-    } catch (e: any) {
-      if (e?.code === 'functions/resource-exhausted') {
-        Alert.alert(t('aiChat.limitReachedTitle'), e.message ?? t('aiChat.limitReachedMessage'));
+    } catch (error: any) {
+      if (error?.code === 'functions/resource-exhausted') {
+        Alert.alert(
+          t('aiChat.limitReachedTitle'),
+          error.message ?? t('aiChat.limitReachedMessage'),
+        );
       } else {
         Alert.alert(t('aiChat.errorTitle'), t('aiChat.errorMessage'));
       }
@@ -145,21 +179,24 @@ export default function AiChatScreen() {
     }
   };
 
-  // 非プレミアムユーザー向けペイウォール
   if (!isPremium) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.paywall}>
-          <Text style={styles.paywallIcon}>🤖</Text>
-          <Text style={styles.paywallTitle}>AIチャット</Text>
+          <Text style={styles.paywallIcon}>AI</Text>
+          <Text style={styles.paywallTitle}>
+            {isJa ? 'AIに相談して、次の一手を知る' : 'Ask AI what to try next'}
+          </Text>
           <Text style={styles.paywallDesc}>
-            睡眠データをもとに、AIが{'\n'}あなたの質問に答えます。
+            {isJa
+              ? '睡眠記録をもとに、スコアが下がった理由や改善ポイントをAIに相談できます。'
+              : 'Use your sleep logs to ask AI why your score dropped and what to improve next.'}
           </Text>
           <View style={styles.paywallCard}>
-            {PAYWALL_FEATURES.map(f => (
-              <View key={f} style={styles.paywallRow}>
-                <Text style={styles.paywallCheck}>✓</Text>
-                <Text style={styles.paywallFeature}>{f}</Text>
+            {paywallFeatures.map(feature => (
+              <View key={feature} style={styles.paywallRow}>
+                <Text style={styles.paywallCheck}>+</Text>
+                <Text style={styles.paywallFeature}>{feature}</Text>
               </View>
             ))}
           </View>
@@ -167,7 +204,9 @@ export default function AiChatScreen() {
             style={styles.paywallBtn}
             onPress={() => navigation.navigate('SubscriptionManage')}
           >
-            <Text style={styles.paywallBtnText}>7日間無料トライアルを始める</Text>
+            <Text style={styles.paywallBtnText}>
+              {isJa ? '7日間無料で改善相談を試す' : 'Try AI guidance free for 7 days'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -177,16 +216,16 @@ export default function AiChatScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        style={styles.kvContainer}
+        style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={90}
       >
-        {/* リセットボタン */}
         <View style={styles.headerBar}>
           <TouchableOpacity onPress={handleReset} style={styles.resetBtn}>
             <Text style={styles.resetBtnText}>{t('aiChat.resetBtn')}</Text>
           </TouchableOpacity>
         </View>
+
         <ScrollView
           ref={scrollViewRef}
           style={styles.messageList}
@@ -194,9 +233,10 @@ export default function AiChatScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {messages.map(msg => (
-            <MessageBubble key={msg.id} message={msg} />
+          {messages.map(message => (
+            <MessageBubble key={message.id} message={message} />
           ))}
+
           {isSending && (
             <View style={[styles.bubble, styles.bubbleAssistant]}>
               <ActivityIndicator size="small" color="#9C8FFF" />
@@ -204,13 +244,12 @@ export default function AiChatScreen() {
           )}
         </ScrollView>
 
-        {/* 入力エリア */}
         <View style={styles.inputArea}>
           <TextInput
             style={styles.textInput}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="メッセージを入力..."
+            placeholder={isJa ? '相談したいことを入力...' : 'Type your question...'}
             placeholderTextColor="#555"
             multiline
             maxLength={200}
@@ -232,31 +271,21 @@ export default function AiChatScreen() {
 
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user';
+
   return (
     <View style={[styles.bubbleWrapper, isUser && styles.bubbleWrapperUser]}>
-      {!isUser && <Text style={styles.aiIcon}>🤖</Text>}
+      {!isUser && <Text style={styles.aiBubbleBadge}>AI</Text>}
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-        <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>
-          {message.content}
-        </Text>
-        <Text style={styles.bubbleTime}>
-          {format(message.timestamp, 'HH:mm')}
-        </Text>
+        <Text style={[styles.bubbleText, isUser && styles.bubbleTextUser]}>{message.content}</Text>
+        <Text style={styles.bubbleTime}>{format(message.timestamp, 'HH:mm')}</Text>
       </View>
     </View>
   );
 }
 
-const PAYWALL_FEATURES = [
-  '直近14日の睡眠データをもとに回答',
-  '習慣の影響や改善ポイントを質問できる',
-  '会話は5往復まで保持',
-  '200文字以内のフレンドリーな返答',
-];
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
-  kvContainer: { flex: 1 },
+  keyboardContainer: { flex: 1 },
   headerBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -275,8 +304,20 @@ const styles = StyleSheet.create({
     gap: 8,
     maxWidth: '85%',
   },
-  bubbleWrapperUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
-  aiIcon: { fontSize: 20, marginBottom: 4 },
+  bubbleWrapperUser: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row-reverse',
+  },
+  aiBubbleBadge: {
+    fontSize: 11,
+    color: '#CFCBFF',
+    marginBottom: 4,
+    backgroundColor: '#2D2D44',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
   bubble: {
     borderRadius: 16,
     padding: 12,
@@ -317,15 +358,57 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: { backgroundColor: '#444' },
   sendIcon: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
-  // ペイウォール
-  paywall: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  paywallIcon: { fontSize: 64, marginBottom: 16 },
-  paywallTitle: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  paywallDesc: { fontSize: 15, color: '#B0B0C8', textAlign: 'center', lineHeight: 24, marginBottom: 24 },
-  paywallCard: { backgroundColor: '#2D2D44', borderRadius: 16, padding: 16, width: '100%', marginBottom: 24 },
-  paywallRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  paywallCheck: { color: '#6B5CE7', fontSize: 14, fontWeight: 'bold', marginRight: 10 },
-  paywallFeature: { fontSize: 14, color: '#D0D0E8' },
+  paywall: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  paywallIcon: {
+    fontSize: 34,
+    color: '#CFCBFF',
+    fontWeight: '800',
+    marginBottom: 16,
+  },
+  paywallTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  paywallDesc: {
+    fontSize: 15,
+    color: '#B0B0C8',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  paywallCard: {
+    backgroundColor: '#2D2D44',
+    borderRadius: 16,
+    padding: 16,
+    width: '100%',
+    marginBottom: 24,
+  },
+  paywallRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  paywallCheck: {
+    color: '#6B5CE7',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 10,
+    width: 14,
+  },
+  paywallFeature: {
+    fontSize: 14,
+    color: '#D0D0E8',
+    flex: 1,
+    lineHeight: 20,
+  },
   paywallBtn: {
     backgroundColor: '#6B5CE7',
     borderRadius: 28,

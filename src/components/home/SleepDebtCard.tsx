@@ -43,7 +43,6 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
     );
   }
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
 
   const filteredLogs =

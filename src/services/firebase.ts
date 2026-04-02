@@ -1,6 +1,4 @@
-import firestore, {
-  FirebaseFirestoreTypes,
-} from '@react-native-firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import {
   UserProfile,
@@ -225,11 +223,14 @@ export async function deleteAllUserData(): Promise<void> {
   const collections = ['sleepLogs', 'aiReports', 'habitTemplates', 'chatHistory', 'bodyLogs'];
 
   for (const col of collections) {
-    const snap = await userRef.collection(col).limit(500).get();
-    if (snap.empty) continue;
-    const batch = firestore().batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
+    while (true) {
+      const snap = await userRef.collection(col).limit(500).get();
+      if (snap.empty) break;
+
+      const batch = firestore().batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
   }
 
   const batch2 = firestore().batch();

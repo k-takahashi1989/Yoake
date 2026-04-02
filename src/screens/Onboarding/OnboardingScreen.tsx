@@ -44,7 +44,7 @@ function ProgressDot({ isActive, isDone }: { isActive: boolean; isDone: boolean 
   );
 }
 
-export default function OnboardingScreen({ navigation }: Props) {
+export default function OnboardingScreen({ navigation: _navigation }: Props) {
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const { completeOnboarding } = useAuthStore();
 

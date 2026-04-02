@@ -16,8 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
-import { SLEEP_LOG_FETCH_LIMIT, SUBSCRIPTION } from '../../constants';
-import { useTranslation } from '../../i18n';
+import { SLEEP_LOG_FETCH_LIMIT } from '../../constants';
+import { i18n, useTranslation } from '../../i18n';
 import {
   getRecentSleepLogs,
   getAiReport,
@@ -76,7 +76,7 @@ export default function ReportScreen() {
       Animated.timing(bgTransX,  { toValue: toX, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(bgTransY,  { toValue: toY, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
-  }, [screenW, screenH]));
+  }, [bgTransX, bgTransY, scaleAnim, toX, toY]));
 
   // ブラー時：ズームアウト
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function ReportScreen() {
       ]).start();
     });
     return unsub;
-  }, [navigation]);
+  }, [bgTransX, bgTransY, navigation, scaleAnim]);
 
   const [tab, setTab] = useState<Tab>('weekly');
   const [weeklyLogs, setWeeklyLogs] = useState<SleepLog[]>([]);
@@ -103,7 +103,7 @@ export default function ReportScreen() {
 
   // NOTE: useMemo はペイウォール early return の前に置く（Rules of Hooks）
   const logs = useMemo(
-    () => (tab === 'weekly' ? weeklyLogs : monthlyLogs),
+    () => (tab === 'weekly' ? weeklyLogs : monthlyLogs.slice(0, 30)),
     [tab, weeklyLogs, monthlyLogs],
   );
   const habitStats = useMemo(() => computeHabitStats(logs), [logs]);
@@ -234,11 +234,23 @@ export default function ReportScreen() {
   const worstScore = logs.length > 0 ? Math.min(...logs.map(l => l.score)) : 0;
 
   // 前週（8〜14日前）の平均スコア（週次タブ用の前週比計算）
-  const prevWeekLogs = monthlyLogs.slice(7, 14);
-  const previousWeekAvgScore =
-    prevWeekLogs.length > 0
-      ? Math.round(prevWeekLogs.reduce((s, l) => s + l.score, 0) / prevWeekLogs.length)
+  const previousPeriodLogs = tab === 'weekly'
+    ? monthlyLogs.slice(7, 14)
+    : monthlyLogs.slice(30, 60);
+  const previousPeriodAvgScore =
+    previousPeriodLogs.length > 0
+      ? Math.round(previousPeriodLogs.reduce((s, l) => s + l.score, 0) / previousPeriodLogs.length)
       : null;
+  const scoreDiff =
+    previousPeriodAvgScore != null && logs.length > 0
+      ? avgScore - previousPeriodAvgScore
+      : null;
+  const topPositiveHabit = habitStats
+    .filter(h => h.withCount > 0 && h.withoutCount > 0)
+    .sort((a, b) => (b.withAvg - b.withoutAvg) - (a.withAvg - a.withoutAvg))[0] ?? null;
+  const topNegativeHabit = habitStats
+    .filter(h => h.withCount > 0 && h.withoutCount > 0)
+    .sort((a, b) => (a.withAvg - a.withoutAvg) - (b.withAvg - b.withoutAvg))[0] ?? null;
 
   return (
     <View style={styles.root}>
@@ -298,16 +310,19 @@ export default function ReportScreen() {
         ) : (
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             {/* 統計サマリー（無料ユーザーにも実データを表示して価値を訴求） */}
-            <View style={styles.statsRow}>
-              <StatCell label={t('report.avgScore')} score={avgScore} suffix={t('common.points')} color="#6B5CE7" delay={0} />
-              <StatCell label={t('report.bestScore')} score={bestScore} suffix={t('common.points')} color="#4CAF50" delay={80} />
-              <StatCell label={t('report.worstScore')} score={worstScore} suffix={t('common.points')} color="#F44336" delay={160} />
-            </View>
+            <SummaryHeroCard
+              tab={tab}
+              avgScore={avgScore}
+              bestScore={bestScore}
+              worstScore={worstScore}
+              scoreDiff={scoreDiff}
+              topPositiveHabit={topPositiveHabit}
+              topNegativeHabit={topNegativeHabit}
+            />
 
             {isPremium ? (
               <>
                 {/* 有料: スコア推移グラフ（期間切り替え付き） */}
-                <ScoreTrendCard monthlyLogs={monthlyLogs} chartWidth={chartWidth} />
 
                 {/* 週次AIレポート（週次タブのみ） */}
                 {tab === 'weekly' && (
@@ -317,11 +332,12 @@ export default function ReportScreen() {
                     isLoadingReport={isLoadingReport}
                     onGenerate={handleGenerateReport}
                     currentWeekAvgScore={weeklyLogs.length > 0 ? avgScore : null}
-                    previousWeekAvgScore={previousWeekAvgScore}
+                    previousWeekAvgScore={previousPeriodAvgScore}
                   />
                 )}
 
                 {/* 習慣別スコア影響 */}
+                <ScoreTrendCard monthlyLogs={monthlyLogs} chartWidth={chartWidth} />
                 <HabitCorrelationCard
                   habitStats={habitStats}
                   avgScore={avgScore}
@@ -356,11 +372,12 @@ function useCountUp(target: number, duration = 700, delay = 0): number {
   const [display, setDisplay] = useState(0);
   const animRef = useRef(new Animated.Value(0));
   useEffect(() => {
-    animRef.current.setValue(0);
+    const anim = animRef.current;
+    anim.setValue(0);
     setDisplay(0);
-    const listenerId = animRef.current.addListener(({ value }) => setDisplay(Math.round(value)));
+    const listenerId = anim.addListener(({ value }) => setDisplay(Math.round(value)));
     const timer = setTimeout(() => {
-      Animated.timing(animRef.current, {
+      Animated.timing(anim, {
         toValue: target,
         duration,
         easing: Easing.out(Easing.cubic),
@@ -369,30 +386,120 @@ function useCountUp(target: number, duration = 700, delay = 0): number {
     }, delay);
     return () => {
       clearTimeout(timer);
-      animRef.current.removeListener(listenerId);
+      anim.removeListener(listenerId);
     };
-  }, [target]);
+  }, [delay, duration, target]);
   return display;
 }
 
-function StatCell({
-  label,
-  score,
-  suffix,
-  color,
-  delay = 0,
+function SummaryHeroCard({
+  tab,
+  avgScore,
+  bestScore,
+  worstScore,
+  scoreDiff,
+  topPositiveHabit,
+  topNegativeHabit,
 }: {
-  label: string;
-  score: number;
-  suffix: string;
-  color: string;
-  delay?: number;
+  tab: Tab;
+  avgScore: number;
+  bestScore: number;
+  worstScore: number;
+  scoreDiff: number | null;
+  topPositiveHabit: HabitStat | null;
+  topNegativeHabit: HabitStat | null;
 }) {
-  const displayScore = useCountUp(score, 700, delay);
+  const { t } = useTranslation();
+  const displayAvg = useCountUp(avgScore, 700, 0);
+  const title = i18n.language === 'ja'
+    ? (tab === 'weekly' ? '今週のまとめ' : '今月のまとめ')
+    : (tab === 'weekly' ? 'This week at a glance' : 'This month at a glance');
+  const diffLabel = i18n.language === 'ja'
+    ? (tab === 'weekly' ? '前週比' : '前月比')
+    : (tab === 'weekly' ? 'vs last week' : 'vs last month');
+  const insightLabel = i18n.language === 'ja'
+    ? '今週の影響が大きかった行動'
+    : (tab === 'weekly' ? 'Actions with the biggest impact this week' : 'Actions with the biggest impact this month');
+  const positiveDiff = topPositiveHabit ? topPositiveHabit.withAvg - topPositiveHabit.withoutAvg : null;
+  const negativeDiff = topNegativeHabit ? topNegativeHabit.withAvg - topNegativeHabit.withoutAvg : null;
+
   return (
-    <View style={styles.statCell}>
-      <Text style={[styles.statValue, { color }]}>{displayScore}{suffix}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryHeader}>
+        <Text style={styles.summaryEyebrow}>{title}</Text>
+        {scoreDiff != null ? (
+          <View style={styles.summaryDiffWrap}>
+            <Text style={styles.summaryDiffLabel}>{diffLabel}</Text>
+            <Text
+              style={[
+                styles.summaryDiffValue,
+                scoreDiff > 0 ? styles.summaryDiffUp : scoreDiff < 0 ? styles.summaryDiffDown : styles.summaryDiffFlat,
+              ]}
+            >
+              {scoreDiff > 0 ? `+${scoreDiff}` : `${scoreDiff}`}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.summaryMainRow}>
+        <View>
+          <Text style={styles.summaryMainValue}>{displayAvg}{t('common.points')}</Text>
+          <Text style={styles.summaryMainCaption}>{t('report.avgScore')}</Text>
+        </View>
+        <View style={styles.summarySideStats}>
+          <MiniStat label={t('report.bestScore')} value={`${bestScore}${t('common.points')}`} color="#4CAF50" />
+          <MiniStat label={t('report.worstScore')} value={`${worstScore}${t('common.points')}`} color="#F44336" />
+        </View>
+      </View>
+
+      <View style={styles.summaryInsights}>
+        <Text style={styles.summaryInsightsLabel}>{insightLabel}</Text>
+        <InsightChip
+          tone="positive"
+          emoji={topPositiveHabit?.emoji ?? '✨'}
+          text={
+            topPositiveHabit && positiveDiff != null
+              ? `${topPositiveHabit.label} ${positiveDiff > 0 ? `+${positiveDiff}` : positiveDiff}`
+              : (i18n.language === 'ja' ? 'プラス傾向を集計中' : 'Positive signal pending')
+          }
+        />
+        <InsightChip
+          tone="negative"
+          emoji={topNegativeHabit?.emoji ?? '🌙'}
+          text={
+            topNegativeHabit && negativeDiff != null
+              ? `${topNegativeHabit.label} ${negativeDiff > 0 ? `+${negativeDiff}` : negativeDiff}`
+              : (i18n.language === 'ja' ? 'マイナス傾向を集計中' : 'Negative signal pending')
+          }
+        />
+      </View>
+    </View>
+  );
+}
+
+function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={styles.miniStat}>
+      <Text style={styles.miniStatLabel}>{label}</Text>
+      <Text style={[styles.miniStatValue, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
+function InsightChip({
+  emoji,
+  text,
+  tone,
+}: {
+  emoji: string;
+  text: string;
+  tone: 'positive' | 'negative';
+}) {
+  return (
+    <View style={[styles.insightChip, tone === 'positive' ? styles.insightChipPositive : styles.insightChipNegative]}>
+      <Text style={styles.insightChipEmoji}>{emoji}</Text>
+      <Text style={styles.insightChipText} numberOfLines={1}>{text}</Text>
     </View>
   );
 }
@@ -420,15 +527,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   taglineText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     fontStyle: 'italic',
-    color: '#FFFFFF',
-    letterSpacing: 3,
-    lineHeight: 28,
-    textShadowColor: 'rgba(0,0,0,0.95)',
+    color: 'rgba(255,255,255,0.88)',
+    letterSpacing: 2.5,
+    lineHeight: 26,
+    textShadowColor: 'rgba(0,0,0,0.75)',
     textShadowOffset: { width: 1, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 3,
   },
   // ボトムシート（日記タブと同構造）
   bottomSheet: {
@@ -478,6 +585,74 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: '#C8C8E0', marginTop: 8 },
   emptySubText: { fontSize: 13, color: '#C8C8E0', textAlign: 'center', marginTop: 4 },
   scroll: { flex: 1 },
+  summaryCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: 'rgba(28, 30, 54, 0.92)',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.28)',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  summaryEyebrow: { fontSize: 13, color: '#B7B5D6', fontWeight: '700' },
+  summaryDiffWrap: { alignItems: 'flex-end', gap: 2 },
+  summaryDiffLabel: { fontSize: 10, color: '#8F8EA8' },
+  summaryDiffValue: { fontSize: 18, fontWeight: '800' },
+  summaryDiffUp: { color: '#4CAF50' },
+  summaryDiffDown: { color: '#FF7043' },
+  summaryDiffFlat: { color: '#B7B5D6' },
+  summaryMainRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  summaryMainValue: {
+    fontSize: 38,
+    lineHeight: 42,
+    color: '#F0EEFF',
+    fontFamily: 'KiwiMaru-Regular',
+  },
+  summaryMainCaption: { fontSize: 12, color: '#AAA8C8', marginTop: 4 },
+  summarySideStats: { flex: 1, gap: 8, justifyContent: 'center' },
+  miniStat: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  miniStatLabel: { fontSize: 10, color: '#8F8EA8', marginBottom: 4 },
+  miniStatValue: { fontSize: 16, fontWeight: '700' },
+  summaryInsights: { marginTop: 14, gap: 8 },
+  summaryInsightsLabel: { fontSize: 11, color: '#8F8EA8', fontWeight: '600', marginBottom: 2 },
+  insightChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  insightChipPositive: {
+    backgroundColor: 'rgba(76, 175, 80, 0.10)',
+    borderColor: 'rgba(76, 175, 80, 0.22)',
+  },
+  insightChipNegative: {
+    backgroundColor: 'rgba(255, 152, 0, 0.10)',
+    borderColor: 'rgba(255, 152, 0, 0.20)',
+  },
+  insightChipEmoji: { fontSize: 16 },
+  insightChipText: { flex: 1, fontSize: 12, color: '#E1DFF3' },
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,

@@ -96,7 +96,7 @@ export default function ScoreRing({ score, scoreColor, label }: Props) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [score]);
+  }, [animatedOffset, glowOpacity, score]);
 
   // 高スコア時のグロウスタイル（Android: elevation / iOS: shadow）
   const isHighScore = (score ?? 0) >= GLOW_THRESHOLD;

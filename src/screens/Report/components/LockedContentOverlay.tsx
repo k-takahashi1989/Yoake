@@ -1,28 +1,30 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../../../i18n';
 import { SUBSCRIPTION } from '../../../constants';
-
-// ============================================================
-// ロックコンテンツオーバーレイ（無料ユーザー向けプレビュー+CTA）
-// ============================================================
 
 interface Props {
   onPress: () => void;
 }
 
 export default function LockedContentOverlay({ onPress }: Props) {
-  const { t } = useTranslation();
-  const TRIAL_DAYS = SUBSCRIPTION.TRIAL_DAYS;
+  const { i18n } = useTranslation();
+  const isJa = i18n.language === 'ja';
+  const trialDays = SUBSCRIPTION.TRIAL_DAYS;
+
+  const title = isJa ? '記録を、改善につなげる' : 'Turn your logs into better sleep';
+  const subtitle = isJa
+    ? '週次レポートと行動分析で、何を変えるとスコアが伸びるか見えてきます。'
+    : 'Use weekly reports and action analysis to see what actually improves your score.';
+  const cta = isJa
+    ? `${trialDays}日間無料で改善分析を試す`
+    : `Try the full analysis experience free for ${trialDays} days`;
+  const note = isJa
+    ? `${trialDays}日間無料、いつでもキャンセル可能`
+    : `Free for ${trialDays} days, cancel anytime`;
 
   return (
     <View style={styles.container}>
-      {/* ゴーストカード1: WeeklyReportCard のシルエット */}
       <View style={styles.ghostCard}>
         <View style={styles.ghostMask} />
         <View style={styles.ghostLine} />
@@ -32,36 +34,30 @@ export default function LockedContentOverlay({ onPress }: Props) {
         <View style={[styles.ghostLine, styles.ghostLineShort]} />
       </View>
 
-      {/* ゴーストカード2: HabitCorrelationCard のシルエット */}
       <View style={styles.ghostCard}>
         <View style={styles.ghostMask} />
         <View style={styles.ghostLine} />
         <View style={styles.ghostBarRow}>
-          {[52, 70, 45, 80, 60, 55].map((h, i) => (
-            <View key={i} style={[styles.ghostBar, { height: h }]} />
+          {[52, 70, 45, 80, 60, 55].map((height, index) => (
+            <View key={index} style={[styles.ghostBar, { height }]} />
           ))}
         </View>
       </View>
 
-      {/* CTAオーバーレイ */}
       <View style={styles.ctaOverlay} pointerEvents="box-none">
         <View style={styles.ctaCard}>
-          <Text style={styles.lockIcon}>🔒</Text>
-          <Text style={styles.ctaTitle}>{t('report.lockedOverlayTitle')}</Text>
-          <Text style={styles.ctaSubtitle}>{t('report.lockedOverlaySubtitle')}</Text>
+          <Text style={styles.lockIcon}>PRO</Text>
+          <Text style={styles.ctaTitle}>{title}</Text>
+          <Text style={styles.ctaSubtitle}>{subtitle}</Text>
           <TouchableOpacity style={styles.ctaButton} onPress={onPress} activeOpacity={0.8}>
-            <Text style={styles.ctaButtonText}>{t('report.ctaButtonText', { days: TRIAL_DAYS })}</Text>
+            <Text style={styles.ctaButtonText}>{cta}</Text>
           </TouchableOpacity>
-          <Text style={styles.trialNote}>{t('report.trialNote', { days: TRIAL_DAYS })}</Text>
+          <Text style={styles.trialNote}>{note}</Text>
         </View>
       </View>
     </View>
   );
 }
-
-// ============================================================
-// スタイル
-// ============================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -126,7 +122,13 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
-  lockIcon: { fontSize: 36, marginBottom: 10 },
+  lockIcon: {
+    fontSize: 16,
+    color: '#CFCBFF',
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: 1.2,
+  },
   ctaTitle: {
     fontSize: 17,
     fontWeight: '700',
