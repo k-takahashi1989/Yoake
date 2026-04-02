@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format, subDays, startOfMonth } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 import { format as dateFnsFormat } from 'date-fns';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../../i18n';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSleepStore } from '../../stores/sleepStore';
 import { useAuthStore } from '../../stores/authStore';
-import { getAiReport, saveAiReport, getGoal, getSleepLog } from '../../services/firebase';
-import { generateDailyAdvice } from '../../services/claudeApi';
+import { getGoal } from '../../services/firebase';
 import { getScoreInfo, calculateSleepDebt } from '../../utils/scoreCalculator';
 import { calculateStreak } from '../../utils/streakCalculator';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
@@ -35,7 +34,6 @@ import ShirokumaBubble from '../../components/home/ShirokumaBubble';
 
 type HomeNav = NativeStackNavigationProp<HomeStackParamList>;
 
-const DISMISSED_BANNER_KEY = '@yoake:dismissed_banner_date';
 const HOME_TUTORIAL_SEEN_KEY = '@yoake:home_tutorial_seen_v1';
 
 
@@ -48,12 +46,8 @@ export default function HomeScreen() {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [showInputModal, setShowInputModal] = useState(false);
   const [modalTargetDate, setModalTargetDate] = useState<string | undefined>(undefined);
-  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [goal, setGoal] = useState<UserGoal | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const [yesterdayMissed, setYesterdayMissed] = useState(false);
-  const [dismissedYesterday, setDismissedYesterday] = useState(false);
   const [showHomeGuide, setShowHomeGuide] = useState(false);
   const [debtPeriod] = useState<'14' | '30' | 'month'>('14');
   const [isPanelExpanded, setIsPanelExpanded] = useState(true);
@@ -81,7 +75,6 @@ export default function HomeScreen() {
   const prevTabRef = useRef<string | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
   const handleDotPress = useCallback((dateStr: string, cx: number, cy: number, color: string) => {
     const target = { x: cx, y: cy, color };
@@ -271,29 +264,10 @@ export default function HomeScreen() {
     return unsub;
   }, [navigation, overlayAnim, screenH, screenW, zoomAnim]);
 
-  const checkYesterdayMissed = useCallback(async () => {
-    try {
-      const log = await getSleepLog(yesterday);
-      setYesterdayMissed(!log);
-    } catch {
-      // ignore
-    }
-  }, [yesterday]);
-
-  const checkDismissedBanner = useCallback(async () => {
-    try {
-      const stored = await AsyncStorage.getItem(DISMISSED_BANNER_KEY);
-      setDismissedYesterday(stored === today);
-    } catch {
-      // ignore
-    }
-  }, [today]);
-
   const checkHomeGuideSeen = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(HOME_TUTORIAL_SEEN_KEY);
       if (!stored) {
-        setShowHomeGuide(true);
         await AsyncStorage.setItem(HOME_TUTORIAL_SEEN_KEY, 'seen');
       }
     } catch {
@@ -301,70 +275,18 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const handleDismissBanner = useCallback(async () => {
-    try {
-      await AsyncStorage.setItem(DISMISSED_BANNER_KEY, today);
-    } catch {
-      // ignore
-    }
-    setDismissedYesterday(true);
-  }, [today]);
-
   const loadGoalAndAi = useCallback(async () => {
     const g = await getGoal();
     setGoal(g);
-    if (g) {
-      // 起動時はキャッシュがあれば表示するだけ（生成しない）
-      const cached = await getAiReport(today);
-      if (cached && cached.type === 'daily') {
-        setAiAdvice(cached.content);
-      }
-    }
-  }, [today]);
-
-  const loadAiAdvice = useCallback(async (g: UserGoal, forceRefresh = false) => {
-    // 当日のレポートキャッシュを確認
-    if (!forceRefresh) {
-      const cached = await getAiReport(today);
-      if (cached && cached.type === 'daily') {
-        setAiAdvice(cached.content);
-        return;
-      }
-    }
-
-    // 生成
-    setIsLoadingAi(true);
-    try {
-      const logs = useSleepStore.getState().recentLogs;
-
-      const avg = (arr: typeof logs) =>
-        arr.length > 0 ? Math.round(arr.reduce((s, l) => s + l.score, 0) / arr.length) : null;
-      const { profile } = useAuthStore.getState();
-      const report = await generateDailyAdvice(logs, g, {
-        prevPeriodAvgScore: avg(logs.slice(7, 14)),
-        ageGroup: profile?.ageGroup ?? null,
-      });
-      await saveAiReport(today, report);
-      setAiAdvice(report.content);
-    } catch (e) {
-      console.error('AI生成失敗:', e);
-      setAiAdvice(t('home.aiAdviceFailed'));
-    } finally {
-      setIsLoadingAi(false);
-    }
-  }, [t, today]);
+  }, []);
 
   useEffect(() => {
     loadToday();
     loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
     loadGoalAndAi();
-    checkYesterdayMissed();
-    checkDismissedBanner();
     checkHomeGuideSeen();
   }, [
     checkHomeGuideSeen,
-    checkDismissedBanner,
-    checkYesterdayMissed,
     loadGoalAndAi,
     loadRecent,
     loadToday,
@@ -452,12 +374,25 @@ export default function HomeScreen() {
     : '--:--';
   const heroSubtitle = todayLog ? t('home.heroReadySub') : t('home.heroEmptySub');
   const isEnglishUi = t('nav.aiChat') === 'AI Chat';
+  const homeBubbleAdvice = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 11) {
+      return isEnglishUi
+        ? 'Good morning. Keep today unhurried.'
+        : 'おはよう。今日もゆっくりいこう。';
+    }
+    if (hour < 18) {
+      return isEnglishUi
+        ? 'How is your energy today?'
+        : '今日はどんな調子で過ごせてる？';
+    }
+    return isEnglishUi
+      ? 'A calm night starts with a calm evening.'
+      : '穏やかな夜は、穏やかな夕方から。';
+  }, [isEnglishUi]);
   const primaryActionLabel = todayLog
     ? (isEnglishUi ? 'Result' : '結果')
     : (isEnglishUi ? 'Log sleep' : '睡眠登録');
-  const secondaryActionLabel = todayLog
-    ? t('common.edit')
-    : (isEnglishUi ? 'Yesterday' : '昨日記録');
   const statusTone = todayLog ? '#79E0B5' : '#FFD36E';
   const progressMeta = (
     <View style={styles.heroMetaColumn}>
@@ -679,9 +614,9 @@ export default function HomeScreen() {
           }}
         >
           <ShirokumaBubble
-            advice={aiAdvice}
-            compactLabel={t('home.todayBrief')}
-            isLoading={isLoadingAi}
+            advice={homeBubbleAdvice}
+            compactLabel={homeBubbleAdvice}
+            isLoading={false}
             isDreamExpanded={isDreamExpanded}
             onToggleExpand={toggleDreamExpand}
             dreamExpandAnim={dreamExpandAnim}
@@ -740,26 +675,21 @@ export default function HomeScreen() {
                   </Text>
                 </ScalePressable>
 
-                {(todayLog || yesterdayMissed) && (
+                {todayLog && (
                   <ScalePressable
                     style={styles.heroSecondaryAction}
                     onPress={() => {
-                      if (todayLog) {
-                        setModalTargetDate(today);
-                        setShowInputModal(true);
-                      } else if (yesterdayMissed) {
-                        setModalTargetDate(yesterday);
-                        setShowInputModal(true);
-                      }
+                      setModalTargetDate(today);
+                      setShowInputModal(true);
                     }}
                   >
                     <Icon
-                      name={todayLog ? 'user-edit' : 'calendar-warning'}
+                      name="user-edit"
                       size={14}
                       color="#CFC9FF"
                     />
                     <Text style={styles.heroSecondaryActionText} numberOfLines={1}>
-                      {secondaryActionLabel}
+                      {t('common.edit')}
                     </Text>
                   </ScalePressable>
                 )}
@@ -793,23 +723,7 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* 前日の未記録バナー */}
-            {yesterdayMissed && !dismissedYesterday && (
-              <View style={styles.missedBanner}>
-                <View style={styles.missedBannerContent}>
-                  <Icon name="calendar-warning" size={16} color="#9C8FFF" />
-                  <Text style={styles.missedBannerText}>{t('home.missedBanner')}</Text>
-                  <ScalePressable
-                    onPress={() => { setModalTargetDate(yesterday); setShowInputModal(true); }}
-                  >
-                    <Text style={styles.missedBannerAction}>{t('home.missedBannerAction')}</Text>
-                  </ScalePressable>
-                </View>
-                <TouchableOpacity onPress={handleDismissBanner}>
-                  <Text style={styles.missedBannerDismiss}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* 前日の未記録バナー（未実装・非表示） */}
 
           </ScrollView>
         </Animated.View>
@@ -822,11 +736,7 @@ export default function HomeScreen() {
         existingLog={modalTargetDate === today ? todayLog : null}
         goal={goal}
         targetDate={modalTargetDate}
-        onSave={() => {
-          // store は楽観的更新済み → Firestore再読み不要
-          // AI生成はバックグラウンドで実行（UIをブロックしない）
-          if (goal) loadAiAdvice(goal, true);
-        }}
+        onSave={() => {}}
       />
 
         </ImageBackground>

@@ -103,6 +103,17 @@ service cloud.firestore {
     // ── YOAKE 睡眠アプリ ──────────────────────────────────────────────────────
     // ユーザーデータ: サブコレクションを明示列挙してアクセス制御
 
+    // users ルートドキュメント（isPremium フラグ）: 本人読み取りのみ（書き込みは Admin SDK のみ）
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // FCMトークン: 本人のみ読み書き可
+    match /users/{userId}/fcmTokens/{tokenId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // プロフィール・目標: 本人のみ読み書き可
     match /users/{userId}/profile/{doc} {
       allow read, write: if request.auth != null && request.auth.uid == userId;

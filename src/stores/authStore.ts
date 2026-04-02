@@ -45,6 +45,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
 
     const unsubscribe = auth().onAuthStateChanged(async user => {
+      try {
+      if (!user) {
+        // 未サインイン → 匿名サインインして onAuthStateChanged を再トリガー
+        // isInitialized は false のままでスプラッシュを表示し続ける
+        auth().signInAnonymously().catch(() => {
+          // サインイン失敗時のみ初期化完了とみなしてエラー状態を表示
+          set({ user: null, isInitialized: true, profile: null, subscription: null, isPremium: false });
+        });
+        return;
+      }
+
       set({ user, isInitialized: true });
 
       if (user) {
@@ -52,6 +63,10 @@ export const useAuthStore = create<AuthState>((set) => ({
           getProfile(),
           getSubscription(),
         ]);
+        const storedOnboarding = await AsyncStorage.getItem(ONBOARDING_KEY);
+        const hasCompletedOnboarding = user.isAnonymous
+          ? storedOnboarding === 'true'
+          : true;
 
         const isPremium =
           subscription !== null &&
@@ -66,13 +81,14 @@ export const useAuthStore = create<AuthState>((set) => ({
           profile,
           subscription,
           isPremium,
-          hasCompletedOnboarding: user.isAnonymous ? false : true,
+          hasCompletedOnboarding,
         });
 
         // lastActiveAt を更新
         await saveProfile({});
-      } else {
-        set({ profile: null, subscription: null, isPremium: false });
+      }
+      } catch (e) {
+        console.warn('[authStore] onAuthStateChanged error:', e);
       }
     });
 
