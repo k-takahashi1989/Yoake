@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Image } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Image, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -143,7 +144,7 @@ function ProfileStackNavigator() {
       <ProfileStack.Screen
         name="LinkEmail"
         component={LinkEmailScreen}
-        options={{ title: isJa ? 'メールで保護する' : 'Protect with Email', headerBackTitle: '' }}
+        options={{ title: isJa ? 'メールアドレス登録' : 'Add Email Address', headerBackTitle: '' }}
       />
       <ProfileStack.Screen
         name="SignIn"
@@ -298,6 +299,19 @@ export default function AppNavigator() {
       }
     });
   }, [handleBedtimeReminderPress]);
+
+  // バックグラウンド状態で朝のリマインダーをタップ → アプリ復帰時にホームへ遷移
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async state => {
+      if (state !== 'active' || !navigationRef.isReady()) return;
+      const pending = await AsyncStorage.getItem('@yoake:pending_nav');
+      if (pending === 'Home') {
+        await AsyncStorage.removeItem('@yoake:pending_nav');
+        navigationRef.navigate('Main');
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // FCM: フォアグラウンド通知受信 + バックグラウンド→フォアグラウンド時のタップ + トークンリフレッシュ
   useEffect(() => {

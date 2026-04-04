@@ -24,7 +24,7 @@ import { getGoal } from '../../services/firebase';
 import { getScoreInfo, calculateSleepDebt } from '../../utils/scoreCalculator';
 import { calculateStreak } from '../../utils/streakCalculator';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
-import { SCORE_COLORS, SLEEP_LOG_FETCH_LIMIT, SUBSCRIPTION } from '../../constants';
+import { SCORE_COLORS, SLEEP_LOG_FETCH_LIMIT } from '../../constants';
 import { UserGoal, HomeStackParamList } from '../../types';
 import SleepInputModal from './SleepInputModal';
 import Icon from '../../components/common/Icon';
@@ -36,6 +36,27 @@ type HomeNav = NativeStackNavigationProp<HomeStackParamList>;
 
 const HOME_TUTORIAL_SEEN_KEY = '@yoake:home_tutorial_seen_v1';
 const MISSED_LOG_BANNER_DISMISSED_KEY = '@yoake:missed_log_banner_dismissed';
+const HOME_THEME = {
+  surfaceGlass: 'rgba(14, 27, 41, 0.76)',
+  surfacePrimary: 'rgba(24, 40, 59, 0.86)',
+  surfaceElevated: 'rgba(33, 54, 76, 0.9)',
+  surfaceRaised: 'rgba(42, 67, 92, 0.94)',
+  surfaceSoft: 'rgba(28, 46, 66, 0.82)',
+  borderSoft: 'rgba(246, 241, 232, 0.1)',
+  borderStrong: 'rgba(217, 180, 106, 0.22)',
+  borderCool: 'rgba(134, 175, 195, 0.2)',
+  textPrimary: '#F6F1E8',
+  textSecondary: '#D3DCE4',
+  textMuted: '#A5B6C5',
+  gold: '#D9B46A',
+  goldStrong: '#E7C98F',
+  goldText: '#FFF8EC',
+  goldSurface: 'rgba(217, 180, 106, 0.16)',
+  goldBorder: 'rgba(217, 180, 106, 0.3)',
+  blueSurface: 'rgba(134, 175, 195, 0.14)',
+  blueBorder: 'rgba(134, 175, 195, 0.24)',
+  shadow: '#0A1622',
+} as const;
 
 
 export default function HomeScreen() {
@@ -362,15 +383,6 @@ export default function HomeScreen() {
   const hasYesterdayLog = Boolean(logMap.get(yesterday));
   const shouldOfferCatchUp = recentLogs.length > 0 && !hasTodayLog && !hasYesterdayLog;
   const streakLabel = isEnglishUi ? `${streak} day streak` : `${streak}日継続`;
-  const premiumTeaserTitle = isEnglishUi
-    ? 'Premium turns raw logs into next steps'
-    : 'プレミアムで、記録が次の改善につながる';
-  const premiumTeaserBody = isEnglishUi
-    ? 'Weekly reports highlight your pattern, what changed, and the one action to try next.'
-    : '週次レポートで、睡眠の癖と前週比、次にやること1つまで見えるようになります。';
-  const premiumTeaserCta = isEnglishUi
-    ? `Start ${SUBSCRIPTION.TRIAL_DAYS}-day free trial`
-    : `${SUBSCRIPTION.TRIAL_DAYS}日間無料で試す`;
   const primaryActionLabel = todayLog
     ? (isEnglishUi ? 'Result' : '結果を見る')
     : (isEnglishUi ? 'Log sleep' : '睡眠記録');
@@ -745,21 +757,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {!isPremium && (
-              <View style={styles.premiumTeaserCard}>
-                <Text style={styles.premiumTeaserTitle}>{premiumTeaserTitle}</Text>
-                <Text style={styles.premiumTeaserBody}>{premiumTeaserBody}</Text>
-                <ScalePressable
-                  style={styles.miniRecordButton}
-                  onPress={() =>
-                    (navigation.getParent() as any)?.navigate('Profile', { screen: 'SubscriptionManage' })
-                  }
-                >
-                  <Text style={styles.miniRecordButtonText}>{premiumTeaserCta}</Text>
-                </ScalePressable>
-              </View>
-            )}
-
             {/* 蜑肴律縺ｮ譛ｪ險倬鹸繝舌リ繝ｼ・域悴螳溯｣・・髱櫁｡ｨ遉ｺ・・*/}
 
           </ScrollView>
@@ -1020,13 +1017,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 16,
     borderRadius: 24,
-    backgroundColor: 'rgba(10, 14, 36, 0.76)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderWidth: 1,
-    borderColor: 'rgba(186, 177, 255, 0.22)',
-    shadowColor: '#000814',
+    borderColor: HOME_THEME.borderSoft,
+    shadowColor: HOME_THEME.shadow,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 20,
+    shadowOpacity: 0.26,
+    shadowRadius: 22,
   },
   heroCardHeader: {
     flexDirection: 'row',
@@ -1044,14 +1041,14 @@ const styles = StyleSheet.create({
   },
   heroEyebrow: {
     fontSize: 12,
-    color: '#BDB7F5',
+    color: HOME_THEME.goldStrong,
     marginBottom: 6,
     fontWeight: '600',
   },
   heroSubtitle: {
     fontSize: 13,
     lineHeight: 20,
-    color: '#D6D4EE',
+    color: HOME_THEME.textSecondary,
   },
   heroBadge: {
     flexDirection: 'row',
@@ -1060,9 +1057,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: HOME_THEME.surfaceSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: HOME_THEME.borderSoft,
   },
   heroBadgeDot: {
     width: 8,
@@ -1071,79 +1068,84 @@ const styles = StyleSheet.create({
   },
   heroBadgeText: {
     fontSize: 11,
-    color: '#F8F7FF',
+    color: HOME_THEME.textPrimary,
     fontWeight: '700',
   },
   heroStreakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 152, 0, 0.18)',
+    backgroundColor: HOME_THEME.goldSurface,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 152, 0, 0.35)',
+    borderColor: HOME_THEME.goldBorder,
   },
   heroStreakText: {
     fontSize: 11,
-    color: '#FFA726',
+    color: HOME_THEME.goldStrong,
     fontWeight: '700',
   },
   heroPrimaryAction: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 16,
+    minHeight: 48,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6257DA',
+    backgroundColor: HOME_THEME.gold,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 14,
-    shadowColor: '#7A70F4',
+    borderColor: 'rgba(255, 248, 236, 0.22)',
+    borderTopColor: 'rgba(255, 252, 246, 0.38)',
+    paddingHorizontal: 16,
+    shadowColor: HOME_THEME.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 5,
+    shadowRadius: 18,
+    elevation: 6,
   },
   heroPrimaryActionWarm: {
-    backgroundColor: '#E88954',
-    shadowColor: '#E88954',
+    backgroundColor: HOME_THEME.goldStrong,
+    shadowColor: HOME_THEME.gold,
   },
   heroPrimaryActionText: {
-    color: '#FFFFFF',
+    color: '#17263A',
     fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.45,
   },
   heroSecondaryAction: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 16,
+    minHeight: 48,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    gap: 7,
+    backgroundColor: HOME_THEME.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    paddingHorizontal: 12,
-    shadowColor: '#000814',
+    borderColor: 'rgba(246, 241, 232, 0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.14)',
+    paddingHorizontal: 14,
+    shadowColor: HOME_THEME.shadow,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 4,
   },
   heroSecondaryActionText: {
-    color: '#E9E7FF',
+    color: HOME_THEME.textPrimary,
     fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 0.35,
   },
   heroAiAction: {
-    backgroundColor: 'rgba(156,143,255,0.1)',
+    backgroundColor: 'rgba(48, 72, 98, 0.92)',
+    borderColor: 'rgba(134, 175, 195, 0.22)',
+    borderTopColor: 'rgba(214, 232, 242, 0.16)',
   },
   heroAiActionLocked: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(15, 26, 42, 0.84)',
+    borderColor: 'rgba(196, 207, 219, 0.08)',
   },
   panelActionGroup: {
     marginBottom: 12,
@@ -1152,13 +1154,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 12,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: HOME_THEME.surfacePrimary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: HOME_THEME.borderSoft,
   },
   panelQuickStatsTitle: {
     fontSize: 11,
-    color: '#A8A4CC',
+    color: HOME_THEME.goldStrong,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 10,
@@ -1169,21 +1171,21 @@ const styles = StyleSheet.create({
   },
   panelQuickStat: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: HOME_THEME.surfaceElevated,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: HOME_THEME.borderCool,
   },
   panelQuickLabel: {
     fontSize: 10,
-    color: '#A8A4CC',
+    color: HOME_THEME.textMuted,
     marginBottom: 4,
   },
   panelQuickValue: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: HOME_THEME.textPrimary,
     fontWeight: '800',
   },
   panelActionRow: {
@@ -1193,7 +1195,7 @@ const styles = StyleSheet.create({
   // 荳企Κ繧ｾ繝ｼ繝ｳ・域律莉伜ｷｦ繝ｻScoreRing蜿ｳ・・
   panelEmptyHint: {
     marginTop: 10,
-    color: '#A8A4CC',
+    color: HOME_THEME.textMuted,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -1208,22 +1210,22 @@ const styles = StyleSheet.create({
   dateColumn: {
     alignItems: 'flex-start',
   },
-  dateText: { fontSize: 12, color: '#C8C8E0', marginTop: 8 },
+  dateText: { fontSize: 12, color: HOME_THEME.textSecondary, marginTop: 8 },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 152, 0, 0.18)',
+    backgroundColor: HOME_THEME.goldSurface,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 152, 0, 0.35)',
+    borderColor: HOME_THEME.goldBorder,
     alignSelf: 'flex-start',
     marginTop: 4,
   },
   streakText: {
     fontSize: 12,
-    color: '#FFA726',
+    color: HOME_THEME.goldStrong,
     fontWeight: '700',
   },
   topRight: {
@@ -1236,37 +1238,37 @@ const styles = StyleSheet.create({
     marginTop: 6,
     alignItems: 'flex-end',
     gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: HOME_THEME.borderSoft,
   },
   topSummaryItem: {
     alignItems: 'flex-end',
   },
   topSummaryLabel: {
     fontSize: 10,
-    color: 'rgba(200,200,224,0.85)',
+    color: HOME_THEME.textMuted,
     lineHeight: 13,
   },
   topSummaryValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: HOME_THEME.textPrimary,
     lineHeight: 20,
   },
   scoreCloudWrap: {
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderRadius: 12,
     paddingVertical: 6,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: HOME_THEME.borderSoft,
     alignItems: 'center',
   },
-  scoreContext: { fontSize: 10, color: 'rgba(200,200,224,0.85)', marginLeft: 10, flex: 1, textAlign: 'left' },
+  scoreContext: { fontSize: 10, color: HOME_THEME.textMuted, marginLeft: 10, flex: 1, textAlign: 'left' },
   // 繧ｯ繝槫捉蝗ｲ縺ｮ繧ｴ繝ｼ繝ｫ繝峨ャ繝茨ｼ育ｵｶ蟇ｾ驟咲ｽｮ・・
   floatingDotWrap: {
     position: 'absolute',
@@ -1279,10 +1281,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: 'rgba(11, 10, 28, 0.88)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    shadowColor: '#000814',
+    borderColor: HOME_THEME.borderSoft,
+    shadowColor: HOME_THEME.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -1290,7 +1292,7 @@ const styles = StyleSheet.create({
   },
   todayMarkerText: {
     fontSize: 7,
-    color: '#F6F2D6',
+    color: HOME_THEME.goldText,
     fontWeight: '800',
     letterSpacing: 0.5,
     textAlign: 'center',
@@ -1313,7 +1315,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   // 莉頑律縺ｮ繝峨ャ繝茨ｼ夐峇縺・.6蛟阪し繧､繧ｺ縺ｪ縺ｮ縺ｧ繧ｹ繧ｳ繧｢繧ょ､ｧ縺阪￥
-  goalDayLabel: { fontSize: 9, color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  goalDayLabel: { fontSize: 9, color: HOME_THEME.textPrimary, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   // 莉頑律縺ｮ譖懈律繝ｩ繝吶Ν・亥ｰ代＠螟ｧ縺阪￥・・
   // AI繝√Ε繝・ヨ繝懊ち繝ｳ・・CG譫邱壹い繝九Γ・・
   guideAnchor: {
@@ -1329,12 +1331,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: 'rgba(11, 10, 28, 0.72)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: HOME_THEME.borderSoft,
   },
   guideButtonText: {
-    color: '#F5F2DE',
+    color: HOME_THEME.textPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1342,10 +1344,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 14,
     borderRadius: 20,
-    backgroundColor: 'rgba(11, 10, 28, 0.94)',
+    backgroundColor: HOME_THEME.surfacePrimary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    shadowColor: '#000814',
+    borderColor: HOME_THEME.borderSoft,
+    shadowColor: HOME_THEME.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.28,
     shadowRadius: 18,
@@ -1358,17 +1360,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   guideCardTitle: {
-    color: '#FFFFFF',
+    color: HOME_THEME.textPrimary,
     fontSize: 15,
     fontWeight: '800',
   },
   guideCardClose: {
-    color: '#BDB7F5',
+    color: HOME_THEME.goldStrong,
     fontSize: 12,
     fontWeight: '700',
   },
   guideCardHint: {
-    color: '#B9B5DA',
+    color: HOME_THEME.textSecondary,
     fontSize: 11,
     lineHeight: 16,
     marginBottom: 12,
@@ -1387,12 +1389,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(107, 92, 231, 0.24)',
+    backgroundColor: HOME_THEME.goldSurface,
     borderWidth: 1,
-    borderColor: 'rgba(156,143,255,0.35)',
+    borderColor: HOME_THEME.goldBorder,
   },
   guideItemIndexText: {
-    color: '#EFEAFF',
+    color: HOME_THEME.goldText,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -1400,13 +1402,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   guideItemTitle: {
-    color: '#FFFFFF',
+    color: HOME_THEME.textPrimary,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 2,
   },
   guideItemBody: {
-    color: '#C9C6E8',
+    color: HOME_THEME.textSecondary,
     fontSize: 11,
     lineHeight: 16,
   },
@@ -1415,7 +1417,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     zIndex: 10,
     elevation: 8,
-    shadowColor: '#9B8AFF',
+    shadowColor: HOME_THEME.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 10,
   },
@@ -1423,16 +1425,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 11,
     alignItems: 'center',
-    backgroundColor: '#6B5CE7',
+    backgroundColor: HOME_THEME.surfaceRaised,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(220,200,255,0.45)',
+    borderTopColor: 'rgba(240, 201, 120, 0.18)',
     overflow: 'hidden',
   },
-  chatButtonLocked: { backgroundColor: 'rgba(36, 32, 72, 0.92)' },
-  chatButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+  chatButtonLocked: { backgroundColor: 'rgba(15, 26, 42, 0.92)' },
+  chatButtonText: { color: HOME_THEME.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
   // AIチャット導線ボタン
   aiChatPanelButton: {
-    backgroundColor: '#6B5CE7',
+    backgroundColor: HOME_THEME.surfaceRaised,
     borderRadius: 22,
     paddingVertical: 13,
     flexDirection: 'row',
@@ -1441,32 +1443,34 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 8,
   },
-  aiChatPanelButtonLocked: { backgroundColor: 'rgba(36, 32, 72, 0.92)' },
-  aiChatPanelButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+  aiChatPanelButtonLocked: { backgroundColor: 'rgba(15, 26, 42, 0.92)' },
+  aiChatPanelButtonText: { color: HOME_THEME.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
   // 繝溘ル險倬鹸繝懊ち繝ｳ・医せ繧ｳ繧｢繝ｪ繝ｳ繧ｰ縺ｮ荳具ｼ・
   miniRecordButton: {
     marginTop: 8,
-    backgroundColor: '#6B5CE7',
+    backgroundColor: HOME_THEME.gold,
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 18,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 244, 226, 0.18)',
   },
-  miniRecordButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
+  miniRecordButtonText: { color: '#17263A', fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   // 逹｡逵雋蛯ｵ繝舌ャ繧ｸ
   debtBadge: {
     position: 'absolute',
-    backgroundColor: 'rgba(13, 13, 30, 0.75)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.3)',
+    borderColor: HOME_THEME.borderSoft,
     zIndex: 10,
     minWidth: 70,
   },
-  debtBadgeLabel: { fontSize: 9, color: '#9A9AB8', marginBottom: 2 },
+  debtBadgeLabel: { fontSize: 9, color: HOME_THEME.textMuted, marginBottom: 2 },
   debtBadgeValue: { fontSize: 16, fontWeight: 'bold' },
   // 莉頑律縺ｮ逹｡逵繧ｵ繝槭Μ繝ｼ・域立讓ｪ荳ｦ縺ｳ繝ｻ譛ｪ菴ｿ逕ｨ・・
   topSummaryStrip: {
@@ -1475,16 +1479,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 24,
     marginTop: 6,
-    backgroundColor: 'rgba(13, 13, 30, 0.6)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderRadius: 14,
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.2)',
+    borderColor: HOME_THEME.borderSoft,
   },
   topSummaryTitle: {
     fontSize: 10,
-    color: '#9C8FFF',
+    color: HOME_THEME.goldStrong,
     fontWeight: '600',
   },
   // 繝懊ヨ繝繝代ロ繝ｫ
@@ -1494,11 +1498,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     maxHeight: 392,
-    backgroundColor: 'rgba(13, 13, 30, 0.8)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
-    borderColor: 'rgba(194, 205, 255, 0.18)',
+    borderColor: HOME_THEME.borderSoft,
     paddingHorizontal: 16,
     paddingTop: 12,
   },
@@ -1506,7 +1510,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(107, 92, 231, 0.4)',
+    backgroundColor: 'rgba(240, 201, 120, 0.4)',
     alignSelf: 'center',
   },
   handleWrap: {
@@ -1517,70 +1521,70 @@ const styles = StyleSheet.create({
   },
   firstTimeCard: {
     marginBottom: 12,
-    backgroundColor: 'rgba(107, 92, 231, 0.15)',
+    backgroundColor: HOME_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
+    borderColor: HOME_THEME.borderStrong,
     alignItems: 'center',
   },
-  firstTimeTitle: { fontSize: 15, fontWeight: 'bold', color: '#9C8FFF', marginBottom: 4 },
-  firstTimeDesc: { fontSize: 12, color: '#C8C8E0', textAlign: 'center', lineHeight: 18 },
+  firstTimeTitle: { fontSize: 15, fontWeight: 'bold', color: HOME_THEME.goldStrong, marginBottom: 4 },
+  firstTimeDesc: { fontSize: 12, color: HOME_THEME.textSecondary, textAlign: 'center', lineHeight: 18 },
   premiumTeaserCard: {
     marginBottom: 12,
-    backgroundColor: 'rgba(107, 92, 231, 0.15)',
+    backgroundColor: HOME_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
+    borderColor: HOME_THEME.borderStrong,
   },
   premiumTeaserTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F2EFFF',
+    color: HOME_THEME.textPrimary,
     marginBottom: 6,
   },
   premiumTeaserBody: {
     fontSize: 12,
-    color: '#D3D0F3',
+    color: HOME_THEME.textSecondary,
     lineHeight: 18,
   },
   recordButton: {
-    backgroundColor: '#6B5CE7',
+    backgroundColor: HOME_THEME.gold,
     paddingHorizontal: 32,
     paddingVertical: 13,
     borderRadius: 28,
     alignItems: 'center',
     marginTop: 8,
   },
-  recordButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  recordButtonText: { color: '#17263A', fontSize: 15, fontWeight: '600' },
 
   missedBanner: {
     marginBottom: 10,
-    backgroundColor: '#FF980018',
+    backgroundColor: HOME_THEME.goldSurface,
     borderRadius: 12,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#FF980040',
+    borderColor: HOME_THEME.goldBorder,
   },
   missedBannerContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  missedBannerText: { color: '#FF9800', fontSize: 12 },
-  missedBannerAction: { color: '#FF9800', fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' },
-  missedBannerDismiss: { color: '#C8C8E0', fontSize: 14, padding: 4 },
+  missedBannerText: { color: HOME_THEME.goldStrong, fontSize: 12 },
+  missedBannerAction: { color: HOME_THEME.goldStrong, fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' },
+  missedBannerDismiss: { color: HOME_THEME.textSecondary, fontSize: 14, padding: 4 },
   summaryCard: {
-    backgroundColor: 'rgba(26, 26, 46, 0.6)',
+    backgroundColor: HOME_THEME.surfaceGlass,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.2)',
+    borderColor: HOME_THEME.borderSoft,
   },
-  cardTitle: { fontSize: 13, color: '#C8C8E0', marginBottom: 10, fontWeight: '600' },
+  cardTitle: { fontSize: 13, color: HOME_THEME.textSecondary, marginBottom: 10, fontWeight: '600' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-around' },
   summaryItem: { alignItems: 'center' },
-  summaryValue: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  summaryLabel: { fontSize: 10, color: '#C8C8E0', marginTop: 3 },
+  summaryValue: { fontSize: 18, fontWeight: 'bold', color: HOME_THEME.textPrimary },
+  summaryLabel: { fontSize: 10, color: HOME_THEME.textSecondary, marginTop: 3 },
 });

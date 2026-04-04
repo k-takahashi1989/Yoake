@@ -17,9 +17,24 @@ const ALARM_ID = 'yoake_alarm';
 const ALARM_CHANNEL_ID = 'yoake_alarm';
 const SNOOZE_MINUTES = 5;
 const ALARM_STORAGE_KEY = '@yoake:alarm_settings';
+const MORNING_REMINDER_ID = 'yoake_morning_reminder';
+const BEDTIME_REMINDER_ID = 'yoake_bedtime_reminder';
+export const PENDING_NAV_KEY = '@yoake:pending_nav';
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   const { notification, pressAction } = detail;
+
+  // 朝のリマインダーをタップ → アプリ復帰後にホームへ遷移
+  if (notification?.id === MORNING_REMINDER_ID && type === EventType.PRESS) {
+    await AsyncStorage.setItem(PENDING_NAV_KEY, 'Home');
+    return;
+  }
+
+  // 就寝リマインダー本体タップ → アプリを開くだけ
+  if (notification?.id === BEDTIME_REMINDER_ID && type === EventType.PRESS) {
+    return;
+  }
+
   if (!notification || notification.id !== ALARM_ID) return;
 
   if (type === EventType.ACTION_PRESS) {

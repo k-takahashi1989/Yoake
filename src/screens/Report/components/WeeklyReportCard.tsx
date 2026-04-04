@@ -9,6 +9,7 @@ import {
 import { AiReport } from '../../../types';
 import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
+import { MORNING_THEME } from '../../../theme/morningTheme';
 
 interface Props {
   weeklyReport: AiReport | null;
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
   },
@@ -120,30 +121,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: MORNING_THEME.goldStrong, fontWeight: '600', marginBottom: 12 },
   generateBtn: {
-    backgroundColor: '#6B5CE720',
+    backgroundColor: MORNING_THEME.goldSurface,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#6B5CE740',
+    borderColor: MORNING_THEME.goldBorder,
   },
   generateBtnDisabled: { opacity: 0.5 },
-  generateBtnText: { color: '#9C8FFF', fontSize: 12 },
+  generateBtnText: { color: MORNING_THEME.goldText, fontSize: 12, fontWeight: '700' },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 8,
   },
-  scoreText: { fontSize: 12, color: '#9A9AB8' },
+  scoreText: { fontSize: 12, color: MORNING_THEME.textMuted },
   diffText: { fontSize: 12, fontWeight: 'bold' },
-  reportText: { fontSize: 14, color: '#D0D0E8', lineHeight: 22 },
-  reportPlaceholder: { fontSize: 13, color: '#555', lineHeight: 20 },
+  reportText: { fontSize: 14, color: MORNING_THEME.textSecondary, lineHeight: 22 },
+  reportPlaceholder: { fontSize: 13, color: MORNING_THEME.textMuted, lineHeight: 20 },
   pastReportRow: {
     borderTopWidth: 1,
-    borderTopColor: '#1A1A2E',
+    borderTopColor: MORNING_THEME.borderSoft,
     paddingVertical: 10,
   },
   pastReportHeader: {
@@ -151,11 +152,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  pastReportLabel: { fontSize: 13, color: '#D0D0E8', fontWeight: '600' },
-  pastReportChevron: { fontSize: 10, color: '#9A9AB8' }, // WCAG AA対応: #666 → #9A9AB8
+  pastReportLabel: { fontSize: 13, color: MORNING_THEME.textSecondary, fontWeight: '600' },
+  pastReportChevron: { fontSize: 10, color: MORNING_THEME.textMuted },
   pastReportContent: {
     fontSize: 13,
-    color: '#B0B0C8',
+    color: MORNING_THEME.textMuted,
     lineHeight: 20,
     marginTop: 8,
   },

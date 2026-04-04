@@ -26,6 +26,7 @@ import {
   getSleepOnsetOptions,
   getWakeFeelingOptions,
 } from '../../utils/sleepSubjective';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 type SharedParamList = { RecordEdit: { date: string } };
 type Props = NativeStackScreenProps<SharedParamList, 'RecordEdit'>;
@@ -157,7 +158,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.center}>
-          <ActivityIndicator color="#6B5CE7" />
+          <ActivityIndicator color={MORNING_THEME.goldStrong} />
         </View>
       </SafeAreaView>
     );
@@ -255,7 +256,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
               value={form.memo}
               onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
               placeholder={isJa ? '気づいたことを記録できます' : t('common.memoPlaceholder')}
-              placeholderTextColor="#555"
+              placeholderTextColor={MORNING_THEME.textMuted}
               multiline
               numberOfLines={3}
               maxLength={200}
@@ -279,9 +280,9 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
+  safeArea: { flex: 1, backgroundColor: MORNING_THEME.root },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { color: '#9A9AB8', fontSize: 15 },
+  errorText: { color: MORNING_THEME.textMuted, fontSize: 15 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -289,31 +290,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    borderBottomColor: MORNING_THEME.borderSoft,
   },
   cancelBtn: { padding: 4 },
-  cancelText: { color: '#9A9AB8', fontSize: 15 },
-  title: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
+  cancelText: { color: MORNING_THEME.textMuted, fontSize: 15 },
+  title: { fontSize: 17, fontWeight: '600', color: MORNING_THEME.textPrimary },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   deleteBtn: { padding: 4 },
-  deleteText: { color: '#F44336', fontSize: 15 },
-  saveBtn: { backgroundColor: '#6B5CE7', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
+  deleteText: { color: MORNING_THEME.danger, fontSize: 15 },
+  saveBtn: {
+    backgroundColor: MORNING_THEME.gold,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
+  },
   saveBtnDisabled: { opacity: 0.5 },
-  saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  saveText: { color: MORNING_THEME.goldText, fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
   scroll: { flex: 1 },
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
-  durationValue: { fontSize: 36, fontWeight: 'bold', color: '#6B5CE7' },
-  durationLabel: { fontSize: 13, color: '#9A9AB8', marginTop: 4 },
+  durationValue: { fontSize: 36, fontWeight: 'bold', color: MORNING_THEME.goldStrong },
+  durationLabel: { fontSize: 13, color: MORNING_THEME.textMuted, marginTop: 4 },
   sectionCard: {
     marginHorizontal: 16,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderSoft,
   },
-  sectionTitle: { fontSize: 14, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
+  sectionTitle: { fontSize: 14, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 12 },
   memoInput: {
-    color: '#FFFFFF',
+    color: MORNING_THEME.textPrimary,
     fontSize: 14,
     lineHeight: 22,
     minHeight: 72,

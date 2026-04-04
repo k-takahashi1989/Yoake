@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { HabitStat } from '../utils/habitStats';
 import { useTranslation } from '../../../i18n';
 import HabitIcon from '../../../components/common/HabitIcon';
+import { MORNING_THEME } from '../../../theme/morningTheme';
 
 interface Props {
   habitStats: HabitStat[];
@@ -14,7 +15,8 @@ interface Props {
 const BAR_ZONE_HEIGHT = 128;
 const ICON_ZONE_HEIGHT = 42;
 const PILL_ZONE_HEIGHT = 34;
-const ALL_GRID_VALUES = [100, 75, 50, 25];
+const GRID_STEP = 5;
+const MIN_VISIBLE_RANGE = 20;
 
 type ChartHabitStat = HabitStat & {
   diff: number;
@@ -57,6 +59,52 @@ function getDiffTone(diff: number) {
   };
 }
 
+function floorToStep(value: number, step: number) {
+  return Math.floor(value / step) * step;
+}
+
+function ceilToStep(value: number, step: number) {
+  return Math.ceil(value / step) * step;
+}
+
+function buildChartRange(values: number[]) {
+  const minScore = Math.min(...values);
+  const maxScore = Math.max(...values);
+
+  let minValue = Math.max(0, floorToStep(minScore - GRID_STEP, GRID_STEP));
+  let maxValue = Math.min(100, ceilToStep(maxScore + GRID_STEP, GRID_STEP));
+
+  if (maxValue - minValue < MIN_VISIBLE_RANGE) {
+    const missingRange = MIN_VISIBLE_RANGE - (maxValue - minValue);
+    const paddingSteps = Math.ceil(missingRange / 2 / GRID_STEP) * GRID_STEP;
+
+    minValue -= paddingSteps;
+    maxValue += paddingSteps;
+
+    if (minValue < 0) {
+      maxValue = Math.min(100, maxValue + Math.abs(minValue));
+      minValue = 0;
+    }
+
+    if (maxValue > 100) {
+      minValue = Math.max(0, minValue - (maxValue - 100));
+      maxValue = 100;
+    }
+  }
+
+  const range = Math.max(GRID_STEP, maxValue - minValue);
+  const gridValues = Array.from(
+    { length: Math.floor(range / GRID_STEP) + 1 },
+    (_, index) => maxValue - index * GRID_STEP,
+  ).filter(value => value >= minValue);
+
+  return {
+    minValue,
+    range,
+    gridValues,
+  };
+}
+
 export default function HabitCorrelationCard({ habitStats, avgScore }: Props) {
   const { t } = useTranslation();
   const rawStats = habitStats.slice(0, 6).map(stat => ({
@@ -64,20 +112,20 @@ export default function HabitCorrelationCard({ habitStats, avgScore }: Props) {
     diff: stat.withAvg - stat.withoutAvg,
   }));
 
-  // ベースラインを最小スコアの15点下に設定し、棒の高さの差を視覚的に拡大する
-  const minWithAvg = rawStats.length > 0 ? Math.min(...rawStats.map(s => s.withAvg)) : 0;
-  const baselineScore = Math.max(0, minWithAvg - 15);
-  const scoreRange = 100 - baselineScore;
+  const chartValues = rawStats.length > 0
+    ? [...rawStats.map(stat => stat.withAvg), avgScore]
+    : [avgScore];
+  const { minValue, range, gridValues } = buildChartRange(chartValues);
 
   const toBarHeight = (score: number) =>
-    Math.max(8, Math.round(((score - baselineScore) / scoreRange) * BAR_ZONE_HEIGHT));
+    Math.max(8, Math.round(((score - minValue) / range) * BAR_ZONE_HEIGHT));
 
   const chartStats: ChartHabitStat[] = rawStats.map(stat => ({
     ...stat,
     barHeight: toBarHeight(stat.withAvg),
   }));
 
-  const avgBottom = ICON_ZONE_HEIGHT + Math.round(((avgScore - baselineScore) / scoreRange) * BAR_ZONE_HEIGHT);
+  const avgBottom = ICON_ZONE_HEIGHT + Math.round(((avgScore - minValue) / range) * BAR_ZONE_HEIGHT);
 
   return (
     <View style={styles.card}>
@@ -90,8 +138,8 @@ export default function HabitCorrelationCard({ habitStats, avgScore }: Props) {
 
           <View style={styles.chartFrame}>
             <View style={styles.chartSurface}>
-              {ALL_GRID_VALUES.filter(v => v > baselineScore).map(value => {
-                const bottom = ICON_ZONE_HEIGHT + Math.round(((value - baselineScore) / scoreRange) * BAR_ZONE_HEIGHT);
+              {gridValues.map(value => {
+                const bottom = ICON_ZONE_HEIGHT + Math.round(((value - minValue) / range) * BAR_ZONE_HEIGHT);
                 return (
                   <View key={value} style={[styles.gridRow, { bottom }]}>
                     <Text style={styles.gridLabel}>{value}</Text>
@@ -100,11 +148,7 @@ export default function HabitCorrelationCard({ habitStats, avgScore }: Props) {
                 );
               })}
 
-              <View style={[styles.averageLine, { bottom: avgBottom }]}>
-                <View style={styles.averagePill}>
-                  <Text style={styles.averagePillText}>AVG {avgScore}</Text>
-                </View>
-              </View>
+              <View style={[styles.averageLine, { bottom: avgBottom }]} />
 
               <View style={styles.columnsRow}>
                 {chartStats.map(stat => {
@@ -155,28 +199,28 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: 'rgba(37, 39, 66, 0.96)',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(139, 130, 255, 0.14)',
+    borderColor: MORNING_THEME.borderStrong,
   },
   cardTitle: {
     fontSize: 13,
-    color: '#AEB0D2',
+    color: MORNING_THEME.goldStrong,
     fontWeight: '600',
     marginBottom: 12,
   },
   cardSubTitle: {
     fontSize: 11,
-    color: '#9A9AB8', // WCAG AA対応: #6F738F → #9A9AB8
+    color: MORNING_THEME.textMuted,
     marginTop: -8,
     marginBottom: 12,
     lineHeight: 16,
   },
   reportPlaceholder: {
     fontSize: 13,
-    color: '#9A9AB8', // WCAG AA対応: #666A86 → #9A9AB8
+    color: MORNING_THEME.textMuted,
     lineHeight: 20,
   },
   chartFrame: {
@@ -189,9 +233,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 6,
     borderRadius: 18,
-    backgroundColor: 'rgba(15, 17, 34, 0.56)',
+    backgroundColor: MORNING_THEME.surfaceGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: MORNING_THEME.borderSoft,
     position: 'relative',
   },
   gridRow: {
@@ -204,37 +248,20 @@ const styles = StyleSheet.create({
   },
   gridLabel: {
     width: 24,
-    color: '#9A9AB8', // WCAG AA対応: #6F738F → #9A9AB8
+    color: MORNING_THEME.textMuted,
     fontSize: 9,
   },
   gridLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(154, 154, 184, 0.10)',
+    backgroundColor: 'rgba(165, 182, 197, 0.12)',
   },
   averageLine: {
     position: 'absolute',
     left: 38,
     right: 14,
     height: 1,
-    backgroundColor: 'rgba(143, 130, 255, 0.36)',
-  },
-  averagePill: {
-    position: 'absolute',
-    left: -38,
-    top: -10,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(143, 130, 255, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(143, 130, 255, 0.24)',
-  },
-  averagePillText: {
-    color: '#DCD8FF',
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    backgroundColor: MORNING_THEME.goldBorder,
   },
   columnsRow: {
     flexDirection: 'row',

@@ -34,6 +34,7 @@ import {
   getSleepOnsetOptions,
   getWakeFeelingOptions,
 } from '../../utils/sleepSubjective';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 interface Props {
   visible: boolean;
@@ -322,7 +323,7 @@ export default function SleepInputModal({
 
             {sourceMode === 'loading' ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#6B5CE7" />
+                <ActivityIndicator size="large" color={MORNING_THEME.goldStrong} />
                 <Text style={styles.loadingText}>
                   {isJa ? 'Health Connect からデータを読み込み中...' : t('sleepInput.loadingHC')}
                 </Text>
@@ -367,10 +368,10 @@ export default function SleepInputModal({
                 {sourceMode === 'hc' && form.deepSleepMinutes != null && (
                   <SectionCard title={isJa ? '睡眠ステージ（Health Connect）' : t('sleepInput.sleepStageTitle')}>
                     <View style={styles.stageRow}>
-                      <StageItem label={isJa ? '深い睡眠' : t('sleepInput.deepSleep')} minutes={form.deepSleepMinutes ?? 0} color="#6B5CE7" />
-                      <StageItem label={isJa ? 'レム睡眠' : t('sleepInput.remSleep')} minutes={form.remMinutes ?? 0} color="#4CAF50" />
-                      <StageItem label={isJa ? '浅い睡眠' : t('sleepInput.lightSleep')} minutes={form.lightSleepMinutes ?? 0} color="#FF9800" />
-                      <StageItem label={isJa ? '覚醒' : t('sleepInput.awake')} minutes={form.awakenings ?? 0} color="#F44336" isCount />
+                      <StageItem label={isJa ? '深い睡眠' : t('sleepInput.deepSleep')} minutes={form.deepSleepMinutes ?? 0} color={MORNING_THEME.goldStrong} />
+                      <StageItem label={isJa ? 'レム睡眠' : t('sleepInput.remSleep')} minutes={form.remMinutes ?? 0} color={MORNING_THEME.success} />
+                      <StageItem label={isJa ? '浅い睡眠' : t('sleepInput.lightSleep')} minutes={form.lightSleepMinutes ?? 0} color={MORNING_THEME.textSecondary} />
+                      <StageItem label={isJa ? '覚醒' : t('sleepInput.awake')} minutes={form.awakenings ?? 0} color={MORNING_THEME.danger} isCount />
                     </View>
                   </SectionCard>
                 )}
@@ -426,7 +427,7 @@ export default function SleepInputModal({
                     value={form.memo}
                     onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
                     placeholder={isJa ? '気づいたことを記録できます' : t('common.memoPlaceholder')}
-                    placeholderTextColor="#555"
+                    placeholderTextColor={MORNING_THEME.textMuted}
                     multiline
                     numberOfLines={3}
                     maxLength={200}
@@ -475,7 +476,7 @@ function StageItem({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(13, 10, 35, 0.82)' },
+  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: MORNING_THEME.overlay },
   safeArea: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row',
@@ -484,71 +485,80 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    borderBottomColor: MORNING_THEME.borderSoft,
   },
   cancelBtn: { padding: 4 },
-  cancelText: { color: '#9A9AB8', fontSize: 15 },
-  title: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
-  saveBtn: { backgroundColor: '#6B5CE7', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
+  cancelText: { color: MORNING_THEME.textMuted, fontSize: 15 },
+  title: { fontSize: 17, fontWeight: '600', color: MORNING_THEME.textPrimary },
+  saveBtn: {
+    backgroundColor: MORNING_THEME.gold,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
+  },
   saveBtnDisabled: { opacity: 0.5 },
-  saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  saveText: { color: MORNING_THEME.goldText, fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingText: { color: '#9A9AB8', fontSize: 14 },
+  loadingText: { color: MORNING_THEME.textMuted, fontSize: 14 },
   scroll: { flex: 1 },
   pastDateBanner: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#FF980015',
+    backgroundColor: MORNING_THEME.goldSurface,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#FF980040',
+    borderColor: MORNING_THEME.goldBorder,
   },
-  pastDateText: { color: '#FF9800', fontSize: 13, textAlign: 'center' },
+  pastDateText: { color: MORNING_THEME.goldStrong, fontSize: 13, textAlign: 'center' },
   bedDateBanner: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#4FC3F715',
+    backgroundColor: MORNING_THEME.blueSurface,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#4FC3F740',
+    borderColor: MORNING_THEME.blueBorder,
   },
-  bedDateText: { color: '#4FC3F7', fontSize: 13, textAlign: 'center' },
+  bedDateText: { color: MORNING_THEME.textSecondary, fontSize: 13, textAlign: 'center' },
   hcBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#6B5CE720',
+    backgroundColor: MORNING_THEME.goldSurface,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#6B5CE740',
+    borderColor: MORNING_THEME.goldBorder,
   },
-  hcBannerText: { color: '#9C8FFF', fontSize: 13, fontWeight: '600' },
-  hcBannerSwitch: { color: '#9A9AB8', fontSize: 12, textDecorationLine: 'underline' }, // WCAG AA対応: #666 → #9A9AB8
+  hcBannerText: { color: MORNING_THEME.goldStrong, fontSize: 13, fontWeight: '600' },
+  hcBannerSwitch: { color: MORNING_THEME.textMuted, fontSize: 12, textDecorationLine: 'underline' }, // WCAG AA対応: #666 → #9A9AB8
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
-  durationValue: { fontSize: 36, fontWeight: 'bold', color: '#6B5CE7' },
-  durationLabel: { fontSize: 13, color: '#9A9AB8', marginTop: 4 },
+  durationValue: { fontSize: 36, fontWeight: 'bold', color: MORNING_THEME.goldStrong },
+  durationLabel: { fontSize: 13, color: MORNING_THEME.textMuted, marginTop: 4 },
   stageRow: { flexDirection: 'row', justifyContent: 'space-around' },
   stageItem: { alignItems: 'center' },
   stageValue: { fontSize: 16, fontWeight: 'bold' },
-  stageLabel: { fontSize: 10, color: '#9A9AB8', marginTop: 4 },
+  stageLabel: { fontSize: 10, color: MORNING_THEME.textMuted, marginTop: 4 },
   sectionCard: {
     marginHorizontal: 16,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderSoft,
   },
   sectionTitle: {
     fontSize: 14,
-    color: '#9A9AB8',
+    color: MORNING_THEME.textMuted,
     fontWeight: '600',
     marginBottom: 12,
-    backgroundColor: 'rgba(107, 92, 231, 0.08)',
+    backgroundColor: MORNING_THEME.goldSurface,
     paddingHorizontal: 16,
     paddingVertical: 6,
     marginHorizontal: -16,
@@ -557,7 +567,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
   },
   memoInput: {
-    color: '#FFFFFF',
+    color: MORNING_THEME.textPrimary,
     fontSize: 14,
     lineHeight: 22,
     minHeight: 72,

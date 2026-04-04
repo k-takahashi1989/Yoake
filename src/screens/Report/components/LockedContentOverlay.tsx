@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../../../i18n';
 import { SUBSCRIPTION } from '../../../constants';
 import Icon from '../../../components/common/Icon';
+import { MORNING_THEME } from '../../../theme/morningTheme';
 
 interface Props {
   onPress: () => void;
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     minHeight: 280,
   },
   ghostCard: {
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -107,13 +108,13 @@ const styles = StyleSheet.create({
   },
   ghostMask: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 26, 46, 0.82)',
+    backgroundColor: MORNING_THEME.overlay,
     borderRadius: 16,
     zIndex: 1,
   },
   ghostLine: {
     height: 10,
-    backgroundColor: 'rgba(107, 92, 231, 0.12)',
+    backgroundColor: MORNING_THEME.blueSurface,
     borderRadius: 5,
     marginBottom: 10,
     width: '40%',
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
   },
   ghostBar: {
     flex: 1,
-    backgroundColor: 'rgba(107, 92, 231, 0.15)',
+    backgroundColor: MORNING_THEME.goldSurface,
     borderRadius: 4,
   },
   ctaOverlay: {
@@ -141,14 +142,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   ctaCard: {
-    backgroundColor: 'rgba(13, 13, 30, 0.92)',
+    backgroundColor: MORNING_THEME.surfaceGlass,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.45)',
-    shadowColor: '#6B5CE7',
+    borderColor: MORNING_THEME.borderStrong,
+    shadowColor: MORNING_THEME.shadow,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -161,27 +162,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(107, 92, 231, 0.18)',
+    backgroundColor: MORNING_THEME.goldSurface,
     borderWidth: 1,
-    borderColor: 'rgba(207, 203, 255, 0.18)',
+    borderColor: MORNING_THEME.goldBorder,
     marginBottom: 10,
   },
   lockIcon: {
     fontSize: 12,
-    color: '#CFCBFF',
+    color: MORNING_THEME.goldText,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   ctaTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: MORNING_THEME.textPrimary,
     textAlign: 'center',
     marginBottom: 6,
   },
   ctaSubtitle: {
     fontSize: 13,
-    color: '#B0B0C8',
+    color: MORNING_THEME.textSecondary,
     textAlign: 'center',
     marginBottom: 14,
     lineHeight: 20,
@@ -196,42 +197,42 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: MORNING_THEME.borderSoft,
   },
   previewStatLabel: {
-    color: '#AFA9D9',
+    color: MORNING_THEME.textMuted,
     fontSize: 11,
     marginBottom: 3,
   },
   previewStatValue: {
-    color: '#FFFFFF',
+    color: MORNING_THEME.textPrimary,
     fontSize: 13,
     fontWeight: '800',
   },
   previewSnippetCard: {
     width: '100%',
-    backgroundColor: 'rgba(107, 92, 231, 0.12)',
+    backgroundColor: MORNING_THEME.blueSurface,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
+    borderColor: MORNING_THEME.borderCool,
     borderRadius: 14,
     padding: 12,
     marginBottom: 16,
   },
   previewSnippetLabel: {
-    color: '#DCD8FF',
+    color: MORNING_THEME.goldStrong,
     fontSize: 11,
     fontWeight: '700',
     marginBottom: 6,
   },
   previewSnippetText: {
-    color: '#E8E4FF',
+    color: MORNING_THEME.textSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
   ctaButton: {
-    backgroundColor: '#6B5CE7',
+    backgroundColor: MORNING_THEME.gold,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 28,
@@ -239,13 +240,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaButtonText: {
-    color: '#FFFFFF',
+    color: '#17263A',
     fontSize: 15,
     fontWeight: '700',
   },
   trialNote: {
     fontSize: 11,
-    color: '#9A9AB8',
+    color: MORNING_THEME.textMuted,
     marginTop: 12,
     textAlign: 'center',
   },

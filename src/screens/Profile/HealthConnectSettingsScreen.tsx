@@ -18,6 +18,7 @@ import {
 } from '../../services/healthData';
 import { useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 type Status = 'loading' | 'unavailable' | 'granted' | 'denied';
 
@@ -125,7 +126,7 @@ export default function HealthConnectSettingsScreen() {
           <Text style={styles.cardTitle}>{title}</Text>
 
           {status === 'loading' ? (
-            <ActivityIndicator color="#6B5CE7" style={styles.loader} />
+            <ActivityIndicator color={MORNING_THEME.goldStrong} style={styles.loader} />
           ) : (
             <View style={styles.statusRow}>
               <View style={[styles.statusMarker, { borderColor: statusColor }]}>
@@ -151,7 +152,7 @@ export default function HealthConnectSettingsScreen() {
             disabled={isRequesting}
           >
             {isRequesting ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={MORNING_THEME.goldText} />
             ) : (
               <Text style={styles.actionBtnText}>{t('healthConnect.requestPermission')}</Text>
             )}
@@ -188,18 +189,20 @@ export default function HealthConnectSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
+  safeArea: { flex: 1, backgroundColor: MORNING_THEME.root },
   scroll: { flex: 1 },
   card: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderSoft,
   },
   cardTitle: {
     fontSize: 13,
-    color: '#9A9AB8',
+    color: MORNING_THEME.textMuted,
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -220,27 +223,31 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   statusInfo: { flex: 1 },
-  statusText: { fontSize: 16, color: '#FFFFFF', fontWeight: '600', marginBottom: 4 },
-  statusSubText: { fontSize: 13, color: '#9A9AB8', lineHeight: 18 },
-  descText: { fontSize: 13, color: '#B0B0C8', lineHeight: 20 },
+  statusText: { fontSize: 16, color: MORNING_THEME.textPrimary, fontWeight: '600', marginBottom: 4 },
+  statusSubText: { fontSize: 13, color: MORNING_THEME.textMuted, lineHeight: 18 },
+  descText: { fontSize: 13, color: MORNING_THEME.textSecondary, lineHeight: 20 },
   actionBtn: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: '#6B5CE7',
+    backgroundColor: MORNING_THEME.gold,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
   },
   actionBtnDisabled: { opacity: 0.5 },
-  actionBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  actionBtnText: { color: MORNING_THEME.goldText, fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
   secondaryBtn: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfaceElevated,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderCool,
   },
-  secondaryBtnText: { color: '#9C8FFF', fontSize: 14 },
+  secondaryBtnText: { color: MORNING_THEME.textPrimary, fontSize: 14, fontWeight: '600' },
   bottomSpacer: { height: 32 },
 });

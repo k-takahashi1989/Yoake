@@ -5,6 +5,7 @@
     "name": "Yoake",
     "slug": "yoake",
     "version": "1.0.0",
+    "icon": "./src/assets/branding/yoake-app-icon.png",
     "android": {
       "package": "com.ktakahashi.yoake"
     },

@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator, Share,
+  TouchableOpacity, Alert, ActivityIndicator, Share, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../types';
-import { useAuthStore } from '../../stores/authStore';
 import { getRecentSleepLogs } from '../../services/firebase';
 import { safeToDate } from '../../utils/dateUtils';
 import { useTranslation } from '../../i18n';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 const CHAT_HISTORY_STORAGE_KEY = 'ai_chat_history';
+const ACCOUNT_DELETION_URL = 'https://yoake-app.web.app/account-deletion.html';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'DataManagement'>;
 
 export default function DataManagementScreen({ navigation: _navigation }: Props) {
-  const { deleteAccount } = useAuthStore();
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const isJa = t('common.cancel') === 'キャンセル';
 
   const handleClearChatHistory = () => {
     Alert.alert(
@@ -86,49 +86,16 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
     }
   };
 
-  // ============================================================
-  // アカウント削除
-  // ============================================================
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      t('dataManagement.deleteTitle'),
-      t('dataManagement.deleteMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: confirmDelete,
-        },
-      ],
-    );
-  };
-
-  const confirmDelete = () => {
-    Alert.alert(
-      t('dataManagement.deleteConfirmTitle'),
-      t('dataManagement.deleteConfirmMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('dataManagement.deleteConfirmBtn'),
-          style: 'destructive',
-          onPress: executeDelete,
-        },
-      ],
-    );
-  };
-
-  const executeDelete = async () => {
-    setIsDeleting(true);
+  const handleOpenDeletionForm = async () => {
     try {
-      await deleteAccount();
-      // authStore が hasCompletedOnboarding: false にするので
-      // AppNavigator が自動的に Onboarding へリダイレクト
+      await Linking.openURL(ACCOUNT_DELETION_URL);
     } catch {
-      Alert.alert(t('dataManagement.deleteTitle'), t('dataManagement.deleteFailed'));
-      setIsDeleting(false);
+      Alert.alert(
+        isJa ? 'ページを開けませんでした' : 'Unable to open page',
+        isJa
+          ? 'アカウント削除フォームを開けませんでした。時間をおいて再度お試しください。'
+          : 'Could not open the account deletion form. Please try again in a moment.',
+      );
     }
   };
 
@@ -160,19 +127,19 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
           </TouchableOpacity>
         </View>
 
-        {/* 危険ゾーン */}
-        <View style={[styles.card, styles.dangerCard]}>
-          <Text style={[styles.cardTitle, styles.dangerTitle]}>{t('dataManagement.dangerZoneTitle')}</Text>
-          <Text style={styles.cardDesc}>{t('dataManagement.dangerZoneDesc')}</Text>
-          <TouchableOpacity
-            style={[styles.deleteBtn, isDeleting && styles.btnDisabled]}
-            onPress={handleDeleteAccount}
-            disabled={isDeleting}
-          >
-            {isDeleting
-              ? <ActivityIndicator color="#F44336" size="small" />
-              : <Text style={styles.deleteBtnText}>{t('dataManagement.deleteBtn')}</Text>
-            }
+        <View style={[styles.card, styles.supportCard]}>
+          <Text style={[styles.cardTitle, styles.supportTitle]}>
+            {isJa ? 'アカウント削除' : 'Account deletion'}
+          </Text>
+          <Text style={styles.cardDesc}>
+            {isJa
+              ? 'アカウント削除は専用フォームから受け付けています。リンク先から申請してください。'
+              : 'Account deletion requests are handled through a dedicated form. Please use the link below.'}
+          </Text>
+          <TouchableOpacity style={styles.deleteLinkBtn} onPress={handleOpenDeletionForm}>
+            <Text style={styles.deleteLinkBtnText}>
+              {isJa ? '削除フォームを開く' : 'Open deletion form'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -183,45 +150,51 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
+  safeArea: { flex: 1, backgroundColor: MORNING_THEME.root },
   scroll: { flex: 1 },
   card: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
-  },
-  dangerCard: {
     borderWidth: 1,
-    borderColor: '#F4433640',
-    backgroundColor: '#F4433608',
+    borderColor: MORNING_THEME.borderSoft,
   },
-  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 8 },
-  dangerTitle: { color: '#F44336' },
-  cardDesc: { fontSize: 13, color: '#B0B0C8', lineHeight: 20, marginBottom: 16 },
+  supportCard: {
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
+    backgroundColor: MORNING_THEME.goldSurface,
+  },
+  cardTitle: { fontSize: 13, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 8 },
+  supportTitle: { color: MORNING_THEME.goldStrong },
+  cardDesc: { fontSize: 13, color: MORNING_THEME.textSecondary, lineHeight: 20, marginBottom: 16 },
   exportBtn: {
-    backgroundColor: '#6B5CE7',
+    backgroundColor: MORNING_THEME.gold,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-  },
-  exportBtnText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  deleteBtn: {
     borderWidth: 1,
-    borderColor: '#F44336',
+    borderColor: MORNING_THEME.goldBorder,
+  },
+  exportBtnText: { color: MORNING_THEME.goldText, fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
+  deleteLinkBtn: {
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+    backgroundColor: MORNING_THEME.surfaceRaised,
   },
-  deleteBtnText: { color: '#F44336', fontSize: 15, fontWeight: '600' },
+  deleteLinkBtnText: { color: MORNING_THEME.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
   btnDisabled: { opacity: 0.5 },
   clearChatBtn: {
     borderWidth: 1,
-    borderColor: '#6B5CE7',
+    borderColor: MORNING_THEME.borderCool,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+    backgroundColor: MORNING_THEME.surfaceElevated,
   },
-  clearChatBtnText: { color: '#9C8FFF', fontSize: 15, fontWeight: '600' },
+  clearChatBtnText: { color: MORNING_THEME.textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
 });

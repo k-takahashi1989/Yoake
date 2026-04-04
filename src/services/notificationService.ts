@@ -66,7 +66,7 @@ export async function schedulePersonalizedReminder(
       id: NOTIF_ID,
       title: 'おはようございます',
       body,
-      android: { channelId: CHANNEL_ID },
+      android: { channelId: CHANNEL_ID, pressAction: { id: 'default' } },
     },
     trigger,
   );
@@ -97,13 +97,13 @@ export async function scheduleBedtimeReminder(
     {
       id: BEDTIME_REMINDER_NOTIFICATION_ID,
       title: 'そろそろ就寝予定の時間です',
-      body: '眠る準備ができたら、「今から寝ます」で就寝時刻を残せます。',
+      body: 'ボタンを押すと、今の時刻が就寝時刻として記録されます。',
       android: {
         channelId: CHANNEL_ID,
         pressAction: { id: 'default' },
         actions: [
           {
-            title: '今から寝ます',
+            title: '今から寝ます → 就寝時刻を保存',
             pressAction: { id: BEDTIME_REMINDER_ACTION_ID },
           },
         ],

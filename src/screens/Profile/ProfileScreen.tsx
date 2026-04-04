@@ -21,6 +21,7 @@ import {
   markReviewFlowCompleted,
   openStoreReviewPage,
 } from '../../services/reviewService';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 const DEBT_PERIOD_KEY = '@yoake:sleep_debt_period';
 
@@ -80,7 +81,6 @@ export default function ProfileScreen() {
     ? 'このままだと再インストールや機種変更時にデータを復旧できません。メールアドレスを登録すると、同じアカウントで睡眠記録を引き継げます。'
     : 'Without email protection, you cannot restore your data after reinstalling or changing devices. Link an email to keep your sleep records.';
   const protectButtonText = isJa ? 'メールアドレス登録' : 'Add Email Address';
-  const signInButtonText = isJa ? 'ログイン' : 'Sign In';
   const feedbackLabel = isJa ? '要望・不具合報告' : 'Feedback & Bug Reports';
   const signOutMessage = user?.isAnonymous
     ? t('profile.signOutMessage')
@@ -177,13 +177,6 @@ export default function ProfileScreen() {
                   activeOpacity={0.85}
                 >
                   <Text style={styles.accountPrimaryActionText}>{protectButtonText}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.accountSecondaryAction}
-                  onPress={() => navigation.navigate('SignIn')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.accountSecondaryActionText}>{signInButtonText}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -387,10 +380,10 @@ function AccountRow({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0D1A' },
+  root: { flex: 1, backgroundColor: MORNING_THEME.root },
   bgOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 12, 24, 0.52)',
+    backgroundColor: MORNING_THEME.overlay,
   },
   // 蜿ｳ荳翫ヵ繝ｭ繝ｼ繝・ぅ繝ｳ繧ｰ繝ｦ繝ｼ繧ｶ繝ｼ繧ｫ繝ｼ繝会ｼ磯升縺ｮ菴咲ｽｮ縺ｫ驥阪・繧具ｼ・
   mirrorCard: {
@@ -427,48 +420,48 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(13, 13, 30, 0.72)',
+    backgroundColor: MORNING_THEME.surfaceGlass,
     paddingHorizontal: 16,
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(107, 92, 231, 0.4)',
+    backgroundColor: MORNING_THEME.goldBorder,
     alignSelf: 'center',
     marginBottom: 12,
   },
   guestWarning: {
     marginHorizontal: 16,
     marginTop: 10,
-    backgroundColor: '#FF980018',
+    backgroundColor: MORNING_THEME.goldSurface,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#FF980040',
+    borderColor: MORNING_THEME.goldBorder,
   },
   guestWarningText: {
-    color: '#FF9800',
+    color: MORNING_THEME.goldStrong,
     fontSize: 12,
     lineHeight: 18,
   },
   upgradeCard: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: '#6B5CE7',
+    backgroundColor: MORNING_THEME.gold,
     borderRadius: 16,
     padding: 16,
   },
-  upgradeCardText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  upgradeCardSub: { fontSize: 13, color: '#D0C8FF' },
+  upgradeCardText: { fontSize: 16, fontWeight: 'bold', color: '#17263A', marginBottom: 4 },
+  upgradeCardSub: { fontSize: 13, color: '#32445A' },
   menuSection: {
     margin: 16,
     marginBottom: 0,
-    backgroundColor: 'rgba(26, 26, 46, 0.75)',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
+    borderColor: MORNING_THEME.borderStrong,
   },
   menuRow: {
     flexDirection: 'row',
@@ -493,99 +486,98 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  accountSubtitle: { fontSize: 12, color: '#9A9AB8' },
-  accountHint: { fontSize: 12, color: '#9A9AB8' }, // WCAG AA対応: #78789B → #9A9AB8
+  accountSubtitle: { fontSize: 12, color: MORNING_THEME.textMuted },
+  accountHint: { fontSize: 12, color: MORNING_THEME.textMuted },
   accountActions: {
-    flexDirection: 'column',
-    gap: 10,
+    flexDirection: 'row',
+    gap: 8,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(107, 92, 231, 0.25)',
+    borderBottomColor: MORNING_THEME.borderSoft,
   },
   accountPrimaryAction: {
     flex: 1,
-    backgroundColor: '#6B5CE7',
-    borderRadius: 14,
-    paddingVertical: 12,
+    backgroundColor: MORNING_THEME.gold,
+    borderRadius: 10,
+    paddingVertical: 8,
     alignItems: 'center',
   },
   accountPrimaryActionText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: '#17263A',
+    fontSize: 13,
     fontWeight: '700',
   },
   accountSecondaryAction: {
-    width: '100%',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.45)',
-    backgroundColor: 'rgba(107, 92, 231, 0.08)',
+    borderColor: MORNING_THEME.borderCool,
+    backgroundColor: MORNING_THEME.blueSurface,
   },
   accountSecondaryActionText: {
-    color: '#D9D5FF',
-    fontSize: 14,
+    color: MORNING_THEME.textSecondary,
+    fontSize: 13,
     fontWeight: '600',
   },
   menuRowLast: { borderBottomWidth: 0 },
   menuIconWrapper: { width: 28, alignItems: 'center', justifyContent: 'center' },
-  menuLabel: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  menuValue: { fontSize: 13, color: '#C8C8E0', marginRight: 4 },
-  menuArrow: { fontSize: 20, color: '#C8C8E0' },
+  menuLabel: { flex: 1, fontSize: 15, color: MORNING_THEME.textPrimary },
+  menuValue: { fontSize: 13, color: MORNING_THEME.textSecondary, marginRight: 4 },
+  menuArrow: { fontSize: 20, color: MORNING_THEME.textSecondary },
   signOutBtn: {
     margin: 16,
     marginBottom: 8,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F44336',
+    borderColor: MORNING_THEME.dangerBorder,
     alignItems: 'center',
   },
-  signOutText: { color: '#F44336', fontSize: 15, fontWeight: '600' },
-  version: { textAlign: 'center', color: '#C8C8E0', fontSize: 12, marginBottom: 8 },
+  signOutText: { color: MORNING_THEME.danger, fontSize: 15, fontWeight: '600' },
+  version: { textAlign: 'center', color: MORNING_THEME.textSecondary, fontSize: 12, marginBottom: 8 },
   devSection: {
     margin: 16,
     marginTop: 4,
     marginBottom: 24,
-    backgroundColor: 'rgba(26, 26, 46, 0.75)',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
+    borderColor: MORNING_THEME.borderStrong,
     padding: 12,
   },
-  devTitle: { fontSize: 10, color: '#9C8FFF', letterSpacing: 1, marginBottom: 8 },
+  devTitle: { fontSize: 10, color: MORNING_THEME.goldStrong, letterSpacing: 1, marginBottom: 8 },
   devRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  devLabel: { fontSize: 13, color: '#FFFFFF' },
+  devLabel: { fontSize: 13, color: MORNING_THEME.textPrimary },
   devToggle: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(26, 26, 46, 0.75)',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderRadius: 8,
     overflow: 'hidden',
   },
   devBtn: { paddingHorizontal: 14, paddingVertical: 6 },
-  devBtnActive: { backgroundColor: 'rgba(107, 92, 231, 0.35)' },
-  devBtnPremium: { backgroundColor: '#6B5CE7' },
-  devBtnText: { fontSize: 12, color: '#C8C8E0', fontWeight: '600' },
-  devBtnTextActive: { color: '#FFFFFF' },
+  devBtnActive: { backgroundColor: MORNING_THEME.blueSurface },
+  devBtnPremium: { backgroundColor: MORNING_THEME.gold },
+  devBtnText: { fontSize: 12, color: MORNING_THEME.textSecondary, fontWeight: '600' },
+  devBtnTextActive: { color: '#17263A' },
   devSeedBtn: {
-    backgroundColor: 'rgba(26, 26, 46, 0.75)',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
+    borderColor: MORNING_THEME.borderCool,
   },
   devSeedBtnDisabled: { opacity: 0.5 },
-  devSeedBtnText: { color: '#9C8FFF', fontSize: 13, fontWeight: '600' },
+  devSeedBtnText: { color: MORNING_THEME.textSecondary, fontSize: 13, fontWeight: '600' },
 });
 
 // ============================================================

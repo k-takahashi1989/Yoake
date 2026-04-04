@@ -9,6 +9,7 @@ import { LineChart } from 'react-native-gifted-charts';
 import { SleepLog } from '../../../types';
 import { buildLineData, ScorePeriod } from '../utils/habitStats';
 import { useTranslation } from '../../../i18n';
+import { MORNING_THEME } from '../../../theme/morningTheme';
 
 interface Props {
   monthlyLogs: SleepLog[];
@@ -71,20 +72,20 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth, locked = false
             width={innerChartWidth}
             height={188}
             scrollRef={chartScrollRef}
-            color="#8F82FF"
+            color={MORNING_THEME.goldStrong}
             thickness={3}
-            dataPointsColor="#F3EFFF"
+            dataPointsColor={MORNING_THEME.textPrimary}
             dataPointsRadius={3}
-            startFillColor="#8F82FF"
-            endFillColor="#8F82FF"
+            startFillColor={MORNING_THEME.goldStrong}
+            endFillColor={MORNING_THEME.goldStrong}
             startOpacity={0.24}
             endOpacity={0.02}
             areaChart
             hideRules={false}
-            rulesColor="rgba(154, 154, 184, 0.12)"
+            rulesColor="rgba(165, 182, 197, 0.14)"
             rulesType="dashed"
             yAxisColor="transparent"
-            xAxisColor="rgba(154, 154, 184, 0.18)"
+            xAxisColor="rgba(165, 182, 197, 0.18)"
             xAxisLabelTextStyle={styles.axisLabel}
             yAxisTextStyle={styles.axisLabel}
             noOfSections={4}
@@ -108,11 +109,11 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: 'rgba(37, 39, 66, 0.96)',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(139, 130, 255, 0.14)',
+    borderColor: MORNING_THEME.borderStrong,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 13,
-    color: '#AEB0D2',
+    color: MORNING_THEME.goldStrong,
     fontWeight: '600',
   },
   periodChips: {
@@ -133,20 +134,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: 'rgba(16, 18, 36, 0.86)',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: MORNING_THEME.borderSoft,
   },
   periodChipActive: {
-    backgroundColor: 'rgba(143, 130, 255, 0.16)',
-    borderColor: 'rgba(143, 130, 255, 0.42)',
+    backgroundColor: MORNING_THEME.goldSurface,
+    borderColor: MORNING_THEME.goldBorder,
   },
   periodChipText: {
     fontSize: 11,
-    color: '#9A9AB8', // WCAG AA対応: #747697 → #9A9AB8
+    color: MORNING_THEME.textMuted,
   },
   periodChipTextActive: {
-    color: '#DCD8FF',
+    color: MORNING_THEME.goldText,
     fontWeight: '600',
   },
   chartFrame: {
@@ -154,12 +155,12 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingHorizontal: 10,
     borderRadius: 18,
-    backgroundColor: 'rgba(15, 17, 34, 0.56)',
+    backgroundColor: MORNING_THEME.surfaceGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: MORNING_THEME.borderSoft,
   },
   axisLabel: {
-    color: '#9A9AB8', // WCAG AA対応: #747697 → #9A9AB8
+    color: MORNING_THEME.textMuted,
     fontSize: 9,
   },
   chartEmpty: {
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   chartEmptyText: {
-    color: '#9A9AB8', // WCAG AA対応: #666A86 → #9A9AB8
+    color: MORNING_THEME.textMuted,
     fontSize: 13,
   },
   lockedChartWrapper: {
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
   },
   chartMask: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 17, 34, 0.78)',
+    backgroundColor: 'rgba(14, 27, 41, 0.82)',
     borderRadius: 18,
   },
 });

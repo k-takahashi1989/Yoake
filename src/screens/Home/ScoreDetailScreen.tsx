@@ -52,12 +52,15 @@ import { SCORE_COLORS } from '../../constants';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
 import HabitIcon from '../../components/common/HabitIcon';
 import { getSleepOnsetLabel, getWakeFeelingLabel } from '../../utils/sleepSubjective';
+import { useAuthStore } from '../../stores/authStore';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 type Props = NativeStackScreenProps<SharedParamList, 'ScoreDetail'>;
 
 export default function ScoreDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const { date, scoreColor: routeScoreColor } = route.params;
+  const { isPremium } = useAuthStore();
   const [log, setLog] = useState<SleepLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [aiComment, setAiComment] = useState<string | null>(null);
@@ -111,6 +114,12 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   }, [date]);
 
   const loadAiComment = useCallback(async () => {
+    if (!isPremium) {
+      setAiComment(null);
+      setIsLoadingAiComment(false);
+      return;
+    }
+
     setIsLoadingAiComment(true);
     try {
       const insightKey = `insight:${date}`;
@@ -122,7 +131,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
     } finally {
       setIsLoadingAiComment(false);
     }
-  }, [date]);
+  }, [date, isPremium]);
 
   useFocusEffect(
     useCallback(() => {
@@ -165,7 +174,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.center}>
-          <ActivityIndicator color="#6B5CE7" />
+          <ActivityIndicator color={MORNING_THEME.goldStrong} />
         </View>
       </SafeAreaView>
     );
@@ -196,6 +205,13 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const mins = log.totalMinutes % 60;
   const actionsTitle = i18n.language === 'ja' ? '記録した行動' : t('scoreDetail.habitsTitle');
   const commentTitle = i18n.language === 'ja' ? 'この日の見立て' : 'Insight';
+  const insightTeaserLead = i18n.language === 'ja'
+    ? 'プレミアムでは、睡眠スコアの背景と今日試すとよい1つの行動をAIがまとめます。'
+    : 'Premium unlocks an AI summary of what shaped your score and the one thing to try today.';
+  const insightTeaserPoints = i18n.language === 'ja'
+    ? ['寝つき・目覚めの印象をふまえた見立て', '前日との違いから見える傾向', '今日の行動を1つに絞った提案']
+    : ['A read on your sleep onset and wake feeling', 'Patterns inferred from what changed', 'One focused action to try today'];
+  const insightTeaserCta = i18n.language === 'ja' ? '7日間無料で試す' : 'Start 7-day free trial';
 
   const gradientStyle = {
     opacity: gradientAnim,
@@ -214,7 +230,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0D0D1A' }}>
+    <View style={{ flex: 1, backgroundColor: MORNING_THEME.root }}>
       {/* A: gradient overlay がフェードインする */}
       <Animated.View style={[StyleSheet.absoluteFill, gradientStyle]} pointerEvents="none">
         <LinearGradient
@@ -236,7 +252,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
             </View>
             <Text style={styles.scoreUnit}>{t('common.points')}</Text>
             <View style={[styles.scoreBadge, { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.5)' }]}>
-              <Text style={[styles.scoreBadgeText, { color: '#FFFFFF' }]}>{t(scoreInfo.labelKey)}</Text>
+              <Text style={[styles.scoreBadgeText, { color: MORNING_THEME.textPrimary }]}>{t(scoreInfo.labelKey)}</Text>
             </View>
           </View>
           <View style={styles.sourceRow}>
@@ -338,8 +354,8 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
                       habit={h}
                       size={22}
                       backgroundColor={h.checked ? 'rgba(107, 92, 231, 0.18)' : 'rgba(255,255,255,0.04)'}
-                      borderColor={h.checked ? 'rgba(107, 92, 231, 0.34)' : '#444'}
-                      color={h.checked ? '#DCD8FF' : '#9A9AB8'}
+                      borderColor={h.checked ? MORNING_THEME.goldBorder : MORNING_THEME.borderSoft}
+                      color={h.checked ? MORNING_THEME.goldStrong : MORNING_THEME.textMuted}
                     />
                     <Text style={[styles.habitLabel, h.checked && styles.habitLabelChecked]}>
                       {h.label}
@@ -354,10 +370,28 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
               <Text style={styles.memoText}>{log.memo}</Text>
             </SectionCard>
           )}
-          {(isLoadingAiComment || aiComment) && (
+          {(!isPremium || isLoadingAiComment || aiComment) && (
             <SectionCard title={commentTitle}>
-              {isLoadingAiComment ? (
-                <ActivityIndicator color="#9C8FFF" />
+              {!isPremium ? (
+                <View style={styles.lockedInsightCard}>
+                  <Text style={styles.lockedInsightLead}>{insightTeaserLead}</Text>
+                  <View style={styles.lockedInsightPoints}>
+                    {insightTeaserPoints.map(point => (
+                      <View key={point} style={styles.lockedInsightPointRow}>
+                        <View style={styles.lockedInsightPointDot} />
+                        <Text style={styles.lockedInsightPointText}>{point}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.lockedInsightButton}
+                    onPress={() => (navigation.getParent() as any)?.navigate('Profile', { screen: 'SubscriptionManage' })}
+                  >
+                    <Text style={styles.lockedInsightButtonText}>{insightTeaserCta}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : isLoadingAiComment ? (
+                <ActivityIndicator color={MORNING_THEME.goldStrong} />
               ) : (
                 <Text style={styles.memoText}>{aiComment}</Text>
               )}
@@ -415,7 +449,7 @@ function ScoreBar({
   const isNegative = score < 0;
   const displayMax = maxScore === 0 ? Math.abs(score) : maxScore;
   const progress = displayMax > 0 ? Math.min(Math.abs(score) / displayMax, 1) : 0;
-  const barColor = isNegative ? '#F44336' : '#6B5CE7';
+  const barColor = isNegative ? MORNING_THEME.danger : MORNING_THEME.goldStrong;
   const animWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -446,7 +480,7 @@ function ScoreBar({
           />
         </View>
       </View>
-      <Text style={[styles.scoreBarValue, isNegative && { color: '#F44336' }]}>
+      <Text style={[styles.scoreBarValue, isNegative && { color: MORNING_THEME.danger }]}>
         {isNegative ? score : `+${score}`}/{maxScore}
       </Text>
     </View>
@@ -457,20 +491,20 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: 'transparent' },
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#9A9AB8', fontSize: 16 },
+  emptyText: { color: MORNING_THEME.textMuted, fontSize: 16 },
   header: {
     alignItems: 'center',
     paddingVertical: 24,
     paddingHorizontal: 24,
   },
-  dateLabel: { fontSize: 14, color: '#9A9AB8', marginBottom: 8 },
+  dateLabel: { fontSize: 14, color: MORNING_THEME.textMuted, marginBottom: 8 },
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   scoreValueWrap: {
     alignItems: 'center',
     marginBottom: 4,
   },
-  scoreValue: { fontSize: 80, fontFamily: 'KiwiMaru-Regular', color: '#FFFFFF', lineHeight: 96, includeFontPadding: false },
-  scoreUnit: { fontSize: 20, color: '#FFFFFF', marginBottom: 12 },
+  scoreValue: { fontSize: 80, fontFamily: 'KiwiMaru-Regular', color: MORNING_THEME.textPrimary, lineHeight: 96, includeFontPadding: false },
+  scoreUnit: { fontSize: 20, color: MORNING_THEME.textPrimary, marginBottom: 12 },
   scoreBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -480,24 +514,26 @@ const styles = StyleSheet.create({
   },
   scoreBadgeText: { fontSize: 14, fontWeight: '700' },
   sourceRow: { marginTop: 4 },
-  sourceText: { fontSize: 12, color: '#9A9AB8' }, // WCAG AA対応: #666 → #9A9AB8
+  sourceText: { fontSize: 12, color: MORNING_THEME.textMuted }, // WCAG AA対応: #666 → #9A9AB8
   card: {
     marginHorizontal: 16,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderSoft,
   },
-  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 12 },
   dataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#ffffff08',
+    borderBottomColor: MORNING_THEME.borderSoft,
   },
-  dataLabel: { fontSize: 14, color: '#B0B0C8' },
-  dataValue: { fontSize: 14, color: '#FFFFFF', fontFamily: 'ZenKurenaido-Regular' },
+  dataLabel: { fontSize: 14, color: MORNING_THEME.textSecondary },
+  dataValue: { fontSize: 14, color: MORNING_THEME.textPrimary, fontFamily: 'ZenKurenaido-Regular' },
   scoreBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -505,31 +541,79 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scoreBarLeft: { flex: 1 },
-  scoreBarLabel: { fontSize: 12, color: '#B0B0C8', marginBottom: 4 },
+  scoreBarLabel: { fontSize: 12, color: MORNING_THEME.textSecondary, marginBottom: 4 },
   scoreBarTrack: {
     height: 6,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderRadius: 3,
     overflow: 'hidden',
   },
   scoreBarFill: { height: 6, borderRadius: 3 },
-  scoreBarValue: { fontSize: 12, color: '#6B5CE7', fontWeight: '600', minWidth: 40, textAlign: 'right' },
+  scoreBarValue: { fontSize: 12, color: MORNING_THEME.goldStrong, fontWeight: '600', minWidth: 40, textAlign: 'right' },
   habitsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   habitChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: MORNING_THEME.borderSoft,
     gap: 4,
   },
-  habitChipChecked: { borderColor: '#6B5CE7', backgroundColor: '#6B5CE715' },
-  habitLabel: { fontSize: 12, color: '#9A9AB8' },
-  habitLabelChecked: { color: '#9C8FFF' },
-  memoText: { fontSize: 14, color: '#D0D0E8', lineHeight: 22, fontFamily: 'ZenKurenaido-Regular' },
+  habitChipChecked: { borderColor: MORNING_THEME.goldBorder, backgroundColor: MORNING_THEME.goldSurface },
+  habitLabel: { fontSize: 12, color: MORNING_THEME.textMuted },
+  habitLabelChecked: { color: MORNING_THEME.goldStrong },
+  memoText: { fontSize: 14, color: MORNING_THEME.textSecondary, lineHeight: 22, fontFamily: 'ZenKurenaido-Regular' },
+  lockedInsightCard: {
+    borderRadius: 14,
+    padding: 14,
+    backgroundColor: MORNING_THEME.goldSurface,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
+  },
+  lockedInsightLead: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: MORNING_THEME.textPrimary,
+    marginBottom: 12,
+  },
+  lockedInsightPoints: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  lockedInsightPointRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  lockedInsightPointDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 99,
+    backgroundColor: MORNING_THEME.goldStrong,
+    marginTop: 6,
+  },
+  lockedInsightPointText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: MORNING_THEME.textSecondary,
+  },
+  lockedInsightButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: MORNING_THEME.gold,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  lockedInsightButtonText: {
+    color: MORNING_THEME.goldText,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
   spacer: { height: 32 },
   editButton: {
     marginHorizontal: 16,
@@ -537,14 +621,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfaceElevated,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#6B5CE755',
+    borderColor: MORNING_THEME.borderCool,
   },
   editButtonText: {
-    color: '#9C8FFF',
+    color: MORNING_THEME.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

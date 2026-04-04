@@ -16,21 +16,28 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useTranslation } from '../../i18n';
+import { MORNING_THEME } from '../../theme/morningTheme';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'LinkEmail'>;
 
 function mapLinkError(code?: string, isJa?: boolean) {
   switch (code) {
     case 'auth/email-already-in-use':
-      return isJa ? 'このメールアドレスはすでに使われています。ログインしてください。' : 'This email address is already in use. Please sign in instead.';
+      return isJa
+        ? 'このメールアドレスはすでに使われています。ログインしてください。'
+        : 'This email address is already in use. Please sign in instead.';
     case 'auth/invalid-email':
-      return isJa ? 'メールアドレスの形式が正しくありません。' : 'Please enter a valid email address.';
+      return isJa ? '有効なメールアドレスを入力してください。' : 'Please enter a valid email address.';
     case 'auth/weak-password':
       return isJa ? 'パスワードは6文字以上にしてください。' : 'Password must be at least 6 characters.';
     case 'auth/requires-recent-login':
-      return isJa ? '時間を置いたため認証が切れました。アプリを開き直して、もう一度お試しください。' : 'Authentication expired. Reopen the app and try again.';
+      return isJa
+        ? '認証の有効期限が切れました。アプリを開き直して、もう一度お試しください。'
+        : 'Authentication expired. Reopen the app and try again.';
     default:
-      return isJa ? 'メール連携に失敗しました。時間を置いてもう一度お試しください。' : 'Failed to link your email. Please try again.';
+      return isJa
+        ? 'メールアドレス登録に失敗しました。時間をおいてもう一度お試しください。'
+        : 'Failed to save your email address. Please try again.';
   }
 }
 
@@ -38,26 +45,39 @@ export default function LinkEmailScreen({ navigation }: Props) {
   const { linkEmail } = useAuthStore();
   const { i18n } = useTranslation();
   const isJa = i18n.language === 'ja';
-  const copy = useMemo(() => ({
-    title: isJa ? 'この端末だけのデータを、メールアドレスで保護します。' : 'Protect this device-only data with your email.',
-    body: isJa
-      ? '連携が終わると、機種変更や再インストール後も同じアカウントで復旧できます。'
-      : 'After linking, you can restore your data on a new device or after reinstalling.',
-    email: isJa ? 'メールアドレス' : 'Email address',
-    password: isJa ? 'パスワード' : 'Password',
-    passwordConfirm: isJa ? 'パスワード確認' : 'Confirm password',
-    emailPlaceholder: isJa ? 'name@example.com' : 'name@example.com',
-    passwordPlaceholder: isJa ? '6文字以上' : 'At least 6 characters',
-    confirmPlaceholder: isJa ? 'もう一度入力' : 'Enter again',
-    cta: isJa ? 'メールで保護する' : 'Protect with Email',
-    saving: isJa ? '連携中...' : 'Linking...',
-    validationTitle: isJa ? '入力を確認してください' : 'Check your input',
-    validationBody: isJa ? 'メールアドレス、パスワード、確認用パスワードを入力してください。' : 'Enter your email, password, and confirmation.',
-    mismatch: isJa ? '確認用パスワードが一致しません。' : 'Passwords do not match.',
-    successTitle: isJa ? '保護できました' : 'Protected',
-    successBody: isJa ? 'このアカウントはメールアドレスで復旧できるようになりました。' : 'This account can now be restored with your email.',
-    failTitle: isJa ? '連携できませんでした' : 'Could not link',
-  }), [isJa]);
+
+  const copy = useMemo(
+    () => ({
+      title: isJa ? 'メールアドレス登録' : 'Add Email Address',
+      body: isJa
+        ? 'メールアドレスを登録すると、再インストールや機種変更後でも同じアカウントで睡眠記録を引き継げます。'
+        : 'Save your email address so you can restore your sleep records after reinstalling or switching devices.',
+      email: isJa ? 'メールアドレス' : 'Email address',
+      password: isJa ? 'パスワード' : 'Password',
+      passwordConfirm: isJa ? 'パスワード確認' : 'Confirm password',
+      emailPlaceholder: 'name@example.com',
+      passwordPlaceholder: isJa ? '6文字以上' : 'At least 6 characters',
+      confirmPlaceholder: isJa ? 'もう一度入力' : 'Enter again',
+      cta: isJa ? '登録する' : 'Save Email Address',
+      saving: isJa ? '登録中...' : 'Saving...',
+      validationTitle: isJa ? '入力を確認してください' : 'Check your input',
+      validationBody: isJa
+        ? 'メールアドレス、パスワード、確認用パスワードを入力してください。'
+        : 'Enter your email, password, and confirmation.',
+      mismatch: isJa ? '確認用パスワードが一致しません。' : 'Passwords do not match.',
+      successTitle: isJa ? '登録できました' : 'Saved',
+      successBody: isJa
+        ? 'このアカウントは、メールアドレスで復元できるようになりました。'
+        : 'This account can now be restored with your email address.',
+      failTitle: isJa ? '登録できませんでした' : 'Could not save',
+      signInLead: isJa ? 'すでにアカウントをお持ちですか？' : 'Already have an account?',
+      signInCta: isJa ? 'ログイン' : 'Sign In',
+      footnote: isJa
+        ? '登録後は、このメールアドレスとパスワードでログインできます。'
+        : 'After saving, you can sign in with this email and password.',
+    }),
+    [isJa],
+  );
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -109,7 +129,7 @@ export default function LinkEmailScreen({ navigation }: Props) {
               value={email}
               onChangeText={setEmail}
               placeholder={copy.emailPlaceholder}
-              placeholderTextColor="#66627E"
+              placeholderTextColor={MORNING_THEME.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
@@ -121,7 +141,7 @@ export default function LinkEmailScreen({ navigation }: Props) {
               value={password}
               onChangeText={setPassword}
               placeholder={copy.passwordPlaceholder}
-              placeholderTextColor="#66627E"
+              placeholderTextColor={MORNING_THEME.textMuted}
               secureTextEntry
               autoCapitalize="none"
             />
@@ -132,7 +152,7 @@ export default function LinkEmailScreen({ navigation }: Props) {
               value={passwordConfirm}
               onChangeText={setPasswordConfirm}
               placeholder={copy.confirmPlaceholder}
-              placeholderTextColor="#66627E"
+              placeholderTextColor={MORNING_THEME.textMuted}
               secureTextEntry
               autoCapitalize="none"
             />
@@ -144,13 +164,20 @@ export default function LinkEmailScreen({ navigation }: Props) {
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={MORNING_THEME.goldText} />
             ) : (
               <Text style={styles.primaryButtonText}>{copy.cta}</Text>
             )}
           </TouchableOpacity>
 
-          <Text style={styles.footnote}>{isJa ? 'メール連携後は、このメールアドレスとパスワードでログインできます。' : 'After linking, you can sign in with this email and password.'}</Text>
+          <View style={styles.signInCard}>
+            <Text style={styles.signInLead}>{copy.signInLead}</Text>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('SignIn')}>
+              <Text style={styles.secondaryButtonText}>{copy.signInCta}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.footnote}>{copy.footnote}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -163,43 +190,82 @@ function FieldLabel({ children }: { children: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
+  safeArea: { flex: 1, backgroundColor: MORNING_THEME.root },
   scroll: { flex: 1 },
   content: { paddingBottom: 32 },
   card: {
     margin: 16,
-    backgroundColor: '#2D2D44',
+    backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 18,
     padding: 16,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderSoft,
   },
-  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 8 },
-  body: { fontSize: 13, lineHeight: 20, color: '#C8C8E0', marginBottom: 6 },
-  label: { fontSize: 12, color: '#9A9AB8', marginBottom: 6, marginTop: 14 },
+  title: { fontSize: 18, fontWeight: '700', color: MORNING_THEME.textPrimary, marginBottom: 8 },
+  body: { fontSize: 13, lineHeight: 20, color: MORNING_THEME.textSecondary, marginBottom: 6 },
+  label: { fontSize: 12, color: MORNING_THEME.textMuted, marginBottom: 6, marginTop: 14 },
   input: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: MORNING_THEME.surfaceSoft,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 13,
-    color: '#FFFFFF',
+    color: MORNING_THEME.textPrimary,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#3D3D5E',
+    borderColor: MORNING_THEME.borderSoft,
   },
   primaryButton: {
     marginHorizontal: 16,
     marginTop: 4,
-    backgroundColor: '#6B5CE7',
+    backgroundColor: MORNING_THEME.gold,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: MORNING_THEME.goldBorder,
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  primaryButtonText: {
+    color: MORNING_THEME.goldText,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   disabled: { opacity: 0.6 },
+  signInCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: MORNING_THEME.surfaceElevated,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderCool,
+    gap: 10,
+  },
+  signInLead: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: MORNING_THEME.textSecondary,
+  },
+  secondaryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: MORNING_THEME.surfaceRaised,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: MORNING_THEME.borderSoft,
+  },
+  secondaryButtonText: {
+    color: MORNING_THEME.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   footnote: {
     marginHorizontal: 16,
     marginTop: 12,
     fontSize: 12,
     lineHeight: 18,
-    color: '#9A9AB8', // WCAG AA対応: #8E8EAA → #9A9AB8
+    color: MORNING_THEME.textMuted,
   },
 });
