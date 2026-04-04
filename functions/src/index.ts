@@ -851,11 +851,13 @@ export const activateTrial = onCall(
 
 export const weeklyReportScheduler = onSchedule(
   {
-    schedule: '0 7 * * 1',
+    // 毎週月曜日 08:00 JST（Asia/Tokyo）に自動実行
+    schedule: '0 8 * * 1',
     timeZone: 'Asia/Tokyo',
     region: 'asia-northeast1',
     secrets: ['CLAUDE_API_KEY'],
     memory: '512MiB',
+    // 全ユーザーの処理タイムアウト対策として最大9分を設定
     timeoutSeconds: 540,
     maxInstances: 1,
   },
