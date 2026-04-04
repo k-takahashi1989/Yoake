@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   unit: {
     fontSize: 14,
-    color: '#9E9E9E',
+    color: '#9A9AB8', // WCAG AA対応: #9E9E9E → #9A9AB8
     marginTop: -4,
   },
   subUnit: {

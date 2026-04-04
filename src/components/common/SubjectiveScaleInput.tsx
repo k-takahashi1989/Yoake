@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   legendText: {
     flex: 1,
     fontSize: 11,
-    color: '#8F8CAF',
+    color: '#9A9AB8', // WCAG AA対応: #8F8CAF → #9A9AB8
   },
   scaleRow: {
     flexDirection: 'row',

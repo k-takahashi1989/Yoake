@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
   },
   summaryEyebrow: { fontSize: 13, color: '#B7B5D6', fontWeight: '700' },
   summaryDiffWrap: { alignItems: 'flex-end', gap: 2 },
-  summaryDiffLabel: { fontSize: 10, color: '#8F8EA8' },
+  summaryDiffLabel: { fontSize: 10, color: '#9A9AB8' }, // WCAG AA対応: #8F8EA8 → #9A9AB8
   summaryDiffValue: { fontSize: 18, fontWeight: '800' },
   summaryDiffUp: { color: '#4CAF50' },
   summaryDiffDown: { color: '#FF7043' },
@@ -666,10 +666,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  miniStatLabel: { fontSize: 10, color: '#8F8EA8', marginBottom: 4 },
+  miniStatLabel: { fontSize: 10, color: '#9A9AB8', marginBottom: 4 }, // WCAG AA対応: #8F8EA8 → #9A9AB8
   miniStatValue: { fontSize: 16, fontWeight: '700' },
   summaryInsights: { marginTop: 14, gap: 8 },
-  summaryInsightsLabel: { fontSize: 11, color: '#8F8EA8', fontWeight: '600', marginBottom: 2 },
+  summaryInsightsLabel: { fontSize: 11, color: '#9A9AB8', fontWeight: '600', marginBottom: 2 }, // WCAG AA対応: #8F8EA8 → #9A9AB8
   insightChip: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   accountSubtitle: { fontSize: 12, color: '#9A9AB8' },
-  accountHint: { fontSize: 12, color: '#78789B' },
+  accountHint: { fontSize: 12, color: '#9A9AB8' }, // WCAG AA対応: #78789B → #9A9AB8
   accountActions: {
     flexDirection: 'column',
     gap: 10,

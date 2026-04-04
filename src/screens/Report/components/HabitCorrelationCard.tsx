@@ -160,14 +160,14 @@ const styles = StyleSheet.create({
   },
   cardSubTitle: {
     fontSize: 11,
-    color: '#6F738F',
+    color: '#9A9AB8', // WCAG AA対応: #6F738F → #9A9AB8
     marginTop: -8,
     marginBottom: 12,
     lineHeight: 16,
   },
   reportPlaceholder: {
     fontSize: 13,
-    color: '#666A86',
+    color: '#9A9AB8', // WCAG AA対応: #666A86 → #9A9AB8
     lineHeight: 20,
   },
   chartFrame: {
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   },
   gridLabel: {
     width: 24,
-    color: '#6F738F',
+    color: '#9A9AB8', // WCAG AA対応: #6F738F → #9A9AB8
     fontSize: 9,
   },
   gridLine: {
