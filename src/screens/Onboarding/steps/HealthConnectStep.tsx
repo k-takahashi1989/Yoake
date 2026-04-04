@@ -1,16 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Linking,
   AppState,
   AppStateStatus,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { isHCAvailable, hasHCSleepPermission } from '../../../services/healthConnect';
+import {
+  hasSleepDataPermission,
+  isSleepDataAvailable,
+  openHealthDataProviderApp,
+  openHealthDataProviderStorePage,
+} from '../../../services/healthData';
 import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
+import Icon from '../../../components/common/Icon';
 import { useSleepStore } from '../../../stores/sleepStore';
 
 interface Props {
@@ -21,11 +27,12 @@ type Status = 'idle' | 'checking' | 'connected' | 'denied' | 'unavailable';
 
 export default function HealthConnectStep({ onNext }: Props) {
   const { t } = useTranslation();
+  const isAndroid = Platform.OS === 'android';
+  const isEnglishUi = t('nav.aiChat') === 'AI Chat';
   const [status, setStatus] = useState<Status>('idle');
   const appStateRef = useRef(AppState.currentState);
   const waitingForReturn = useRef(false);
 
-  // HCアプリから戻ったとき権限を再チェック
   useEffect(() => {
     const sub = AppState.addEventListener('change', async (next: AppStateStatus) => {
       if (
@@ -35,70 +42,136 @@ export default function HealthConnectStep({ onNext }: Props) {
       ) {
         waitingForReturn.current = false;
         setStatus('checking');
-        const granted = await hasHCSleepPermission();
+        const granted = await hasSleepDataPermission();
         setStatus(granted ? 'connected' : 'denied');
-        // 権限取得済みの場合はホーム画面のデータを即時更新
+
         if (granted) {
           useSleepStore.getState().loadRecent();
         }
       }
       appStateRef.current = next;
     });
+
     return () => sub.remove();
   }, []);
 
   const handleConnect = async () => {
     setStatus('checking');
     try {
-      const available = await isHCAvailable();
+      const available = await isSleepDataAvailable();
       if (!available) {
         setStatus('unavailable');
         return;
       }
-      // requestPermission は端末環境によってクラッシュする場合があるため
-      // HCアプリを直接開いて権限付与してもらう方式を採用
+
       waitingForReturn.current = true;
-      await Linking.openURL('android-app://com.google.android.apps.healthdata');
+      const opened = await openHealthDataProviderApp();
+      if (!opened) {
+        waitingForReturn.current = false;
+        setStatus('unavailable');
+      }
     } catch {
-      // HCアプリが見つからない場合
       waitingForReturn.current = false;
       setStatus('unavailable');
     }
   };
 
   const handleOpenPlayStore = () => {
-    Linking.openURL('market://details?id=com.google.android.apps.healthdata').catch(() =>
-      Linking.openURL('https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata'),
-    );
+    openHealthDataProviderStorePage().catch(() => undefined);
   };
 
   const benefits = [
-    t('onboarding.healthConnect.benefit1'),
-    t('onboarding.healthConnect.benefit2'),
-    t('onboarding.healthConnect.benefit3'),
-    t('onboarding.healthConnect.benefit4'),
+    isAndroid
+      ? t('onboarding.healthConnect.benefit1')
+      : isEnglishUi
+        ? 'Prepare for Apple Health / Apple Watch sleep import'
+        : 'Apple Watch / ヘルスケア連携の受け皿を用意',
+    isAndroid
+      ? t('onboarding.healthConnect.benefit2')
+      : isEnglishUi
+        ? 'Start with manual logging and still get a score plus guidance'
+        : 'まずは手動入力でもスコアと改善提案を始められる',
+    isAndroid
+      ? t('onboarding.healthConnect.benefit3')
+      : isEnglishUi
+        ? 'AI guidance gets sharper as more data builds up'
+        : 'データが増えるほどAIの提案が具体的になる',
+    isAndroid
+      ? t('onboarding.healthConnect.benefit4')
+      : isEnglishUi
+        ? 'You can add health sync later without losing logs'
+        : 'あとから設定を追加しても記録はそのまま使える',
   ];
+
+  const title = isAndroid
+    ? t('onboarding.healthConnect.title')
+    : isEnglishUi
+      ? 'Prepare your sleep data'
+      : '睡眠データの準備';
+  const description = isAndroid
+    ? t('onboarding.healthConnect.desc')
+    : isEnglishUi
+      ? 'You can start with manual logging in this build. In the iOS release build, Apple Health integration should make sleep capture more automatic.'
+      : 'このビルドでは手動入力から始められます。iOS公開ビルドではヘルスケア連携を有効化して、より自動で記録できるようにします。';
+  const previewTitle = isAndroid
+    ? (isEnglishUi ? 'What you unlock right away' : '連携すると最初から見えること')
+    : isEnglishUi
+      ? 'What you can see right away'
+      : '手動入力でも最初から見えること';
+  const previewRows = isAndroid
+    ? [
+        isEnglishUi
+          ? { label: 'Bedtime / wake time', value: 'Auto import' }
+          : { label: '就寝・起床', value: '自動取得' },
+        isEnglishUi
+          ? { label: 'Deep / REM sleep', value: 'Stage details' }
+          : { label: '深睡眠 / REM', value: 'ステージ確認' },
+        isEnglishUi
+          ? { label: 'First value', value: "Today's score" }
+          : { label: '初回の価値', value: '今日のスコア' },
+      ]
+    : [
+        isEnglishUi
+          ? { label: "Today's status", value: 'Sleep score' }
+          : { label: '今日の状態', value: '睡眠スコア' },
+        isEnglishUi
+          ? { label: 'Next improvement', value: 'AI note' }
+          : { label: '次の改善', value: 'AIのひとこと' },
+        isEnglishUi
+          ? { label: 'Reason to return', value: 'Weekly report' }
+          : { label: '続ける理由', value: '週次レポート' },
+      ];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>❤️</Text>
-      <Text style={styles.title}>{t('onboarding.healthConnect.title')}</Text>
-      <Text style={styles.description}>{t('onboarding.healthConnect.desc')}</Text>
+      <View style={styles.iconWrap}>
+        <Icon name="heart-beat" size={52} color="#8FA7FF" />
+      </View>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.description}>{description}</Text>
+
+      <View style={styles.previewCard}>
+        <Text style={styles.previewTitle}>{previewTitle}</Text>
+        {previewRows.map(row => (
+          <View key={row.label} style={styles.previewRow}>
+            <Text style={styles.previewLabel}>{row.label}</Text>
+            <Text style={styles.previewValue}>{row.value}</Text>
+          </View>
+        ))}
+      </View>
 
       <View style={styles.benefitList}>
-        {benefits.map(b => (
-          <View key={b} style={styles.benefitRow}>
-            <Text style={styles.checkIcon}>✓</Text>
-            <Text style={styles.benefitText}>{b}</Text>
+        {benefits.map((benefit) => (
+          <View key={benefit} style={styles.benefitRow}>
+            <View style={styles.checkDot} />
+            <Text style={styles.benefitText}>{benefit}</Text>
           </View>
         ))}
       </View>
 
       {status === 'checking' && (
         <View style={styles.infoBanner}>
-          <Text style={styles.infoText}>
-            {t('onboarding.healthConnect.checkingBanner')}
-          </Text>
+          <Text style={styles.infoText}>{t('onboarding.healthConnect.checkingBanner')}</Text>
         </View>
       )}
 
@@ -110,17 +183,13 @@ export default function HealthConnectStep({ onNext }: Props) {
 
       {status === 'denied' && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>
-            {t('onboarding.healthConnect.deniedBanner')}
-          </Text>
+          <Text style={styles.warningText}>{t('onboarding.healthConnect.deniedBanner')}</Text>
         </View>
       )}
 
       {status === 'unavailable' && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>
-            {t('onboarding.healthConnect.unavailableBanner')}
-          </Text>
+          <Text style={styles.warningText}>{t('onboarding.healthConnect.unavailableBanner')}</Text>
           <TouchableOpacity onPress={handleOpenPlayStore} style={styles.installButton}>
             <Text style={styles.installButtonText}>{t('onboarding.healthConnect.installBtn')}</Text>
           </TouchableOpacity>
@@ -128,30 +197,43 @@ export default function HealthConnectStep({ onNext }: Props) {
       )}
 
       <View style={styles.privacyNote}>
-        <Text style={styles.privacyNoteText}>
-          {t('onboarding.healthConnect.privacyNote')}
-        </Text>
+        <Text style={styles.privacyNoteText}>{t('onboarding.healthConnect.privacyNote')}</Text>
       </View>
 
       <View style={styles.buttonGroup}>
-        {status !== 'connected' && (
+        {isAndroid && status !== 'connected' && (
           <ScalePressable
-            style={[styles.button, styles.buttonPrimary, status === 'checking' && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              styles.buttonPrimary,
+              status === 'checking' && styles.buttonDisabled,
+            ]}
             onPress={handleConnect}
             disabled={status === 'checking'}
           >
             <Text style={styles.buttonText}>
-              {status === 'checking' ? t('onboarding.healthConnect.waitingBtn') : t('onboarding.healthConnect.connectBtn')}
+              {status === 'checking'
+                ? t('onboarding.healthConnect.waitingBtn')
+                : t('onboarding.healthConnect.connectBtn')}
             </Text>
           </ScalePressable>
         )}
 
         <ScalePressable
-          style={[styles.button, status === 'connected' ? styles.buttonPrimary : styles.buttonSecondary]}
-          onPress={() => onNext()}
+          style={[
+            styles.button,
+            status === 'connected' ? styles.buttonPrimary : styles.buttonSecondary,
+          ]}
+          onPress={onNext}
         >
           <Text style={[styles.buttonText, status !== 'connected' && styles.buttonTextSecondary]}>
-            {status === 'connected' ? t('onboarding.healthConnect.nextBtn') : t('onboarding.healthConnect.skipBtn')}
+            {status === 'connected'
+              ? t('onboarding.healthConnect.nextBtn')
+              : isAndroid
+                ? t('onboarding.healthConnect.skipBtn')
+                : isEnglishUi
+                  ? 'Start with manual logging'
+                  : '手動入力で始める'}
           </Text>
         </ScalePressable>
       </View>
@@ -161,12 +243,68 @@ export default function HealthConnectStep({ onNext }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center' },
-  icon: { fontSize: 56, textAlign: 'center', marginBottom: 16 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 12 },
-  description: { fontSize: 15, color: '#B0B0C8', textAlign: 'center', lineHeight: 24, marginBottom: 24 },
-  benefitList: { backgroundColor: '#2D2D44', borderRadius: 16, padding: 16, marginBottom: 24 },
+  iconWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  description: {
+    fontSize: 15,
+    color: '#B0B0C8',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  benefitList: {
+    backgroundColor: '#2D2D44',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+  },
+  previewCard: {
+    backgroundColor: 'rgba(107, 92, 231, 0.14)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.28)',
+  },
+  previewTitle: {
+    color: '#DCD8FF',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  previewLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  previewValue: {
+    color: '#CFC9FF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   benefitRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6 },
-  checkIcon: { color: '#4CAF50', fontSize: 14, fontWeight: 'bold', marginRight: 10, marginTop: 1 },
+  checkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#79E0B5',
+    marginRight: 12,
+    marginTop: 6,
+  },
   benefitText: { flex: 1, fontSize: 14, color: '#D0D0E8', lineHeight: 20 },
   infoBanner: {
     backgroundColor: '#6B5CE720',

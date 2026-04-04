@@ -16,5 +16,6 @@ module.exports = {
     'react-i18next': '<rootDir>/__mocks__/react-i18next.js',
     'react-native-reanimated': '<rootDir>/__mocks__/react-native-reanimated.js',
     'react-native-svg': '<rootDir>/__mocks__/react-native-svg.js',
+    'react-native-vector-icons/MaterialCommunityIcons': '<rootDir>/__mocks__/react-native-vector-icons-material.js',
   },
 };

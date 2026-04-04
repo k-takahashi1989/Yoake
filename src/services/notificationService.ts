@@ -1,8 +1,8 @@
 import notifee, {
   AndroidImportance,
-  TriggerType,
   RepeatFrequency,
   TimestampTrigger,
+  TriggerType,
 } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -10,7 +10,17 @@ export const NOTIF_STORAGE_KEY = '@yoake:notification_settings';
 export const LAST_SCORE_KEY = '@yoake:last_score';
 export const CHANNEL_ID = 'yoake_reminders';
 export const NOTIF_ID = 'yoake_morning_reminder';
+export const BEDTIME_REMINDER_NOTIFICATION_ID = 'yoake_bedtime_reminder';
+export const BEDTIME_REMINDER_ACTION_ID = 'bedtime_start';
 export const WEEKLY_REPORT_CHANNEL_ID = 'yoake_weekly_report';
+export const PENDING_SLEEP_START_KEY = '@yoake:pending_sleep_start';
+const PENDING_SLEEP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export interface PendingSleepStart {
+  bedTime: Date;
+  savedAt: Date;
+  source: 'bedtime_push';
+}
 
 export async function ensureWeeklyReportChannel(): Promise<void> {
   await notifee.createChannel({
@@ -28,10 +38,6 @@ export async function ensureReminderChannel(): Promise<void> {
   });
 }
 
-/**
- * 朝リマインダーを（再）スケジュールする。
- * lastScore が渡されると「昨日のスコアはN点でした」を本文に含める。
- */
 export async function schedulePersonalizedReminder(
   hour: number,
   minute: number,
@@ -41,8 +47,8 @@ export async function schedulePersonalizedReminder(
 
   const body =
     lastScore != null
-      ? `昨日のスコアは${lastScore}点でした。今日はどうでしたか？☀️`
-      : '今日の睡眠を記録しましょう！';
+      ? `昨日のスコアは${lastScore}点でした。今日の睡眠も記録しておきましょう。`
+      : '今日の睡眠を記録しておきましょう。';
 
   const target = new Date();
   target.setHours(hour, minute, 0, 0);
@@ -58,7 +64,7 @@ export async function schedulePersonalizedReminder(
   await notifee.createTriggerNotification(
     {
       id: NOTIF_ID,
-      title: '☀️ おはようございます',
+      title: 'おはようございます',
       body,
       android: { channelId: CHANNEL_ID },
     },
@@ -70,27 +76,120 @@ export async function cancelReminder(): Promise<void> {
   await notifee.cancelNotification(NOTIF_ID);
 }
 
-// ストリーク達成通知のマイルストーン日数
-const STREAK_MILESTONES = [3, 7, 14, 30];
+export async function scheduleBedtimeReminder(
+  hour: number,
+  minute: number,
+): Promise<void> {
+  await ensureReminderChannel();
 
-// ストリーク達成通知の AsyncStorage キープレフィックス
+  const target = new Date();
+  target.setHours(hour, minute, 0, 0);
+  if (target <= new Date()) target.setDate(target.getDate() + 1);
+
+  const trigger: TimestampTrigger = {
+    type: TriggerType.TIMESTAMP,
+    timestamp: target.getTime(),
+    repeatFrequency: RepeatFrequency.DAILY,
+    alarmManager: { allowWhileIdle: true },
+  };
+
+  await notifee.createTriggerNotification(
+    {
+      id: BEDTIME_REMINDER_NOTIFICATION_ID,
+      title: 'そろそろ就寝予定の時間です',
+      body: '眠る準備ができたら、「今から寝ます」で就寝時刻を残せます。',
+      android: {
+        channelId: CHANNEL_ID,
+        pressAction: { id: 'default' },
+        actions: [
+          {
+            title: '今から寝ます',
+            pressAction: { id: BEDTIME_REMINDER_ACTION_ID },
+          },
+        ],
+      },
+    },
+    trigger,
+  );
+}
+
+export async function cancelBedtimeReminder(): Promise<void> {
+  await notifee.cancelNotification(BEDTIME_REMINDER_NOTIFICATION_ID);
+}
+
+export async function savePendingSleepStart(date = new Date()): Promise<void> {
+  const payload = {
+    bedTime: date.toISOString(),
+    savedAt: new Date().toISOString(),
+    source: 'bedtime_push' as const,
+  };
+  await AsyncStorage.setItem(PENDING_SLEEP_START_KEY, JSON.stringify(payload));
+}
+
+export async function getPendingSleepStart(): Promise<PendingSleepStart | null> {
+  const raw = await AsyncStorage.getItem(PENDING_SLEEP_START_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      bedTime?: string;
+      savedAt?: string;
+      source?: 'bedtime_push';
+    };
+
+    if (!parsed.bedTime || !parsed.savedAt) {
+      await AsyncStorage.removeItem(PENDING_SLEEP_START_KEY);
+      return null;
+    }
+
+    const bedTime = new Date(parsed.bedTime);
+    const savedAt = new Date(parsed.savedAt);
+    const isInvalid = Number.isNaN(bedTime.getTime()) || Number.isNaN(savedAt.getTime());
+    const isExpired = Date.now() - savedAt.getTime() > PENDING_SLEEP_MAX_AGE_MS;
+
+    if (isInvalid || isExpired) {
+      await AsyncStorage.removeItem(PENDING_SLEEP_START_KEY);
+      return null;
+    }
+
+    return {
+      bedTime,
+      savedAt,
+      source: parsed.source ?? 'bedtime_push',
+    };
+  } catch {
+    await AsyncStorage.removeItem(PENDING_SLEEP_START_KEY);
+    return null;
+  }
+}
+
+export async function clearPendingSleepStart(): Promise<void> {
+  await AsyncStorage.removeItem(PENDING_SLEEP_START_KEY);
+}
+
+const STREAK_MILESTONES = [3, 7, 14, 30];
 const STREAK_NOTIFIED_PREFIX = '@yoake:streak_notified_';
 
-/** マイルストーン別の通知内容 */
 const STREAK_MESSAGES: Record<number, { title: string; body: string }> = {
-  3:  { title: '🔥 3日連続記録達成！',    body: '継続は力なり。この調子で続けよう！' },
-  7:  { title: '🔥 1週間連続記録達成！',  body: 'すごい！しろくまも喜んでるよ🐻‍❄️' },
-  14: { title: '🔥 2週間連続記録達成！',  body: '習慣化できてるね。きみの睡眠力が上がってる！' },
-  30: { title: '🔥 30日連続記録達成！',   body: '1ヶ月継続おめでとう！本物の睡眠マスターだよ🐻‍❄️' },
+  3: {
+    title: '3日連続で記録できました',
+    body: '継続できています。この調子で続けていきましょう。',
+  },
+  7: {
+    title: '1週間連続で記録できました',
+    body: 'いい流れです。毎日の記録が睡眠の見え方を変えていきます。',
+  },
+  14: {
+    title: '2週間連続で記録できました',
+    body: '習慣として定着してきています。ここから先も積み上げていきましょう。',
+  },
+  30: {
+    title: '30日連続で記録できました',
+    body: '1か月継続達成です。ここまでの積み重ねが大きな力になっています。',
+  },
 };
 
-/**
- * ストリーク数がマイルストーンに達したとき即時通知を送る。
- * 同じマイルストーンで二重通知しないよう AsyncStorage に記録する。
- * ストリークが 0 にリセットされたら全通知済みキーをクリアする。
- */
 export async function notifyStreakMilestoneIfReached(streak: number): Promise<void> {
-  // ストリーク 0 はリセット → 全マイルストーンの通知済みフラグを消去
   if (streak === 0) {
     const clearKeys = STREAK_MILESTONES.map(n => `${STREAK_NOTIFIED_PREFIX}${n}`);
     await AsyncStorage.multiRemove(clearKeys);
@@ -107,32 +206,34 @@ export async function notifyStreakMilestoneIfReached(streak: number): Promise<vo
   await ensureReminderChannel();
   await notifee.displayNotification({
     title: message.title,
-    body:  message.body,
+    body: message.body,
     android: { channelId: CHANNEL_ID },
   });
 
   await AsyncStorage.setItem(storageKey, '1');
 }
 
-/** 保存済みの通知設定を読み込み、最新スコアで通知を再スケジュールする */
 export async function refreshMorningReminderIfEnabled(
   lastScore: number | null,
 ): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(NOTIF_STORAGE_KEY);
     if (!raw) return;
+
     const settings = JSON.parse(raw) as {
       morningEnabled: boolean;
       morningHour: number;
       morningMinute: number;
     };
+
     if (!settings.morningEnabled) return;
+
     await schedulePersonalizedReminder(
       settings.morningHour,
       settings.morningMinute,
       lastScore,
     );
   } catch {
-    // 通知の再スケジュール失敗はサイレントに無視
+    // Ignore reminder refresh errors.
   }
 }

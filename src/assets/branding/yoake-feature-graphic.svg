@@ -1,0 +1,65 @@
+<svg width="1024" height="500" viewBox="0 0 1024 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="86" y1="42" x2="909" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1B2340"/>
+      <stop offset="0.44" stop-color="#223461"/>
+      <stop offset="1" stop-color="#0D1427"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(747 281) rotate(90) scale(143 143)">
+      <stop offset="0" stop-color="#FFE09B"/>
+      <stop offset="0.54" stop-color="#F3BC61"/>
+      <stop offset="1" stop-color="#D78630"/>
+    </radialGradient>
+    <linearGradient id="card" x1="612" y1="128" x2="873" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF9ED"/>
+      <stop offset="1" stop-color="#F5E7C8"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F0A655"/>
+      <stop offset="1" stop-color="#E6754A"/>
+    </linearGradient>
+    <filter id="softShadow" x="548" y="80" width="368" height="340" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="18"/>
+      <feGaussianBlur stdDeviation="22"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0235294 0 0 0 0 0.0352941 0 0 0 0 0.0941176 0 0 0 0.22 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="500" rx="36" fill="url(#bg)"/>
+
+  <circle cx="854" cy="101" r="15" fill="#F6EED8" fill-opacity="0.92"/>
+  <circle cx="784" cy="71" r="4" fill="#F9EFD0" fill-opacity="0.76"/>
+  <circle cx="815" cy="44" r="6" fill="#F9EFD0" fill-opacity="0.86"/>
+
+  <path d="M108 148C130 112.667 166 87 216 71C250.667 59.6667 291 57.3333 337 64C307 84 289 113.333 283 152C232.333 140.667 174 139.333 108 148Z" fill="#F0EAD8" fill-opacity="0.82"/>
+
+  <path d="M684 353C684 284.517 739.517 229 808 229H868C936.483 229 992 284.517 992 353V383H684V353Z" fill="url(#sun)"/>
+  <rect x="649" y="373" width="312" height="20" rx="10" fill="#F7E6BF" fill-opacity="0.92"/>
+  <rect x="697" y="405" width="216" height="12" rx="6" fill="#F7E6BF" fill-opacity="0.26"/>
+
+  <text x="86" y="272" fill="#FFF9EE" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="0.12em">YOAKE</text>
+  <text x="90" y="322" fill="#F5D99A" font-family="Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="0.1em">SLEEP TRACKER  •  WEEKLY INSIGHTS  •  AI REPORT</text>
+  <text x="90" y="378" fill="#E7EDF7" fill-opacity="0.88" font-family="Arial, sans-serif" font-size="30" font-weight="500">眠りを記録して、夜明けみたいに整えていく。</text>
+
+  <g filter="url(#softShadow)">
+    <rect x="592" y="110" width="280" height="236" rx="30" fill="url(#card)"/>
+    <rect x="620" y="142" width="102" height="30" rx="15" fill="#20335A" fill-opacity="0.08"/>
+    <text x="642" y="163" fill="#29375F" font-family="Arial, sans-serif" font-size="18" font-weight="700">WEEKLY</text>
+
+    <text x="620" y="218" fill="#233157" font-family="Arial, sans-serif" font-size="68" font-weight="700">84</text>
+    <text x="724" y="216" fill="#8D6F48" font-family="Arial, sans-serif" font-size="22" font-weight="700">score</text>
+    <text x="620" y="250" fill="#7F6C56" font-family="Arial, sans-serif" font-size="18" font-weight="500">前週より +6 / 寝つきが安定</text>
+
+    <path d="M624 296C651 287 666 241 694 241C719 241 727 273 751 273C776 273 783 229 812 229C830 229 842 248 855 260" stroke="url(#line)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="624" cy="296" r="8" fill="#F2A85B"/>
+    <circle cx="694" cy="241" r="8" fill="#F2A85B"/>
+    <circle cx="751" cy="273" r="8" fill="#F2A85B"/>
+    <circle cx="812" cy="229" r="8" fill="#F2A85B"/>
+    <circle cx="855" cy="260" r="8" fill="#F2A85B"/>
+  </g>
+</svg>

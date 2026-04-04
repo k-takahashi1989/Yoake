@@ -1,22 +1,26 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking,
-  Modal, Animated, ImageBackground,
+  ImageBackground,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../stores/authStore';
-import { ProfileStackParamList, AiPersonality } from '../../types';
-import { SUBSCRIPTION, LINKS, AI_PERSONALITIES } from '../../constants';
+import { ProfileStackParamList } from '../../types';
+import { SUBSCRIPTION, LINKS } from '../../constants';
 import pkg from '../../../package.json';
 import { generateSeedData } from '../../utils/seedData';
 import { useSleepStore } from '../../stores/sleepStore';
 import { SLEEP_LOG_FETCH_LIMIT } from '../../constants';
 import { useTranslation, changeLanguage } from '../../i18n';
 import Icon, { IconName } from '../../components/common/Icon';
+import {
+  markReviewFlowCompleted,
+  openStoreReviewPage,
+} from '../../services/reviewService';
 
 const DEBT_PERIOD_KEY = '@yoake:sleep_debt_period';
 
@@ -24,9 +28,8 @@ type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
 export default function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
-  const { user, profile, subscription, isPremium, signOut, updateProfile, _devSetPremium } = useAuthStore();
+  const { user, profile, subscription, isPremium, signOut, _devSetPremium } = useAuthStore();
   const [isSeedLoading, setIsSeedLoading] = useState(false);
-  const [showPersonality, setShowPersonality] = useState(false);
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const [debtPeriod, setDebtPeriod] = useState<'14' | '30' | 'month'>('14');
@@ -74,10 +77,11 @@ export default function ProfileScreen() {
   const accountStatusText = user?.email ?? (isJa ? 'メール未登録' : 'Email not linked');
   const accountHintText = isJa ? 'プロフィール編集' : 'Edit profile';
   const guestWarningText = isJa
-    ? 'このままだと再インストールや機種変更時にデータを復旧できません。メールで保護すると、同じアカウントで睡眠記録を引き継げます。'
+    ? 'このままだと再インストールや機種変更時にデータを復旧できません。メールアドレスを登録すると、同じアカウントで睡眠記録を引き継げます。'
     : 'Without email protection, you cannot restore your data after reinstalling or changing devices. Link an email to keep your sleep records.';
-  const protectButtonText = isJa ? 'メールで保護する' : 'Protect with Email';
+  const protectButtonText = isJa ? 'メールアドレス登録' : 'Add Email Address';
   const signInButtonText = isJa ? 'ログイン' : 'Sign In';
+  const feedbackLabel = isJa ? '要望・不具合報告' : 'Feedback & Bug Reports';
   const signOutMessage = user?.isAnonymous
     ? t('profile.signOutMessage')
     : isJa
@@ -89,6 +93,24 @@ export default function ProfileScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('profile.signOut'), style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  const handleRateAppPress = () => {
+    openStoreReviewPage()
+      .then(async opened => {
+        if (opened) {
+          await markReviewFlowCompleted();
+          return;
+        }
+
+        Alert.alert(
+          isJa ? 'レビュー先が未設定です' : 'Review link is not ready',
+          isJa
+            ? 'iOS は App Store ID を設定してからレビュー導線を有効にしてください。'
+            : 'Set the App Store ID before enabling the iOS review link.',
+        );
+      })
+      .catch(() => {});
   };
 
   return (
@@ -165,11 +187,13 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             )}
-            <MenuRow
-              iconName="crown"
-              label={t('profile.menuSubscription')}
-              onPress={() => navigation.navigate('SubscriptionManage')}
-            />
+            {isPremium && (
+              <MenuRow
+                iconName="crown"
+                label={t('profile.menuSubscription')}
+                onPress={() => navigation.navigate('SubscriptionManage')}
+              />
+            )}
             <MenuRow
               iconName="heart-beat"
               label={t('profile.menuHealthConnect')}
@@ -203,10 +227,19 @@ export default function ProfileScreen() {
               }}
             />
             <MenuRow
+              iconName="note"
+              label={t('home.guideButton')}
+              onPress={() => Linking.openURL(LINKS.HOW_TO_USE)}
+            />
+            <MenuRow
               iconName="sparkling"
-              label={t('profile.aiPersonality')}
-              value={t(`personality.${profile?.aiPersonality ?? 'standard'}`)}
-              onPress={() => setShowPersonality(true)}
+              label={isJa ? 'YOAKE をレビュー' : 'Rate YOAKE'}
+              onPress={handleRateAppPress}
+            />
+            <MenuRow
+              iconName="speech-bubble"
+              label={feedbackLabel}
+              onPress={() => Linking.openURL(LINKS.FEEDBACK_FORM)}
             />
             <MenuRow
               iconName="padlock"
@@ -277,17 +310,6 @@ export default function ProfileScreen() {
           )}
         </ScrollView>
       </View>
-
-      {/* AI諤ｧ譬ｼ驕ｸ謚槭・繝医Β繧ｷ繝ｼ繝・*/}
-      <PersonalityBottomSheet
-        visible={showPersonality}
-        currentPersonality={profile?.aiPersonality ?? 'standard'}
-        onClose={() => setShowPersonality(false)}
-        onConfirm={async (selected) => {
-          await updateProfile({ aiPersonality: selected });
-          setShowPersonality(false);
-        }}
-      />
     </View>
   );
 }
@@ -474,7 +496,7 @@ const styles = StyleSheet.create({
   accountSubtitle: { fontSize: 12, color: '#9A9AB8' },
   accountHint: { fontSize: 12, color: '#78789B' },
   accountActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -494,7 +516,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   accountSecondaryAction: {
-    minWidth: 88,
+    width: '100%',
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -568,238 +590,7 @@ const styles = StyleSheet.create({
 
 // ============================================================
 // AI諤ｧ譬ｼ驕ｸ謚槭・繝医Β繧ｷ繝ｼ繝医さ繝ｳ繝昴・繝阪Φ繝・
-// ============================================================
 
-function PersonalityBottomSheet({
-  visible,
-  currentPersonality,
-  onClose,
-  onConfirm,
-}: {
-  visible: boolean;
-  currentPersonality: AiPersonality;
-  onClose: () => void;
-  onConfirm: (selected: AiPersonality) => Promise<void>;
-}) {
-  const { t } = useTranslation();
-  const [selected, setSelected] = useState<AiPersonality>(currentPersonality);
-  const [confirming, setConfirming] = useState(false);
-
-  // 蜷・き繝ｼ繝峨・繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ蛟､・・譫壼・・・
-  const anims = useRef(
-    AI_PERSONALITIES.map(() => ({
-      translateY: new Animated.Value(30),
-      opacity: new Animated.Value(0),
-    }))
-  ).current;
-
-  // 繝｢繝ｼ繝繝ｫ縺碁幕縺・◆縺ｨ縺阪↓stagger繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ螳溯｡・
-  useEffect(() => {
-    if (visible) {
-      // 驕ｸ謚樒憾諷九ｒ迴ｾ蝨ｨ蛟､縺ｫ繝ｪ繧ｻ繝・ヨ
-      setSelected(currentPersonality);
-      // 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ繧偵Μ繧ｻ繝・ヨ
-      anims.forEach(a => {
-        a.translateY.setValue(30);
-        a.opacity.setValue(0);
-      });
-      // stagger繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ髢句ｧ・
-      Animated.stagger(
-        60,
-        anims.map(a =>
-          Animated.parallel([
-            Animated.timing(a.translateY, {
-              toValue: 0,
-              duration: 280,
-              useNativeDriver: true,
-            }),
-            Animated.timing(a.opacity, {
-              toValue: 1,
-              duration: 280,
-              useNativeDriver: true,
-            }),
-          ])
-        )
-      ).start();
-    }
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleConfirm = async () => {
-    setConfirming(true);
-    try {
-      await onConfirm(selected);
-    } finally {
-      setConfirming(false);
-    }
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
-      {/* 閭梧勹繧ｿ繝・・縺ｧ髢峨§繧・*/}
-      <TouchableOpacity
-        style={personalityStyles.overlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        {/* 繧ｷ繝ｼ繝域悽菴難ｼ医ち繝・・縺瑚レ譎ｯ縺ｫ莨晄眺縺励↑縺・ｈ縺・stopPropagation・・*/}
-        <TouchableOpacity
-          style={personalityStyles.sheet}
-          activeOpacity={1}
-          onPress={() => {}}
-        >
-          <Text style={personalityStyles.sheetTitle}>{t('personality.sheetTitle')}</Text>
-          <Text style={personalityStyles.sheetSub}>{t('personality.sheetSub')}</Text>
-
-          {/* 繧ｫ繝ｼ繝峨げ繝ｪ繝・ラ・・蛻暦ｼ・*/}
-          <View style={personalityStyles.grid}>
-            {AI_PERSONALITIES.map((p, i) => {
-              const isSelected = selected === p.id;
-              return (
-                <Animated.View
-                  key={p.id}
-                  style={[
-                    personalityStyles.cardWrapper,
-                    {
-                      opacity: anims[i].opacity,
-                      transform: [{ translateY: anims[i].translateY }],
-                    },
-                  ]}
-                >
-                  <TouchableOpacity
-                    style={[
-                      personalityStyles.card,
-                      isSelected
-                        ? { borderColor: p.themeColor, backgroundColor: p.themeColor + '18' }
-                        : { borderColor: 'rgba(107, 92, 231, 0.25)', backgroundColor: 'rgba(26, 26, 46, 0.75)' },
-                    ]}
-                    onPress={() => setSelected(p.id)}
-                    activeOpacity={0.8}
-                  >
-                    {/* 驕ｸ謚樔ｸｭ繝√ぉ繝・け繝槭・繧ｯ */}
-                    {isSelected && (
-                      <Text style={[personalityStyles.checkMark, { color: p.themeColor }]}>✓</Text>
-                    )}
-                    <Text style={personalityStyles.cardEmoji}>{p.emoji}</Text>
-                    <Text style={personalityStyles.cardTitle}>{t(p.labelKey)}</Text>
-                    <Text style={personalityStyles.cardSub}>{t(p.subKey)}</Text>
-                    {/* 蛹ｺ蛻・ｊ邱・*/}
-                    <View style={personalityStyles.divider} />
-                    {/* 繝励Ξ繝薙Η繝ｼ譁・*/}
-                    <Text style={personalityStyles.cardPreview}>{t(p.previewKey)}</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              );
-            })}
-          </View>
-
-          {/* 豎ｺ螳壹・繧ｿ繝ｳ */}
-          <TouchableOpacity
-            style={[personalityStyles.confirmBtn, confirming && { opacity: 0.6 }]}
-            onPress={handleConfirm}
-            disabled={confirming}
-            activeOpacity={0.8}
-          >
-            {confirming ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={personalityStyles.confirmBtnText}>{t('personality.confirm')}</Text>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-}
-
-const personalityStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: 'rgba(26, 26, 46, 0.95)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.25)',
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  sheetSub: {
-    fontSize: 13,
-    color: '#C8C8E0',
-    marginBottom: 16,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cardWrapper: {
-    width: '47%',
-    margin: '1.5%',
-  },
-  card: {
-    borderWidth: 1.5,
-    borderRadius: 14,
-    padding: 12,
-    position: 'relative',
-  },
-  checkMark: {
-    position: 'absolute',
-    top: 8,
-    right: 10,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cardEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  cardSub: {
-    fontSize: 11,
-    color: '#C8C8E0',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(107, 92, 231, 0.25)',
-    marginVertical: 8,
-  },
-  cardPreview: {
-    fontSize: 12,
-    color: '#C8C8E0',
-    fontStyle: 'italic',
-    lineHeight: 17,
-  },
-  confirmBtn: {
-    backgroundColor: '#6B5CE7',
-    borderRadius: 30,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-});
 
 
 

@@ -5,6 +5,7 @@ import {
   getRecentSleepLogs,
   saveSleepLog,
   deleteSleepLog,
+  saveAiReport,
 } from '../services/firebase';
 import { SleepLog, SleepInputForm, UserGoal } from '../types';
 import { calculateScore, calculateSleepDebt } from '../utils/scoreCalculator';
@@ -17,6 +18,11 @@ import {
   notifyStreakMilestoneIfReached,
   LAST_SCORE_KEY,
 } from '../services/notificationService';
+import { generateLogInsight } from '../services/claudeApi';
+import {
+  queueScoreImprovementReviewMoment,
+  queueStreakReviewMoment,
+} from '../services/reviewService';
 
 interface SleepState {
   todayLog: SleepLog | null;
@@ -30,6 +36,7 @@ interface SleepState {
     goal: UserGoal,
     source: 'HEALTH_CONNECT' | 'MANUAL',
     targetDate?: string,
+    options?: { generateInsight?: boolean },
   ) => Promise<void>;
   deleteLog: (date: string) => Promise<void>;
 }
@@ -51,18 +58,19 @@ export const useSleepStore = create<SleepState>((set, get) => ({
       const logs = await getRecentSleepLogs(days);
       const today = format(new Date(), 'yyyy-MM-dd');
       const todayLogFromRecent = logs.find(log => log.date === today) ?? null;
-      set(state => ({
+      set({
         recentLogs: logs,
-        todayLog: todayLogFromRecent ?? state.todayLog,
-      }));
+        todayLog: todayLogFromRecent,
+      });
     } finally {
       set({ isLoading: false });
     }
   },
 
-  saveLog: async (form, goal, source, targetDate) => {
+  saveLog: async (form, goal, source, targetDate, options) => {
     const { recentLogs } = get();
     const date = targetDate ?? format(form.bedTime, 'yyyy-MM-dd');
+    const previousComparableLog = recentLogs.find(log => log.date !== date) ?? null;
 
     const totalMinutes = Math.round(
       (form.wakeTime.getTime() - form.bedTime.getTime()) / 60000,
@@ -118,6 +126,31 @@ export const useSleepStore = create<SleepState>((set, get) => ({
     const { recentLogs: updatedLogs } = get();
     const streak = calculateStreak(updatedLogs);
     notifyStreakMilestoneIfReached(streak).catch(() => {});
+    queueStreakReviewMoment(streak).catch(() => {});
+
+    if (previousComparableLog) {
+      const improvement = score - previousComparableLog.score;
+      queueScoreImprovementReviewMoment(date, improvement, score).catch(() => {});
+    }
+
+    if (options?.generateInsight) {
+      const insightKey = `insight:${date}`;
+      void (async () => {
+        try {
+          const referenceLogs = updatedLogs
+            .filter(log => log.date !== date)
+            .slice(0, 6);
+          const report = await generateLogInsight(
+            fullLog as SleepLog,
+            referenceLogs,
+            goal,
+          );
+          await saveAiReport(insightKey, report);
+        } catch (error) {
+          console.warn('[sleepStore] failed to create insight:', error);
+        }
+      })();
+    }
   },
 
   deleteLog: async (date: string) => {

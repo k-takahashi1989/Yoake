@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   Animated,
   ImageBackground,
+  PanResponder,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,10 +21,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
 type Step = 'welcome' | 'goal' | 'healthConnect' | 'notification' | 'trial';
 const STEPS: Step[] = ['welcome', 'goal', 'healthConnect', 'notification', 'trial'];
+const EDGE_SWIPE_WIDTH = 32;
+const SWIPE_BACK_THRESHOLD_RATIO = 0.22;
+const STEP_TRANSITION_DURATION = 240;
 
-// ProgressDot: アクティブ時に幅が 8px → 24px へ Animated.spring で伸びるドット
 function ProgressDot({ isActive, isDone }: { isActive: boolean; isDone: boolean }) {
-  // useNativeDriver: false — width はレイアウトプロパティのためネイティブドライバ不可
   const dotWidth = useRef(new Animated.Value(isActive ? 24 : 8)).current;
 
   useEffect(() => {
@@ -45,38 +48,83 @@ function ProgressDot({ isActive, isDone }: { isActive: boolean; isDone: boolean 
 }
 
 export default function OnboardingScreen({ navigation: _navigation }: Props) {
-  const [currentStep, setCurrentStep] = useState<Step>('welcome');
-  const { completeOnboarding } = useAuthStore();
+  const { width } = useWindowDimensions();
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const { completeOnboarding, ensureSignedIn } = useAuthStore();
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const isAnimatingRef = useRef(false);
 
-  const stepIndex = STEPS.indexOf(currentStep);
+  const currentStep = STEPS[currentStepIndex];
+  const canGoBack = currentStepIndex > 0;
+  const swipeBackThreshold = Math.min(120, width * SWIPE_BACK_THRESHOLD_RATIO);
 
-  // フェードアニメーション用の値（初期値 1 = 完全表示）
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-
-  /**
-   * フェードアウト（150ms）→ ステップ切替 → フェードイン（200ms）
-   * 既存の AsyncStorage 完了フラグ等は各 Step コンポーネント内で管理されており影響なし
-   */
-  const goNext = () => {
-    if (stepIndex < STEPS.length - 1) {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentStep(STEPS[stepIndex + 1]);
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
+  const animateStepEntrance = useCallback(
+    (fromValue: number) => {
+      translateX.setValue(fromValue);
+      opacity.setValue(0.92);
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: STEP_TRANSITION_DURATION,
           useNativeDriver: true,
-        }).start();
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: STEP_TRANSITION_DURATION,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        isAnimatingRef.current = false;
       });
-    }
-  };
+    },
+    [opacity, translateX],
+  );
+
+  const transitionToStep = useCallback(
+    (nextIndex: number, direction: 'forward' | 'backward') => {
+      if (nextIndex < 0 || nextIndex >= STEPS.length || nextIndex === currentStepIndex || isAnimatingRef.current) {
+        return;
+      }
+
+      isAnimatingRef.current = true;
+      const exitTo = direction === 'forward' ? -width : width;
+
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: exitTo,
+          duration: STEP_TRANSITION_DURATION,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.86,
+          duration: STEP_TRANSITION_DURATION,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setCurrentStepIndex(nextIndex);
+        animateStepEntrance(direction === 'forward' ? width : -width);
+      });
+    },
+    [animateStepEntrance, currentStepIndex, opacity, translateX, width],
+  );
+
+  const goNext = useCallback(() => {
+    transitionToStep(currentStepIndex + 1, 'forward');
+  }, [currentStepIndex, transitionToStep]);
+
+  const goBack = useCallback(() => {
+    transitionToStep(currentStepIndex - 1, 'backward');
+  }, [currentStepIndex, transitionToStep]);
+
+  useEffect(() => {
+    ensureSignedIn().catch(error => {
+      console.warn('[OnboardingScreen] ensureSignedIn failed:', error);
+    });
+  }, [ensureSignedIn]);
 
   const handleComplete = async () => {
     await completeOnboarding();
-    // navigation は hasCompletedOnboarding の変化で自動切替
   };
 
   const renderStep = () => {
@@ -94,28 +142,90 @@ export default function OnboardingScreen({ navigation: _navigation }: Props) {
     }
   };
 
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (evt, gestureState) => {
+          if (!canGoBack || isAnimatingRef.current) {
+            return false;
+          }
+
+          const isHorizontalSwipe =
+            Math.abs(gestureState.dx) > 10 &&
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.4;
+
+          return evt.nativeEvent.pageX <= EDGE_SWIPE_WIDTH && gestureState.dx > 0 && isHorizontalSwipe;
+        },
+        onPanResponderMove: (_, gestureState) => {
+          translateX.setValue(Math.max(0, gestureState.dx));
+          const nextOpacity = 1 - Math.min(gestureState.dx / (width * 1.6), 0.12);
+          opacity.setValue(nextOpacity);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dx >= swipeBackThreshold || gestureState.vx >= 0.7) {
+            goBack();
+            return;
+          }
+
+          Animated.parallel([
+            Animated.spring(translateX, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 0,
+            }),
+            Animated.timing(opacity, {
+              toValue: 1,
+              duration: 160,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.parallel([
+            Animated.spring(translateX, {
+              toValue: 0,
+              useNativeDriver: true,
+              bounciness: 0,
+            }),
+            Animated.timing(opacity, {
+              toValue: 1,
+              duration: 160,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        },
+      }),
+    [canGoBack, goBack, opacity, swipeBackThreshold, translateX, width],
+  );
+
   return (
     <ImageBackground
       source={require('../../assets/images/bg_home.png')}
       style={styles.bg}
       resizeMode="cover"
     >
-      {/* 全体に薄いオーバーレイ：各ステップの文字・UIを読みやすく保つ */}
       <View style={styles.overlay} />
       <SafeAreaView style={styles.container}>
-        {/* ステップインジケーター（ヘッダー固定 — フェードの対象外） */}
         <View style={styles.indicator}>
           {STEPS.map((step, i) => (
             <ProgressDot
               key={step}
-              isActive={i === stepIndex}
-              isDone={i < stepIndex}
+              isActive={i === currentStepIndex}
+              isDone={i < currentStepIndex}
             />
           ))}
         </View>
 
-        {/* コンテンツエリアのみフェードトランジションを適用 */}
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity,
+              transform: [{ translateX }],
+            },
+          ]}
+          {...panResponder.panHandlers}
+        >
           {renderStep()}
         </Animated.View>
       </SafeAreaView>

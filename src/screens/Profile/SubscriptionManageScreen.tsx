@@ -16,8 +16,6 @@ import { ja } from 'date-fns/locale';
 import {
   initConnection,
   fetchProducts,
-  requestPurchase,
-  finishTransaction,
   purchaseUpdatedListener,
   purchaseErrorListener,
   Purchase,
@@ -25,12 +23,16 @@ import {
   Product,
   EventSubscription,
 } from 'react-native-iap';
-import functions from '@react-native-firebase/functions';
-import DeviceInfo from 'react-native-device-info';
 import { useAuthStore } from '../../stores/authStore';
 import { SUBSCRIPTION } from '../../constants';
 import { safeToDate } from '../../utils/dateUtils';
 import { useTranslation } from '../../i18n';
+import {
+  finishAndValidateSubscriptionPurchase,
+  isNativeSubscriptionPurchaseSupported,
+  restoreLatestSubscriptionPurchase,
+  startSubscriptionPurchase,
+} from '../../services/subscriptionService';
 
 const PRODUCT_IDS = [
   SUBSCRIPTION.PRODUCT_IDS.MONTHLY,
@@ -41,8 +43,8 @@ export default function SubscriptionManageScreen() {
   const { subscription, isPremium, refreshSubscription } = useAuthStore();
   const { t, i18n } = useTranslation();
   const isJa = i18n.language === 'ja';
-  const isAndroid = Platform.OS === 'android';
   const isIos = Platform.OS === 'ios';
+  const purchaseSupported = isNativeSubscriptionPurchaseSupported();
 
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBillingAvailable, setIsBillingAvailable] = useState(true);
@@ -70,7 +72,7 @@ export default function SubscriptionManageScreen() {
     let purchaseErrorSub: EventSubscription | null = null;
 
     const setup = async () => {
-      if (!isAndroid) {
+      if (!purchaseSupported) {
         setIsBillingAvailable(false);
         setIsLoadingProducts(false);
         return;
@@ -81,18 +83,8 @@ export default function SubscriptionManageScreen() {
         setIsBillingAvailable(true);
 
         purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
-          const token = (purchase as any).purchaseToken ?? (purchase as any).transactionId;
-          if (!token) return;
-
           try {
-            await finishTransaction({ purchase });
-            const deviceId = await DeviceInfo.getUniqueId();
-            const activateTrial = functions().httpsCallable('activateTrial');
-            await activateTrial({
-              purchaseToken: token,
-              productId: purchase.productId,
-              deviceId,
-            });
+            await finishAndValidateSubscriptionPurchase(purchase);
             await refreshSubscription();
 
             setIsPurchasing(false);
@@ -107,14 +99,11 @@ export default function SubscriptionManageScreen() {
             setIsPurchasing(false);
             setPurchasingProductId(null);
             const code = error?.code ?? '';
-            if (code === 'functions/already-exists') {
-              Alert.alert(
-                t('onboarding.trial.alreadyUsedTitle'),
-                t('onboarding.trial.alreadyUsedMessage'),
-              );
+            if (code === 'functions/failed-precondition') {
+              Alert.alert(t('common.error'), t('subscription.restoreError'));
             } else {
               Alert.alert(t('common.error'), t('onboarding.trial.errorMessage'));
-              console.error('activateTrial error:', error);
+              console.error('validatePurchase error:', error);
             }
           }
         });
@@ -144,15 +133,15 @@ export default function SubscriptionManageScreen() {
       purchaseUpdateSub?.remove();
       purchaseErrorSub?.remove();
     };
-  }, [isAndroid, isJa, refreshSubscription, t]);
+  }, [isJa, purchaseSupported, refreshSubscription, t]);
 
   const copy = useMemo(
     () => ({
       heroEyebrow: 'PREMIUM',
       heroTitle: isJa ? '睡眠記録を、次の改善につなげるプレミアム' : 'Turn your logs into better sleep',
       heroBody: isJa
-        ? '日々の記録を、週次レポートとAIアドバイスで次の行動につなげやすくします。'
-        : 'Turn daily logs into clear next steps with weekly reports and AI guidance.',
+        ? '日々の記録から「何が効いているか」と「次に直すこと」を見つけやすくします。'
+        : 'Turn daily logs into a clear view of what works and what to change next.',
       freeTitle: isJa ? '無料でできること' : 'Included for free',
       premiumTitle: isJa ? 'プレミアムでできること' : 'What Premium unlocks',
       currentPlanTitle: t('subscription.currentPlanTitle'),
@@ -164,18 +153,18 @@ export default function SubscriptionManageScreen() {
         : `Try the full analysis experience free for ${SUBSCRIPTION.TRIAL_DAYS} days`,
       upgradeBody: isJa
         ? 'まずは無料体験で、レポートとAIの改善提案をまとめて確認できます。'
-        : 'Start with a 7-day free trial and try the full report plus AI experience.',
+        : 'Start with a 7-day free trial and try the full report plus AI guidance.',
       legal: isIos
         ? isJa
-          ? 'iOS版の課金導線は現在準備中です。プレミアム購入・管理は RevenueCat 対応後に有効化する予定です。'
-          : 'The iOS billing flow is not enabled yet. Premium purchase and management will be enabled after the RevenueCat migration.'
+          ? 'このビルドではApp Store課金をまだ有効化していません。iOS公開ビルドでプレミアム購入と管理を有効化する必要があります。'
+          : 'App Store billing is not enabled in this build yet. Premium purchase and management need to be enabled in the iOS release build.'
         : isJa
           ? 'サブスクリプションは Google Play で管理されます。トライアル終了前にキャンセルしない場合は自動更新されます。'
           : 'Subscriptions are managed on Google Play. Cancel before the trial ends to avoid charges. Your sleep logs remain available after cancellation.',
       purchaseUnavailable: isIos
         ? isJa
-          ? 'iOS課金はまだこのビルドで有効化していません。RevenueCat への移行後にプレミアム購入と管理へ対応予定です。'
-          : 'iOS billing is not enabled in this build yet. Premium purchase and management will be available after the RevenueCat migration.'
+          ? 'このビルドではApp Store課金をまだ有効化していません。無料で使い続けつつ、iOS公開ビルドでプレミアム解放に進めます。'
+          : 'App Store billing is not enabled in this build yet. You can keep using the free plan and unlock Premium in the iOS release build.'
         : isJa
           ? 'この環境では Google Play の課金を利用できません。Play ストア対応端末でお試しください。'
           : 'Google Play billing is not available in this environment. Please try on a Play Store-enabled device.',
@@ -188,6 +177,22 @@ export default function SubscriptionManageScreen() {
         : `$${Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString()}/mo equivalent`,
     }),
     [isIos, isJa, t],
+  );
+
+  const previewRows = useMemo(
+    () =>
+      isJa
+        ? [
+            { label: '今週の平均', value: '78点', note: '先週より +6点' },
+            { label: '見えてきた癖', value: '就寝が +48分遅れがち', note: '火・木で崩れやすい' },
+            { label: '次の一手', value: '23:30までに布団へ', note: 'まず1つだけでOK' },
+          ]
+        : [
+            { label: 'Weekly average', value: '78 pts', note: '+6 vs last week' },
+            { label: 'Pattern found', value: 'Bedtime drifts by 48 min', note: 'Mostly Tue and Thu' },
+            { label: 'Next move', value: 'Get in bed by 11:30 pm', note: 'One change is enough' },
+          ],
+    [isJa],
   );
 
   const freeFeatures = useMemo(
@@ -218,6 +223,18 @@ export default function SubscriptionManageScreen() {
     [isJa],
   );
 
+  const purchaseUnavailableText = isIos
+    ? isJa
+      ? 'App Store の商品設定かサンドボックス接続がまだ整っていない可能性があります。StoreKit が使える実機か TestFlight で確認してください。'
+      : 'App Store products are not available in this environment yet. Please try on a StoreKit-enabled device or TestFlight build.'
+    : copy.purchaseUnavailable;
+
+  const legalNoteText = isIos
+    ? isJa
+      ? '購読は App Store で管理されます。トライアル終了前に解約すれば請求は発生しません。解約後も睡眠ログは残ります。'
+      : 'Subscriptions are managed on the App Store. Cancel before the trial ends to avoid charges. Your sleep logs remain available after cancellation.'
+    : copy.legal;
+
   const getProductId = (product: Product) => (product as any).productId ?? (product as any).id;
   const getDisplayPrice = (product: Product | undefined, fallback: number) =>
     product ? (product as any).displayPrice ?? `¥${fallback.toLocaleString()}` : `¥${fallback.toLocaleString()}`;
@@ -228,6 +245,12 @@ export default function SubscriptionManageScreen() {
   const handleRestore = async () => {
     setIsRestoring(true);
     try {
+      if (purchaseSupported && !isBillingAvailable) {
+        throw new Error('Billing unavailable');
+      }
+      if (purchaseSupported) {
+        await restoreLatestSubscriptionPurchase();
+      }
       await refreshSubscription();
       Alert.alert(t('subscription.restoreSuccess'), t('subscription.restoreSuccessMessage'));
     } catch {
@@ -238,16 +261,13 @@ export default function SubscriptionManageScreen() {
   };
 
   const handleStartPurchase = async (productId: string) => {
-    if (!isAndroid || !isBillingAvailable || isPurchasing) return;
+    if (!purchaseSupported || !isBillingAvailable || isPurchasing) return;
 
     setIsPurchasing(true);
     setPurchasingProductId(productId);
 
     try {
-      await requestPurchase({
-        request: { google: { skus: [productId] } },
-        type: 'subs',
-      });
+      await startSubscriptionPurchase(productId);
     } catch (error: any) {
       setIsPurchasing(false);
       setPurchasingProductId(null);
@@ -262,7 +282,7 @@ export default function SubscriptionManageScreen() {
   };
 
   const openGooglePlaySubscriptions = () => {
-    if (!isAndroid) return;
+    if (Platform.OS !== 'android') return;
 
     Linking.openURL(
       `https://play.google.com/store/account/subscriptions?sku=${SUBSCRIPTION.PRODUCT_IDS.MONTHLY}&package=com.ktakahashi.yoake`,
@@ -288,6 +308,19 @@ export default function SubscriptionManageScreen() {
           <Text style={styles.heroEyebrow}>{copy.heroEyebrow}</Text>
           <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
           <Text style={styles.heroBody}>{copy.heroBody}</Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{isJa ? 'プレミアムで見えること' : 'What Premium makes visible'}</Text>
+          {previewRows.map(item => (
+            <View key={item.label} style={styles.previewRow}>
+              <View style={styles.previewLabelBlock}>
+                <Text style={styles.previewLabel}>{item.label}</Text>
+                <Text style={styles.previewNote}>{item.note}</Text>
+              </View>
+              <Text style={styles.previewValue}>{item.value}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.card}>
@@ -379,13 +412,13 @@ export default function SubscriptionManageScreen() {
               </View>
             ) : (
               <View style={styles.billingCard}>
-                <Text style={styles.billingUnavailableText}>{copy.purchaseUnavailable}</Text>
+                <Text style={styles.billingUnavailableText}>{purchaseUnavailableText}</Text>
               </View>
             )}
           </>
         )}
 
-        {isPremium && isAndroid && (
+        {isPremium && Platform.OS === 'android' && (
           <TouchableOpacity style={styles.manageBtn} onPress={openGooglePlaySubscriptions}>
             <Text style={styles.manageBtnText}>{t('subscription.manageBtn')}</Text>
           </TouchableOpacity>
@@ -403,7 +436,7 @@ export default function SubscriptionManageScreen() {
           )}
         </TouchableOpacity>
 
-        <Text style={styles.legalNote}>{copy.legal}</Text>
+        <Text style={styles.legalNote}>{legalNoteText}</Text>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -453,6 +486,36 @@ const styles = StyleSheet.create({
     color: '#9A9AB8',
     fontWeight: '600',
     marginBottom: 12,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#1A1A2E',
+  },
+  previewLabelBlock: {
+    flex: 1,
+  },
+  previewLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  previewNote: {
+    color: '#AFA9D9',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  previewValue: {
+    color: '#F3F0FF',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'right',
+    maxWidth: 128,
   },
   planBadgeRow: { marginBottom: 8 },
   planBadge: {

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YOAKE Account Deletion</title>
+    <style>
+      :root {
+        --bg: #0f2140;
+        --card: rgba(16, 31, 58, 0.86);
+        --text: #f6efe2;
+        --muted: #cfbf9d;
+        --accent: #f0be62;
+        --accent-soft: rgba(240, 190, 98, 0.18);
+        --line: rgba(255, 255, 255, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(240, 190, 98, 0.28), transparent 28%),
+          linear-gradient(180deg, #14335d 0%, var(--bg) 52%, #0c1830 100%);
+      }
+
+      main {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0 64px;
+      }
+
+      .hero,
+      .panel {
+        padding: 24px;
+        border-radius: 24px;
+        background:
+          linear-gradient(140deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
+          var(--card);
+        border: 1px solid var(--line);
+        box-shadow: 0 16px 40px rgba(3, 11, 24, 0.24);
+      }
+
+      .hero { margin-bottom: 20px; }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 8px;
+        font-size: clamp(32px, 5vw, 48px);
+        line-height: 1.05;
+      }
+
+      p, label, li {
+        color: rgba(246, 239, 226, 0.86);
+        line-height: 1.7;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 20px;
+      }
+
+      .form { display: grid; gap: 14px; }
+      .field { display: grid; gap: 8px; }
+      .field span { font-size: 14px; color: var(--muted); }
+
+      input, select, textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 16px;
+        background: rgba(5, 14, 29, 0.32);
+        color: var(--text);
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 148px;
+        resize: vertical;
+      }
+
+      .checkbox {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .checkbox input {
+        width: 18px;
+        height: 18px;
+        margin-top: 4px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .button,
+      .button-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 20px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .button {
+        border: none;
+        background: linear-gradient(135deg, #f3c86e, #e9ab45);
+        color: #152542;
+        cursor: pointer;
+      }
+
+      .button-secondary {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: var(--text);
+        background: transparent;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li + li { margin-top: 8px; }
+
+      .small {
+        font-size: 13px;
+        color: rgba(246, 239, 226, 0.62);
+      }
+
+      .mail {
+        word-break: break-all;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          width: min(100% - 20px, 920px);
+          padding-top: 20px;
+        }
+
+        .hero,
+        .panel {
+          padding: 20px;
+          border-radius: 20px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">YOAKE Support</div>
+        <h1>Account deletion request</h1>
+        <p>
+          Use this page to request deletion of your YOAKE account and related data.
+          After we receive your request, we will review it and proceed with account deletion.
+        </p>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>What will be deleted</h2>
+          <ul>
+            <li>Your YOAKE account linked to the submitted email address.</li>
+            <li>Sleep logs, profile settings, reminder settings, and related app data.</li>
+            <li>AI-related records stored as part of your account history.</li>
+          </ul>
+          <p style="margin-top: 16px;">
+            Some data may be retained temporarily if required for legal compliance,
+            fraud prevention, or operational security.
+          </p>
+
+          <h2 style="margin-top: 28px;">Deletion request form</h2>
+          <form class="form" id="deletion-form">
+            <label class="field">
+              <span>Email address</span>
+              <input type="email" id="email" name="email" placeholder="you@example.com" required />
+            </label>
+
+            <label class="field">
+              <span>Platform</span>
+              <select id="platform" name="platform">
+                <option>Android</option>
+                <option>iOS</option>
+                <option>Both</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Notes (optional)</span>
+              <textarea id="notes" name="notes" placeholder="Example: Please delete my old account before switching devices."></textarea>
+            </label>
+
+            <label class="checkbox">
+              <input type="checkbox" id="confirm" required />
+              <span>
+                I want to delete my YOAKE account and related data. I understand that deleted data may not be recoverable.
+              </span>
+            </label>
+
+            <div class="actions">
+              <button class="button" type="submit">Create deletion email</button>
+              <a class="button-secondary" href="mailto:neighborhood1230@gmail.com">Email directly</a>
+            </div>
+
+            <p class="small">
+              Contact: <span class="mail">neighborhood1230@gmail.com</span><br />
+              Response target: within 7 business days
+            </p>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>How it works</h2>
+          <ul>
+            <li>Create a deletion request email from this page.</li>
+            <li>Review the draft and send it.</li>
+            <li>We will verify the request and process the deletion.</li>
+          </ul>
+
+          <h2 style="margin-top: 28px;">Important note</h2>
+          <p>
+            If you only want to sign out from the app, use the logout option in the profile screen.
+            Use this page only when you want to delete the account itself.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById('deletion-form');
+
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+
+        const email = document.getElementById('email').value.trim();
+        const platform = document.getElementById('platform').value.trim();
+        const notes = document.getElementById('notes').value.trim();
+
+        if (!email) {
+          return;
+        }
+
+        const subject = encodeURIComponent('[YOAKE] Account deletion request');
+        const body = encodeURIComponent(
+          `Email: ${email}\nPlatform: ${platform}\n\nNotes:\n${notes}\n\nI request deletion of my YOAKE account and related data.`,
+        );
+
+        window.location.href = `mailto:neighborhood1230@gmail.com?subject=${subject}&body=${body}`;
+      });
+    </script>
+  </body>
+</html>

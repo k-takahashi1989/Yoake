@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,63 +13,84 @@ import { useTranslation } from '../../../i18n';
 interface Props {
   monthlyLogs: SleepLog[];
   chartWidth: number;
-  /** true の場合: 期間チップを非表示にし、グラフをマスクで覆う */
   locked?: boolean;
 }
 
 export default function ScoreTrendCard({ monthlyLogs, chartWidth, locked = false }: Props) {
   const { t } = useTranslation();
   const [scorePeriod, setScorePeriod] = useState<ScorePeriod>('7');
+  const chartScrollRef = useRef<any>(null);
   const lineData = useMemo(
     () => buildLineData(monthlyLogs, scorePeriod),
     [monthlyLogs, scorePeriod],
   );
+  const innerChartWidth = Math.max(chartWidth - 36, 220);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      chartScrollRef.current?.scrollTo?.({ x: 0, animated: false });
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [scorePeriod]);
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeaderRow}>
-        <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('report.scoreTrendTitle')}</Text>
-        {/* locked=true の場合は期間チップを非表示 */}
+        <Text style={styles.cardTitle}>{t('report.scoreTrendTitle')}</Text>
         {!locked && (
           <View style={styles.periodChips}>
-            {(['7', '14', '30'] as ScorePeriod[]).map(p => (
+            {(['7', '14', '30'] as ScorePeriod[]).map(period => (
               <TouchableOpacity
-                key={p}
-                style={[styles.periodChip, scorePeriod === p && styles.periodChipActive]}
-                onPress={() => setScorePeriod(p)}
+                key={period}
+                style={[
+                  styles.periodChip,
+                  scorePeriod === period && styles.periodChipActive,
+                ]}
+                onPress={() => setScorePeriod(period)}
               >
-                <Text style={[styles.periodChipText, scorePeriod === p && styles.periodChipTextActive]}>
-                  {p}{t('common.days')}
+                <Text
+                  style={[
+                    styles.periodChipText,
+                    scorePeriod === period && styles.periodChipTextActive,
+                  ]}
+                >
+                  {period}{t('common.days')}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
       </View>
-      {/* locked=true の場合はグラフをマスクで覆う */}
-      <View style={locked ? styles.lockedChartWrapper : undefined}>
+
+      <View style={[styles.chartFrame, locked ? styles.lockedChartWrapper : undefined]}>
         {lineData.length >= 2 ? (
           <LineChart
+            key={scorePeriod}
             data={lineData}
-            width={chartWidth}
-            height={180}
-            color="#6B5CE7"
-            dataPointsColor="#6B5CE7"
-            dataPointsRadius={4}
-            startFillColor="#6B5CE730"
-            endFillColor="transparent"
+            width={innerChartWidth}
+            height={188}
+            scrollRef={chartScrollRef}
+            color="#8F82FF"
+            thickness={3}
+            dataPointsColor="#F3EFFF"
+            dataPointsRadius={3}
+            startFillColor="#8F82FF"
+            endFillColor="#8F82FF"
+            startOpacity={0.24}
+            endOpacity={0.02}
             areaChart
             hideRules={false}
-            rulesColor="#1A1A2E"
-            rulesType="solid"
+            rulesColor="rgba(154, 154, 184, 0.12)"
+            rulesType="dashed"
             yAxisColor="transparent"
-            xAxisColor="#1A1A2E"
+            xAxisColor="rgba(154, 154, 184, 0.18)"
             xAxisLabelTextStyle={styles.axisLabel}
             yAxisTextStyle={styles.axisLabel}
             noOfSections={4}
             maxValue={100}
-            initialSpacing={16}
-            endSpacing={16}
+            initialSpacing={10}
+            endSpacing={10}
             curved
           />
         ) : (
@@ -87,41 +108,76 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#2D2D44',
-    borderRadius: 16,
+    backgroundColor: 'rgba(37, 39, 66, 0.96)',
+    borderRadius: 20,
     padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 130, 255, 0.14)',
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
-  periodChips: { flexDirection: 'row', gap: 4 },
+  cardTitle: {
+    fontSize: 13,
+    color: '#AEB0D2',
+    fontWeight: '600',
+  },
+  periodChips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
   periodChip: {
     paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-    backgroundColor: '#1A1A2E',
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(16, 18, 36, 0.86)',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  periodChipActive: { backgroundColor: '#6B5CE720', borderColor: '#6B5CE7' },
-  periodChipText: { fontSize: 11, color: '#666' },
-  periodChipTextActive: { color: '#9C8FFF', fontWeight: '600' },
-  axisLabel: { color: '#666', fontSize: 9 },
-  chartEmpty: { alignItems: 'center', paddingVertical: 24 },
-  chartEmptyText: { color: '#555', fontSize: 13 },
-  // locked=true 時のグラフラッパー・マスク
+  periodChipActive: {
+    backgroundColor: 'rgba(143, 130, 255, 0.16)',
+    borderColor: 'rgba(143, 130, 255, 0.42)',
+  },
+  periodChipText: {
+    fontSize: 11,
+    color: '#747697',
+  },
+  periodChipTextActive: {
+    color: '#DCD8FF',
+    fontWeight: '600',
+  },
+  chartFrame: {
+    paddingTop: 14,
+    paddingBottom: 10,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 17, 34, 0.56)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  axisLabel: {
+    color: '#747697',
+    fontSize: 9,
+  },
+  chartEmpty: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  chartEmptyText: {
+    color: '#666A86',
+    fontSize: 13,
+  },
   lockedChartWrapper: {
     overflow: 'hidden',
-    borderRadius: 8,
+    borderRadius: 18,
     position: 'relative',
   },
   chartMask: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 26, 46, 0.82)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(15, 17, 34, 0.78)',
+    borderRadius: 18,
   },
 });

@@ -13,8 +13,8 @@ function randChoice<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const ONSETS: SleepOnset[] = ['FAST', 'NORMAL', 'SLOW'];
-const FEELINGS: WakeFeeling[] = ['GOOD', 'NORMAL', 'BAD'];
+const ONSETS: SleepOnset[] = ['FAST', 'SLIGHTLY_FAST', 'NORMAL', 'SLIGHTLY_SLOW', 'SLOW'];
+const FEELINGS: WakeFeeling[] = ['GOOD', 'SLIGHTLY_GOOD', 'NORMAL', 'SLIGHTLY_BAD', 'BAD'];
 
 export async function generateSeedData(days = 90): Promise<void> {
   const user = auth().currentUser;

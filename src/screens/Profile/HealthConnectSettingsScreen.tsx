@@ -1,10 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Linking,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { isHCAvailable, hasHCSleepPermission, requestHCPermissions } from '../../services/healthConnect';
+import {
+  hasSleepDataPermission,
+  isSleepDataAvailable,
+  openHealthDataProviderApp,
+  openHealthDataProviderStorePage,
+  requestSleepDataPermissions,
+} from '../../services/healthData';
 import { useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
 
@@ -12,32 +23,39 @@ type Status = 'loading' | 'unavailable' | 'granted' | 'denied';
 
 export default function HealthConnectSettingsScreen() {
   const { t } = useTranslation();
+  const isIos = Platform.OS === 'ios';
+  const isEnglishUi = t('nav.aiChat') === 'AI Chat';
+
   const [status, setStatus] = useState<Status>('loading');
   const [isRequesting, setIsRequesting] = useState(false);
 
   const checkStatus = async () => {
     setStatus('loading');
     try {
-      const available = await isHCAvailable();
+      const available = await isSleepDataAvailable();
       if (!available) {
         setStatus('unavailable');
         return;
       }
-      const granted = await hasHCSleepPermission();
+
+      const granted = await hasSleepDataPermission();
       setStatus(granted ? 'granted' : 'denied');
     } catch {
       setStatus('unavailable');
     }
   };
 
-  useEffect(() => { checkStatus(); }, []);
+  useEffect(() => {
+    checkStatus().catch(() => {
+      setStatus('unavailable');
+    });
+  }, []);
 
   const handleRequest = async () => {
     setIsRequesting(true);
     try {
-      await requestHCPermissions();
+      await requestSleepDataPermissions();
       await checkStatus();
-      // 権限取得後にホーム画面のデータを即時更新
       useSleepStore.getState().loadRecent();
     } catch {
       // ignore
@@ -46,86 +64,124 @@ export default function HealthConnectSettingsScreen() {
     }
   };
 
-  const openHCApp = () => {
-    Linking.openURL('android-app://com.google.android.apps.healthdata').catch(() =>
-      Linking.openURL(
-        'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata',
-      ),
-    );
+  const openProviderApp = () => {
+    openHealthDataProviderApp().catch(() => undefined);
   };
+
+  const openProviderStore = () => {
+    openHealthDataProviderStorePage().catch(() => undefined);
+  };
+
+  const statusColor =
+    status === 'granted'
+      ? '#79E0B5'
+      : status === 'denied'
+        ? '#F4B35D'
+        : '#F16C6C';
+
+  const title = isIos
+    ? isEnglishUi
+      ? 'Apple Health status'
+      : 'Apple Health 連携状況'
+    : t('healthConnect.statusTitle');
+  const statusText = isIos
+    ? isEnglishUi
+      ? 'Apple Health import is not wired yet'
+      : 'Apple Health 連携はまだ未実装です'
+    : status === 'granted'
+      ? t('healthConnect.statusGranted')
+      : status === 'denied'
+        ? t('healthConnect.statusDenied')
+        : t('healthConnect.statusUnavailable');
+  const statusSubText = isIos
+    ? isEnglishUi
+      ? 'This build has the iOS project, but HealthKit permission and sleep import still need native wiring.'
+      : 'iOS プロジェクトの土台はできていますが、HealthKit 権限と睡眠取り込みの native 実装がまだ必要です。'
+    : status === 'granted'
+      ? t('healthConnect.statusSubGranted')
+      : status === 'denied'
+        ? t('healthConnect.statusSubDenied')
+        : t('healthConnect.statusSubUnavailable');
+  const descTitle = isIos
+    ? isEnglishUi
+      ? 'What remains on iOS'
+      : 'iOS で残っていること'
+    : t('healthConnect.descTitle');
+  const descText = isIos
+    ? isEnglishUi
+      ? 'Automatic import still needs Apple Health capability, usage descriptions, and the native bridge that reads sleep data.'
+      : '自動取り込みには、Apple Health capability、用途説明文、睡眠データを読む native ブリッジの追加がまだ必要です。'
+    : t('healthConnect.desc');
+  const refreshLabel = isIos
+    ? isEnglishUi
+      ? 'Check again'
+      : 'もう一度確認する'
+    : t('healthConnect.recheck');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ステータスカード */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('healthConnect.statusTitle')}</Text>
+          <Text style={styles.cardTitle}>{title}</Text>
 
           {status === 'loading' ? (
-            <ActivityIndicator color="#6B5CE7" style={{ marginTop: 8 }} />
+            <ActivityIndicator color="#6B5CE7" style={styles.loader} />
           ) : (
             <View style={styles.statusRow}>
-              <Text style={styles.statusIcon}>
-                {status === 'granted' ? '✅' : status === 'denied' ? '⚠️' : '❌'}
-              </Text>
+              <View style={[styles.statusMarker, { borderColor: statusColor }]}>
+                <View style={[styles.statusMarkerDot, { backgroundColor: statusColor }]} />
+              </View>
               <View style={styles.statusInfo}>
-                <Text style={styles.statusText}>
-                  {status === 'granted'
-                    ? t('healthConnect.statusGranted')
-                    : status === 'denied'
-                    ? t('healthConnect.statusDenied')
-                    : t('healthConnect.statusUnavailable')}
-                </Text>
-                <Text style={styles.statusSubText}>
-                  {status === 'granted'
-                    ? t('healthConnect.statusSubGranted')
-                    : status === 'denied'
-                    ? t('healthConnect.statusSubDenied')
-                    : t('healthConnect.statusSubUnavailable')}
-                </Text>
+                <Text style={styles.statusText}>{statusText}</Text>
+                <Text style={styles.statusSubText}>{statusSubText}</Text>
               </View>
             </View>
           )}
         </View>
 
-        {/* 説明カード */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('healthConnect.descTitle')}</Text>
-          <Text style={styles.descText}>{t('healthConnect.desc')}</Text>
+          <Text style={styles.cardTitle}>{descTitle}</Text>
+          <Text style={styles.descText}>{descText}</Text>
         </View>
 
-        {/* アクションボタン */}
-        {status === 'denied' && (
+        {!isIos && status === 'denied' && (
           <TouchableOpacity
             style={[styles.actionBtn, isRequesting && styles.actionBtnDisabled]}
             onPress={handleRequest}
             disabled={isRequesting}
           >
-            {isRequesting
-              ? <ActivityIndicator color="#FFF" />
-              : <Text style={styles.actionBtnText}>{t('healthConnect.requestPermission')}</Text>
-            }
+            {isRequesting ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.actionBtnText}>{t('healthConnect.requestPermission')}</Text>
+            )}
           </TouchableOpacity>
         )}
 
-        {status === 'unavailable' && (
-          <TouchableOpacity style={styles.actionBtn} onPress={openHCApp}>
+        {!isIos && status === 'unavailable' && (
+          <TouchableOpacity style={styles.actionBtn} onPress={openProviderStore}>
             <Text style={styles.actionBtnText}>{t('healthConnect.install')}</Text>
           </TouchableOpacity>
         )}
 
-        {status === 'granted' && (
+        {isIos && (
+          <TouchableOpacity style={styles.secondaryBtn} onPress={checkStatus}>
+            <Text style={styles.secondaryBtnText}>{refreshLabel}</Text>
+          </TouchableOpacity>
+        )}
+
+        {!isIos && status === 'granted' && (
           <>
             <TouchableOpacity style={styles.secondaryBtn} onPress={handleRequest}>
               <Text style={styles.secondaryBtnText}>{t('healthConnect.recheck')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={openHCApp}>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={openProviderApp}>
               <Text style={styles.secondaryBtnText}>{t('healthConnect.openApp')}</Text>
             </TouchableOpacity>
           </>
         )}
 
-        <View style={{ height: 32 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -141,9 +197,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
+  cardTitle: {
+    fontSize: 13,
+    color: '#9A9AB8',
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  loader: { marginTop: 8 },
   statusRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  statusIcon: { fontSize: 24 },
+  statusMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  statusMarkerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
   statusInfo: { flex: 1 },
   statusText: { fontSize: 16, color: '#FFFFFF', fontWeight: '600', marginBottom: 4 },
   statusSubText: { fontSize: 13, color: '#9A9AB8', lineHeight: 18 },
@@ -167,4 +242,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryBtnText: { color: '#9C8FFF', fontSize: 14 },
+  bottomSpacer: { height: 32 },
 });

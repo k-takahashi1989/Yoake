@@ -7,6 +7,21 @@ import { registerFcmToken, deleteFcmToken } from '../services/fcmService';
 
 const ONBOARDING_KEY = '@yoake:onboarding_completed';
 
+function hasSubscriptionAccess(subscription: Subscription | null): boolean {
+  if (!subscription) return false;
+  if (subscription.status !== 'active' && subscription.status !== 'trial') {
+    return false;
+  }
+
+  const endAt =
+    subscription.status === 'trial'
+      ? subscription.trialEndAt
+      : subscription.currentPeriodEndAt ?? subscription.trialEndAt;
+
+  if (!endAt) return false;
+  return endAt.toDate() > new Date();
+}
+
 interface AuthState {
   user: FirebaseAuthTypes.User | null;
   profile: UserProfile | null;
@@ -68,9 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           ? storedOnboarding === 'true'
           : true;
 
-        const isPremium =
-          subscription !== null &&
-          (subscription.status === 'active' || subscription.status === 'trial');
+        const isPremium = hasSubscriptionAccess(subscription);
 
         if (!user.isAnonymous) {
           await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
@@ -148,8 +161,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   refreshSubscription: async () => {
     const sub = await getSubscription();
-    const isPremium =
-      sub !== null && (sub.status === 'active' || sub.status === 'trial');
+    const isPremium = hasSubscriptionAccess(sub);
     set({ subscription: sub, isPremium });
   },
 

@@ -15,7 +15,7 @@ export default function DevToolbar() {
           <Text style={styles.panelTitle}>DEV TOOLS</Text>
 
           <View style={styles.row}>
-            <Text style={styles.label}>プラン</Text>
+            <Text style={styles.label}>Plan</Text>
             <View style={styles.toggle}>
               <TouchableOpacity
                 style={[styles.toggleBtn, !isPremium && styles.toggleBtnActive]}
@@ -30,7 +30,7 @@ export default function DevToolbar() {
                 onPress={() => _devSetPremium(true)}
               >
                 <Text style={[styles.toggleText, isPremium && styles.toggleTextActive]}>
-                  ⭐ PRO
+                  PREMIUM
                 </Text>
               </TouchableOpacity>
             </View>
@@ -45,7 +45,7 @@ export default function DevToolbar() {
           style={[styles.fab, isPremium ? styles.fabPremium : styles.fabFree]}
           onPress={() => setExpanded(true)}
         >
-          <Text style={styles.fabText}>{isPremium ? '⭐' : '🆓'}</Text>
+          <Text style={styles.fabText}>{isPremium ? 'P' : 'F'}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   },
   fabFree: { backgroundColor: '#444' },
   fabPremium: { backgroundColor: '#6B5CE7' },
-  fabText: { fontSize: 20 },
+  fabText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   panel: {
     backgroundColor: '#1A1A2E',
     borderRadius: 16,

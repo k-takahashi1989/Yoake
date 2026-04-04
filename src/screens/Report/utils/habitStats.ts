@@ -4,7 +4,6 @@ import { safeToDate } from '../../../utils/dateUtils';
 export interface HabitStat {
   id: string;
   label: string;
-  emoji: string;
   withAvg: number;
   withoutAvg: number;
   withCount: number;
@@ -16,13 +15,13 @@ export type ScorePeriod = '7' | '14' | '30';
 export function computeHabitStats(logs: SleepLog[]): HabitStat[] {
   const map = new Map<
     string,
-    { label: string; emoji: string; withScores: number[]; withoutScores: number[] }
+    { label: string; withScores: number[]; withoutScores: number[] }
   >();
 
   for (const log of logs) {
     for (const h of (log.habits ?? [])) {
       if (!map.has(h.id)) {
-        map.set(h.id, { label: h.label, emoji: h.emoji, withScores: [], withoutScores: [] });
+        map.set(h.id, { label: h.label, withScores: [], withoutScores: [] });
       }
       const entry = map.get(h.id)!;
       if (h.checked) entry.withScores.push(log.score);
@@ -41,7 +40,6 @@ export function computeHabitStats(logs: SleepLog[]): HabitStat[] {
     result.push({
       id,
       label: data.label,
-      emoji: data.emoji,
       withAvg: avg(data.withScores),
       withoutAvg: avg(data.withoutScores),
       withCount: data.withScores.length,

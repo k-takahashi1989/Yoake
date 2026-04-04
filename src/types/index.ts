@@ -34,8 +34,8 @@ export interface UserGoal {
   updatedAt: FirebaseFirestoreTypes.Timestamp | null;
 }
 
-export type SleepOnset = 'FAST' | 'NORMAL' | 'SLOW';
-export type WakeFeeling = 'GOOD' | 'NORMAL' | 'BAD';
+export type SleepOnset = 'FAST' | 'SLIGHTLY_FAST' | 'NORMAL' | 'SLIGHTLY_SLOW' | 'SLOW';
+export type WakeFeeling = 'GOOD' | 'SLIGHTLY_GOOD' | 'NORMAL' | 'SLIGHTLY_BAD' | 'BAD';
 export type SleepSource = 'HEALTH_CONNECT' | 'MANUAL';
 
 export interface HabitEntry {
@@ -77,7 +77,7 @@ export interface SleepLog {
   updatedAt: FirebaseFirestoreTypes.Timestamp;
 }
 
-export type AiReportType = 'daily' | 'weekly';
+export type AiReportType = 'daily' | 'weekly' | 'insight';
 
 export interface AiReport {
   type: AiReportType;

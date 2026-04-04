@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,66 +13,87 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { SleepLog, SleepInputForm, SleepOnset, WakeFeeling, UserGoal } from '../../types';
+import { SleepLog, SleepInputForm, UserGoal } from '../../types';
 import { i18n, useTranslation } from '../../i18n';
 import { useSleepStore } from '../../stores/sleepStore';
 import { useHabitStore } from '../../stores/habitStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
-import { hasHCSleepPermission, readSleepForDate } from '../../services/healthConnect';
+import { hasSleepDataPermission, readSleepDataForDate } from '../../services/healthData';
 import { safeToDate } from '../../utils/dateUtils';
+import {
+  clearPendingSleepStart,
+  getPendingSleepStart,
+} from '../../services/notificationService';
 import ScalePressable from '../../components/common/ScalePressable';
+import SubjectiveScaleInput from '../../components/common/SubjectiveScaleInput';
 import { haptics } from '../../utils/haptics';
+import {
+  getSleepOnsetOptions,
+  getWakeFeelingOptions,
+} from '../../utils/sleepSubjective';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   existingLog: SleepLog | null;
   goal: UserGoal | null;
-  targetDate?: string; // 省略時は今日
-  onSave?: () => void; // 保存成功後に呼ばれるコールバック
+  targetDate?: string;
+  onSave?: () => void;
 }
 
 type SourceMode = 'loading' | 'hc' | 'manual';
 
-export default function SleepInputModal({ visible, onClose, existingLog, goal, targetDate, onSave }: Props) {
+function buildDefaultBedTime(date: string, isToday: boolean): Date {
+  if (isToday) {
+    const value = new Date();
+    value.setHours(value.getHours() - 8, 0, 0, 0);
+    return value;
+  }
+
+  const value = safeToDate(date);
+  value.setDate(value.getDate() - 1);
+  value.setHours(23, 0, 0, 0);
+  return value;
+}
+
+function buildDefaultWakeTime(date: string, isToday: boolean): Date {
+  if (isToday) {
+    const value = new Date();
+    value.setMinutes(0, 0, 0);
+    return value;
+  }
+
+  const value = safeToDate(date);
+  value.setHours(7, 0, 0, 0);
+  return value;
+}
+
+export default function SleepInputModal({
+  visible,
+  onClose,
+  existingLog,
+  goal,
+  targetDate,
+  onSave,
+}: Props) {
   const { t } = useTranslation();
   const { saveLog } = useSleepStore();
   const { getActiveEntries, isLoaded: habitsLoaded, loadHabits } = useHabitStore();
   const [isSaving, setIsSaving] = useState(false);
   const [sourceMode, setSourceMode] = useState<SourceMode>('loading');
+  const isJa = i18n.language === 'ja';
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const today = targetDate ?? todayStr;
   const isToday = today === todayStr;
-
   const targetDateObj = safeToDate(today);
+  const targetDateLabel = format(targetDateObj, isJa ? 'M月d日 (EEE)' : 'MMM d (EEE)', { locale: ja });
 
-  // 今日なら「8時間前〜今」、過去日なら「前夜23時〜当日7時」をデフォルトに
-  const defaultBedTime = (() => {
-    if (isToday) {
-      const d = new Date();
-      d.setHours(d.getHours() - 8, 0, 0, 0);
-      return d;
-    }
-    const d = new Date(targetDateObj);
-    d.setDate(d.getDate() - 1);
-    d.setHours(23, 0, 0, 0);
-    return d;
-  })();
-
-  const defaultWakeTime = (() => {
-    if (isToday) {
-      const d = new Date();
-      d.setMinutes(0, 0, 0);
-      return d;
-    }
-    const d = new Date(targetDateObj);
-    d.setHours(7, 0, 0, 0);
-    return d;
-  })();
+  const defaultBedTime = useMemo(() => buildDefaultBedTime(today, isToday), [today, isToday]);
+  const defaultWakeTime = useMemo(() => buildDefaultWakeTime(today, isToday), [today, isToday]);
 
   const [form, setForm] = useState<SleepInputForm>({
     bedTime: defaultBedTime,
@@ -83,12 +104,20 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
     memo: '',
   });
 
-  // 習慣テンプレートを初回ロード
+  const getPendingBedTimeForTarget = async (date: string) => {
+    const pending = await getPendingSleepStart();
+    if (!pending) return null;
+
+    const nextDay = format(addDays(pending.bedTime, 1), 'yyyy-MM-dd');
+    return nextDay === date ? pending.bedTime : null;
+  };
+
   useEffect(() => {
-    if (!habitsLoaded) loadHabits();
+    if (!habitsLoaded) {
+      loadHabits();
+    }
   }, [habitsLoaded, loadHabits]);
 
-  // モーダルが開いたとき、既存ログまたは HC データで初期化
   useEffect(() => {
     if (!visible) return;
 
@@ -110,23 +139,39 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
       return;
     }
 
-    // 新規記録: 習慣テンプレートをリセットしてから HC を試みる
     setForm(prev => ({ ...prev, habits: getActiveEntries() }));
-    void (async () => {
+
+    const loadInitialForm = async () => {
+      const pendingBedTime = await getPendingBedTimeForTarget(today);
+      setForm({
+        bedTime: pendingBedTime ?? defaultBedTime,
+        wakeTime: defaultWakeTime,
+        sleepOnset: 'NORMAL',
+        wakeFeeling: 'NORMAL',
+        habits: getActiveEntries(),
+        memo: '',
+      });
+
       setSourceMode('loading');
       const timeoutId = setTimeout(() => {
         setSourceMode('manual');
-        Alert.alert(t('sleepInput.hcTimeoutTitle'), t('sleepInput.hcTimeoutMessage'));
+        Alert.alert(
+          isJa ? 'タイムアウト' : t('sleepInput.hcTimeoutTitle'),
+          isJa
+            ? 'Health Connect からの読み込みに時間がかかったため、手動入力に切り替えました。'
+            : t('sleepInput.hcTimeoutMessage'),
+        );
       }, 5000);
+
       try {
-        const permitted = await hasHCSleepPermission();
+        const permitted = await hasSleepDataPermission();
         if (!permitted) {
           clearTimeout(timeoutId);
           setSourceMode('manual');
           return;
         }
 
-        const data = await readSleepForDate(today);
+        const data = await readSleepDataForDate(today);
         clearTimeout(timeoutId);
         if (data) {
           setForm(prev => ({
@@ -147,8 +192,12 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
         clearTimeout(timeoutId);
         setSourceMode('manual');
       }
-    })();
-  }, [existingLog, getActiveEntries, t, today, visible]);
+    };
+
+    loadInitialForm().catch(() => {
+      setSourceMode('manual');
+    });
+  }, [defaultBedTime, defaultWakeTime, existingLog, getActiveEntries, isJa, t, today, visible]);
 
   const switchToManual = () => {
     setForm(prev => ({
@@ -162,7 +211,6 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
     setSourceMode('manual');
   };
 
-  // 日またぎ対応: 起床時刻が就寝時刻より前なら翌日扱い
   const resolvedWakeTime = (() => {
     if (form.wakeTime <= form.bedTime) {
       const next = new Date(form.wakeTime);
@@ -174,21 +222,32 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
 
   const handleSave = async () => {
     const correctedForm = { ...form, wakeTime: resolvedWakeTime };
+    const saveTargetDate = targetDate ?? todayStr;
     setIsSaving(true);
     const source = sourceMode === 'hc' ? 'HEALTH_CONNECT' : 'MANUAL';
+
     try {
       await saveLog(
         correctedForm,
         goal ?? { targetHours: 7.5, targetScore: 80, bedTimeTarget: null, updatedAt: null as any },
         source,
-        targetDate,
+        saveTargetDate,
+        { generateInsight: !existingLog },
       );
-      // 保存成功後に触覚フィードバックを発火し、onSave コールバックを呼び出す
+
+      const pendingBedTime = await getPendingBedTimeForTarget(saveTargetDate);
+      if (pendingBedTime) {
+        await clearPendingSleepStart();
+      }
+
       haptics.success();
       onSave?.();
       onClose();
     } catch {
-      Alert.alert(t('recordEdit.saveFailedTitle'), t('sleepInput.saveFailed'));
+      Alert.alert(
+        isJa ? '保存に失敗しました' : t('recordEdit.saveFailedTitle'),
+        isJa ? '睡眠記録を保存できませんでした。' : t('sleepInput.saveFailed'),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -197,188 +256,181 @@ export default function SleepInputModal({ visible, onClose, existingLog, goal, t
   const toggleHabit = (id: string) => {
     setForm(prev => ({
       ...prev,
-      habits: prev.habits.map(h => (h.id === id ? { ...h, checked: !h.checked } : h)),
+      habits: prev.habits.map(habit => (habit.id === id ? { ...habit, checked: !habit.checked } : habit)),
     }));
   };
 
-  const totalMinutes = Math.round(
-    (resolvedWakeTime.getTime() - form.bedTime.getTime()) / 60000,
-  );
-  const actionsTitle = i18n.language === 'ja' ? '昨夜の行動' : t('sleepInput.habitsTitle');
+  const totalMinutes = Math.round((resolvedWakeTime.getTime() - form.bedTime.getTime()) / 60000);
+  const durationHours = Math.floor(totalMinutes / 60);
+  const durationMinutes = totalMinutes % 60;
+  const durationText = isJa
+    ? `${durationHours}時間${durationMinutes}分`
+    : `${durationHours}h${durationMinutes}m`;
+  const titleText = isToday
+    ? (isJa ? '睡眠記録' : t('sleepInput.titleToday'))
+    : (isJa ? `${targetDateLabel}の記録` : t('sleepInput.titlePast', { date: targetDateLabel }));
+  const pastDateBannerText = isJa
+    ? `${targetDateLabel}の睡眠記録を保存します。`
+    : t('sleepInput.pastDateBanner', { date: targetDateLabel });
+  const bedDateLabel = format(form.bedTime, isJa ? 'M月d日 (EEE)' : 'MMM d (EEE)', { locale: ja });
+  const bedDateBannerText = isJa
+    ? `就寝時刻が ${bedDateLabel} のログとして保存されます。`
+    : t('sleepInput.bedDateBanner', { date: bedDateLabel });
+  const sleepOnsetOptions = isJa
+    ? [
+        { value: 'FAST' as const, label: 'すぐ寝れた' },
+        { value: 'SLIGHTLY_FAST' as const, label: 'やや早く寝れた' },
+        { value: 'NORMAL' as const, label: 'ふつう' },
+        { value: 'SLIGHTLY_SLOW' as const, label: 'やや寝つきに時間がかかった' },
+        { value: 'SLOW' as const, label: '寝つきに時間がかかった' },
+      ]
+    : getSleepOnsetOptions(t);
+  const wakeFeelingOptions = isJa
+    ? [
+        { value: 'GOOD' as const, label: 'すっきり' },
+        { value: 'SLIGHTLY_GOOD' as const, label: 'ややすっきり' },
+        { value: 'NORMAL' as const, label: 'ふつう' },
+        { value: 'SLIGHTLY_BAD' as const, label: 'やや重い' },
+        { value: 'BAD' as const, label: '重い' },
+      ]
+    : getWakeFeelingOptions(t);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <ImageBackground
         source={require('../../assets/images/bg_home.png')}
         style={styles.container}
         resizeMode="cover"
       >
-        {/* ホーム画面と同じ背景を暗めのオーバーレイで薄く見せる */}
         <View style={styles.bgOverlay} />
         <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-        {/* ヘッダー */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>
-            {isToday
-              ? t('sleepInput.titleToday')
-              : t('sleepInput.titlePast', { date: format(targetDateObj, 'M月d日（EEE）', { locale: ja }) })}
-          </Text>
-          <ScalePressable
-            onPress={handleSave}
-            style={[styles.saveBtn, (isSaving || sourceMode === 'loading') && styles.saveBtnDisabled]}
-            disabled={isSaving || sourceMode === 'loading'}
-            scaleValue={0.94}
-          >
-            <Text style={styles.saveText}>{isSaving ? t('common.saving') : t('common.save')}</Text>
-          </ScalePressable>
-        </View>
-
-        {sourceMode === 'loading' ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#6B5CE7" />
-            <Text style={styles.loadingText}>{t('sleepInput.loadingHC')}</Text>
-          </View>
-        ) : (
-          <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {/* 過去日バナー */}
-            {!isToday && (
-              <View style={styles.pastDateBanner}>
-                <Text style={styles.pastDateText}>
-                  {t('sleepInput.pastDateBanner', { date: format(targetDateObj, 'M月d日（EEE）', { locale: ja }) })}
-                </Text>
-              </View>
-            )}
-
-            {/* 就寝時刻が前日にまたがるバナー（今日モーダルのみ） */}
-            {isToday && format(form.bedTime, 'yyyy-MM-dd') !== todayStr && (
-              <View style={styles.bedDateBanner}>
-                <Text style={styles.bedDateText}>
-                  {t('sleepInput.bedDateBanner', { date: format(form.bedTime, 'M月d日（EEE）', { locale: ja }) })}
-                </Text>
-              </View>
-            )}
-
-            {/* HC ソースバッジ */}
-            {sourceMode === 'hc' && (
-              <View style={styles.hcBanner}>
-                <Text style={styles.hcBannerText}>{t('sleepInput.hcBanner')}</Text>
-                <TouchableOpacity onPress={switchToManual}>
-                  <Text style={styles.hcBannerSwitch}>{t('sleepInput.switchManual')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* 睡眠時間プレビュー */}
-            <View style={styles.durationPreview}>
-              <Text style={styles.durationValue}>
-                {Math.floor(totalMinutes / 60)}時間{totalMinutes % 60}分
-              </Text>
-              <Text style={styles.durationLabel}>睡眠時間</Text>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+            <View style={styles.header}>
+              <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
+                <Text style={styles.cancelText}>{isJa ? 'キャンセル' : t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>{titleText}</Text>
+              <ScalePressable
+                onPress={handleSave}
+                style={[styles.saveBtn, (isSaving || sourceMode === 'loading') && styles.saveBtnDisabled]}
+                disabled={isSaving || sourceMode === 'loading'}
+                scaleValue={0.94}
+              >
+                <Text style={styles.saveText}>{isSaving ? (isJa ? '保存中' : t('common.saving')) : (isJa ? '保存' : t('common.save'))}</Text>
+              </ScalePressable>
             </View>
 
-            {/* HC ステージ情報 */}
-            {sourceMode === 'hc' && form.deepSleepMinutes != null && (
-              <SectionCard title={t('sleepInput.sleepStageTitle')}>
-                <View style={styles.stageRow}>
-                  <StageItem label={t('sleepInput.deepSleep')} minutes={form.deepSleepMinutes ?? 0} color="#6B5CE7" />
-                  <StageItem label={t('sleepInput.remSleep')} minutes={form.remMinutes ?? 0} color="#4CAF50" />
-                  <StageItem label={t('sleepInput.lightSleep')} minutes={form.lightSleepMinutes ?? 0} color="#FF9800" />
-                  <StageItem label={t('sleepInput.awake')} minutes={form.awakenings ?? 0} color="#F44336" isCount />
+            {sourceMode === 'loading' ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#6B5CE7" />
+                <Text style={styles.loadingText}>
+                  {isJa ? 'Health Connect からデータを読み込み中...' : t('sleepInput.loadingHC')}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={{ paddingBottom: 32 }}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {!isToday && (
+                  <View style={styles.pastDateBanner}>
+                    <Text style={styles.pastDateText}>{pastDateBannerText}</Text>
+                  </View>
+                )}
+
+                {isToday && format(form.bedTime, 'yyyy-MM-dd') !== todayStr && (
+                  <View style={styles.bedDateBanner}>
+                    <Text style={styles.bedDateText}>{bedDateBannerText}</Text>
+                  </View>
+                )}
+
+                {sourceMode === 'hc' && (
+                  <View style={styles.hcBanner}>
+                    <Text style={styles.hcBannerText}>
+                      {isJa ? 'Health Connect から取り込み済み' : t('sleepInput.hcBanner')}
+                    </Text>
+                    <TouchableOpacity onPress={switchToManual}>
+                      <Text style={styles.hcBannerSwitch}>
+                        {isJa ? '手動入力に切り替え' : t('sleepInput.switchManual')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <View style={styles.durationPreview}>
+                  <Text style={styles.durationValue}>{durationText}</Text>
+                  <Text style={styles.durationLabel}>{isJa ? '睡眠時間' : t('common.sleepDuration')}</Text>
                 </View>
-              </SectionCard>
+
+                {sourceMode === 'hc' && form.deepSleepMinutes != null && (
+                  <SectionCard title={isJa ? '睡眠ステージ（Health Connect）' : t('sleepInput.sleepStageTitle')}>
+                    <View style={styles.stageRow}>
+                      <StageItem label={isJa ? '深い睡眠' : t('sleepInput.deepSleep')} minutes={form.deepSleepMinutes ?? 0} color="#6B5CE7" />
+                      <StageItem label={isJa ? 'レム睡眠' : t('sleepInput.remSleep')} minutes={form.remMinutes ?? 0} color="#4CAF50" />
+                      <StageItem label={isJa ? '浅い睡眠' : t('sleepInput.lightSleep')} minutes={form.lightSleepMinutes ?? 0} color="#FF9800" />
+                      <StageItem label={isJa ? '覚醒' : t('sleepInput.awake')} minutes={form.awakenings ?? 0} color="#F44336" isCount />
+                    </View>
+                  </SectionCard>
+                )}
+
+                <SectionCard title={isJa ? '就寝時間・起床時間' : t('sleepInput.bedWakeTitle')}>
+                  <TimePickerRow
+                    label={isJa ? '就寝時間' : t('common.bedTime')}
+                    value={form.bedTime}
+                    onChange={nextDate => setForm(prev => ({ ...prev, bedTime: nextDate }))}
+                  />
+                  <TimePickerRow
+                    label={isJa ? '起床時間' : t('common.wakeTime')}
+                    value={form.wakeTime}
+                    onChange={nextDate => setForm(prev => ({ ...prev, wakeTime: nextDate }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title={isJa ? '寝つきはどうでしたか？' : t('sleepInput.sleepOnsetTitle')}>
+                  <SubjectiveScaleInput
+                    options={sleepOnsetOptions}
+                    value={form.sleepOnset}
+                    onChange={nextValue => setForm(prev => ({ ...prev, sleepOnset: nextValue }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title={isJa ? '目覚めはどうでしたか？' : t('sleepInput.wakeFeelingTitle')}>
+                  <SubjectiveScaleInput
+                    options={wakeFeelingOptions}
+                    value={form.wakeFeeling}
+                    onChange={nextValue => setForm(prev => ({ ...prev, wakeFeeling: nextValue }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title={isJa ? '行動チェック' : t('sleepInput.habitsTitle')}>
+                  {form.habits.map(habit => (
+                    <HabitCheckRow
+                      key={habit.id}
+                      habit={habit}
+                      onToggle={() => toggleHabit(habit.id)}
+                    />
+                  ))}
+                </SectionCard>
+
+                <SectionCard title={isJa ? 'メモ（任意）' : t('common.memoOptional')}>
+                  <TextInput
+                    style={styles.memoInput}
+                    value={form.memo}
+                    onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
+                    placeholder={isJa ? '気づいたことを記録できます' : t('common.memoPlaceholder')}
+                    placeholderTextColor="#555"
+                    multiline
+                    numberOfLines={3}
+                    maxLength={200}
+                  />
+                </SectionCard>
+
+                <View style={styles.spacer} />
+              </ScrollView>
             )}
-
-            {/* 就寝・起床時刻 */}
-            <SectionCard title={t('sleepInput.bedWakeTitle')}>
-              <TimePickerRow
-                label={t('common.bedTime')}
-                value={form.bedTime}
-                onChange={d => setForm(prev => ({ ...prev, bedTime: d }))}
-              />
-              <TimePickerRow
-                label={t('common.wakeTime')}
-                value={form.wakeTime}
-                onChange={d => setForm(prev => ({ ...prev, wakeTime: d }))}
-              />
-            </SectionCard>
-
-            {/* 寝つき */}
-            <SectionCard title={t('sleepInput.sleepOnsetTitle')}>
-              <View style={styles.optionRow}>
-                {SLEEP_ONSET_OPTIONS.map(opt => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[
-                      styles.optionChip,
-                      form.sleepOnset === opt.value && styles.optionChipActive,
-                    ]}
-                    onPress={() => setForm(prev => ({ ...prev, sleepOnset: opt.value }))}
-                  >
-                    <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                    <Text style={[
-                      styles.optionLabel,
-                      form.sleepOnset === opt.value && styles.optionLabelActive,
-                    ]}>{t(opt.labelKey)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </SectionCard>
-
-            {/* 目覚め */}
-            <SectionCard title={t('sleepInput.wakeFeelingTitle')}>
-              <View style={styles.optionRow}>
-                {WAKE_FEELING_OPTIONS.map(opt => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[
-                      styles.optionChip,
-                      form.wakeFeeling === opt.value && styles.optionChipActive,
-                    ]}
-                    onPress={() => setForm(prev => ({ ...prev, wakeFeeling: opt.value }))}
-                  >
-                    <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                    <Text style={[
-                      styles.optionLabel,
-                      form.wakeFeeling === opt.value && styles.optionLabelActive,
-                    ]}>{t(opt.labelKey)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </SectionCard>
-
-            {/* 習慣チェック */}
-            <SectionCard title={actionsTitle}>
-              {form.habits.map(habit => (
-                <HabitCheckRow
-                  key={habit.id}
-                  habit={habit}
-                  onToggle={() => toggleHabit(habit.id)}
-                />
-              ))}
-            </SectionCard>
-
-            {/* メモ */}
-            <SectionCard title={t('common.memoOptional')}>
-              <TextInput
-                style={styles.memoInput}
-                value={form.memo}
-                onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
-                placeholder={t('common.memoPlaceholder')}
-                placeholderTextColor="#555"
-                multiline
-                numberOfLines={3}
-                maxLength={200}
-              />
-            </SectionCard>
-
-            <View style={styles.spacer} />
-          </ScrollView>
-        )}
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </ImageBackground>
     </Modal>
@@ -415,21 +467,8 @@ function StageItem({
   );
 }
 
-const SLEEP_ONSET_OPTIONS: Array<{ value: SleepOnset; labelKey: string; emoji: string }> = [
-  { value: 'FAST', labelKey: 'sleepInput.onsetFast', emoji: '😴' },
-  { value: 'NORMAL', labelKey: 'sleepInput.onsetNormal', emoji: '😐' },
-  { value: 'SLOW', labelKey: 'sleepInput.onsetSlow', emoji: '😫' },
-];
-
-const WAKE_FEELING_OPTIONS: Array<{ value: WakeFeeling; labelKey: string; emoji: string }> = [
-  { value: 'GOOD', labelKey: 'sleepInput.wakeFeelingGood', emoji: '😊' },
-  { value: 'NORMAL', labelKey: 'sleepInput.wakeFeelingNormal', emoji: '😐' },
-  { value: 'BAD', labelKey: 'sleepInput.wakeFeelingBad', emoji: '😩' },
-];
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  // 同じ背景画像を18%透けさせる暗オーバーレイ
   bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(13, 10, 35, 0.82)' },
   safeArea: { flex: 1, backgroundColor: 'transparent' },
   header: {
@@ -511,20 +550,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
-  optionRow: { flexDirection: 'row', gap: 8 },
-  optionChip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#1A1A2E',
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-  optionChipActive: { backgroundColor: '#6B5CE710', borderColor: '#6B5CE7' },
-  optionEmoji: { fontSize: 22, marginBottom: 4 },
-  optionLabel: { fontSize: 10, color: '#9A9AB8', textAlign: 'center' },
-  optionLabelActive: { color: '#6B5CE7', fontWeight: '600' },
   memoInput: {
     color: '#FFFFFF',
     fontSize: 14,

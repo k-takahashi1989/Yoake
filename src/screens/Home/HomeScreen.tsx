@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format, startOfMonth } from 'date-fns';
+import { format, startOfMonth, subDays } from 'date-fns';
 import { format as dateFnsFormat } from 'date-fns';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../../i18n';
@@ -24,17 +24,18 @@ import { getGoal } from '../../services/firebase';
 import { getScoreInfo, calculateSleepDebt } from '../../utils/scoreCalculator';
 import { calculateStreak } from '../../utils/streakCalculator';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
-import { SCORE_COLORS, SLEEP_LOG_FETCH_LIMIT } from '../../constants';
+import { SCORE_COLORS, SLEEP_LOG_FETCH_LIMIT, SUBSCRIPTION } from '../../constants';
 import { UserGoal, HomeStackParamList } from '../../types';
 import SleepInputModal from './SleepInputModal';
 import Icon from '../../components/common/Icon';
 import ScalePressable from '../../components/common/ScalePressable';
 import { haptics } from '../../utils/haptics';
-import ShirokumaBubble from '../../components/home/ShirokumaBubble';
+import { promptForReviewIfEligible } from '../../services/reviewService';
 
 type HomeNav = NativeStackNavigationProp<HomeStackParamList>;
 
 const HOME_TUTORIAL_SEEN_KEY = '@yoake:home_tutorial_seen_v1';
+const MISSED_LOG_BANNER_DISMISSED_KEY = '@yoake:missed_log_banner_dismissed';
 
 
 export default function HomeScreen() {
@@ -49,29 +50,26 @@ export default function HomeScreen() {
   const [goal, setGoal] = useState<UserGoal | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showHomeGuide, setShowHomeGuide] = useState(false);
+  const [showMissedBanner, setShowMissedBanner] = useState(false);
   const [debtPeriod] = useState<'14' | '30' | 'month'>('14');
   const [isPanelExpanded, setIsPanelExpanded] = useState(true);
-  const [isDreamExpanded, setIsDreamExpanded] = useState(false);
   const [dotsVisible, setDotsVisible] = useState(true);
   const panelAnim = useRef(new Animated.Value(1)).current;
-  const dreamExpandAnim = useRef(new Animated.Value(0)).current;
   const ecgAnim = useRef(new Animated.Value(0)).current;
   const zoomAnim = useRef(new Animated.Value(0)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  // --- initial stagger reveal（マウント時の要素フェードイン） ---
-  // 各要素の opacity / translateY を個別に管理し、既存アニメと独立させる
+  // --- initial stagger reveal・医・繧ｦ繝ｳ繝域凾縺ｮ隕∫ｴ繝輔ぉ繝ｼ繝峨う繝ｳ・・---
+  // 蜷・ｦ∫ｴ縺ｮ opacity / translateY 繧貞句挨縺ｫ邂｡逅・＠縲∵里蟄倥い繝九Γ縺ｨ迢ｬ遶九＆縺帙ｋ
   const revealScoreOpacity = useRef(new Animated.Value(0)).current;
   const revealScoreY = useRef(new Animated.Value(10)).current;
-  const revealAiOpacity = useRef(new Animated.Value(0)).current;
-  const revealAiY = useRef(new Animated.Value(10)).current;
   const revealDotsOpacity = useRef(new Animated.Value(0)).current;
   const revealDotsY = useRef(new Animated.Value(10)).current;
   const revealDebtOpacity = useRef(new Animated.Value(0)).current;
   const revealDebtY = useRef(new Animated.Value(10)).current;
   const [zoomTarget, setZoomTarget] = useState<{ x: number; y: number; color: string } | null>(null);
   const zoomTargetRef = useRef<{ x: number; y: number; color: string } | null>(null);
-  // Diaryタブから戻るズームアウト用：直前のタブを追跡
+  // Diary繧ｿ繝悶°繧画綾繧九ぜ繝ｼ繝繧｢繧ｦ繝育畑・夂峩蜑阪・繧ｿ繝悶ｒ霑ｽ霍｡
   const prevTabRef = useRef<string | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -89,7 +87,7 @@ export default function HomeScreen() {
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
-      // ズーム後半でスコアカラーがフェードイン → 遷移の隙間を埋める
+      // 繧ｺ繝ｼ繝蠕悟濠縺ｧ繧ｹ繧ｳ繧｢繧ｫ繝ｩ繝ｼ縺後ヵ繧ｧ繝ｼ繝峨う繝ｳ 竊・驕ｷ遘ｻ縺ｮ髫咎俣繧貞沂繧√ｋ
       Animated.sequence([
         Animated.delay(450),
         Animated.timing(overlayAnim, {
@@ -101,33 +99,33 @@ export default function HomeScreen() {
       ]),
     ]).start(() => {
       navigation.navigate('ScoreDetail', { date: dateStr, scoreColor: color });
-      // リセットは戻ってきた時（focusイベント）で行う → チラ見え防止
+      // 繝ｪ繧ｻ繝・ヨ縺ｯ謌ｻ縺｣縺ｦ縺阪◆譎ゑｼ・ocus繧､繝吶Φ繝茨ｼ峨〒陦後≧ 竊・繝√Λ隕九∴髦ｲ豁｢
     });
   }, [navigation, overlayAnim, zoomAnim]);
 
-  const dateLabel = format(new Date(), 'M月d日（EEE）', { locale: getDateFnsLocale() });
+  const dateLabel = format(new Date(), 'M/d (EEE)', { locale: getDateFnsLocale() });
 
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        // フラット
+        // 繝輔Λ繝・ヨ
         Animated.delay(600),
-        // 急上昇スパイク
+        // 諤･荳頑・繧ｹ繝代う繧ｯ
         Animated.timing(ecgAnim, { toValue: 1, duration: 80, useNativeDriver: false }),
-        // 急降下
+        // 諤･髯堺ｸ・
         Animated.timing(ecgAnim, { toValue: 0.05, duration: 70, useNativeDriver: false }),
-        // 小さな跳ね返り
+        // 蟆上＆縺ｪ霍ｳ縺ｭ霑斐ｊ
         Animated.timing(ecgAnim, { toValue: 0.4, duration: 90, useNativeDriver: false }),
-        // ゆっくり収束
+        // 繧・▲縺上ｊ蜿取據
         Animated.timing(ecgAnim, { toValue: 0, duration: 260, useNativeDriver: false }),
-        // 次のビートまで待機
+        // 谺｡縺ｮ繝薙・繝医∪縺ｧ蠕・ｩ・
         Animated.delay(900),
       ])
     ).start();
   }, [ecgAnim]);
 
-  // マウント時：各コンテンツ要素を stagger で fade-in + translateY（0ms / 100ms / 180ms / 240ms）
+  // 繝槭え繝ｳ繝域凾・壼推繧ｳ繝ｳ繝・Φ繝・ｦ∫ｴ繧・stagger 縺ｧ fade-in + translateY・・ms / 100ms / 180ms / 240ms・・
   useEffect(() => {
     const makeReveal = (opacity: Animated.Value, y: Animated.Value, delay: number) =>
       Animated.parallel([
@@ -148,12 +146,9 @@ export default function HomeScreen() {
 
     Animated.parallel([
       makeReveal(revealScoreOpacity, revealScoreY, 0),
-      makeReveal(revealAiOpacity, revealAiY, 100),
-      makeReveal(revealDotsOpacity, revealDotsY, 180),
+      makeReveal(revealDotsOpacity, revealDotsY, 100),
     ]).start();
   }, [
-    revealAiOpacity,
-    revealAiY,
     revealDotsOpacity,
     revealDotsY,
     revealScoreOpacity,
@@ -162,14 +157,14 @@ export default function HomeScreen() {
 
 
 
-  // ナビゲーション離脱／復帰でゴールドット上昇↔落下
+  // 繝翫ン繧ｲ繝ｼ繧ｷ繝ｧ繝ｳ髮｢閼ｱ・丞ｾｩ蟶ｰ縺ｧ繧ｴ繝ｼ繝ｫ繝峨ャ繝井ｸ頑・竊碑誠荳・
   useEffect(() => {
     const blurUnsub = navigation.addListener('blur', () => setDotsVisible(false));
     const focusUnsub = navigation.addListener('focus', () => setDotsVisible(true));
     return () => { blurUnsub(); focusUnsub(); };
   }, [navigation]);
 
-  // 直前のタブを追跡（Diaryから戻ったか判定するため）
+  // 逶ｴ蜑阪・繧ｿ繝悶ｒ霑ｽ霍｡・・iary縺九ｉ謌ｻ縺｣縺溘°蛻､螳壹☆繧九◆繧・ｼ・
   useEffect(() => {
     const parentNav = navigation.getParent();
     if (!parentNav) return;
@@ -180,11 +175,11 @@ export default function HomeScreen() {
     return unsub;
   }, [navigation]);
 
-  // ScoreDetailから戻った時 / Diaryタブから戻った時：ズームアウトアニメーション
+  // ScoreDetail縺九ｉ謌ｻ縺｣縺滓凾 / Diary繧ｿ繝悶°繧画綾縺｣縺滓凾・壹ぜ繝ｼ繝繧｢繧ｦ繝医い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
       if (zoomTargetRef.current) {
-        // ScoreDetailから戻った時（既存処理）
+        // ScoreDetail縺九ｉ謌ｻ縺｣縺滓凾・域里蟄伜・逅・ｼ・
         Animated.parallel([
           Animated.timing(overlayAnim, {
             toValue: 0,
@@ -204,13 +199,13 @@ export default function HomeScreen() {
         });
         return;
       }
-      // Diaryタブから戻った時：HomeScreen側でノート座標からカメラズームアウト
+      // Diary繧ｿ繝悶°繧画綾縺｣縺滓凾・唏omeScreen蛛ｴ縺ｧ繝弱・繝亥ｺｧ讓吶°繧峨き繝｡繝ｩ繧ｺ繝ｼ繝繧｢繧ｦ繝・
       if (prevTabRef.current === 'Diary') {
         prevTabRef.current = null;
         const dTarget = { x: screenW * 0.70, y: screenH * 0.65, color: 'transparent' };
         zoomTargetRef.current = dTarget;
         setZoomTarget(dTarget);
-        // ZOOM_SCALE=8に対しscale≈3になる値：(3-1)/(8-1)=2/7
+        // ZOOM_SCALE=8縺ｫ蟇ｾ縺耀cale竕・縺ｫ縺ｪ繧句､・・3-1)/(8-1)=2/7
         zoomAnim.setValue(2 / 7);
         Animated.timing(zoomAnim, {
           toValue: 0,
@@ -223,13 +218,13 @@ export default function HomeScreen() {
         });
         return;
       }
-      // Reportタブから戻った時：グラフ紙座標からカメラズームアウト
+      // Report繧ｿ繝悶°繧画綾縺｣縺滓凾・壹げ繝ｩ繝慕ｴ吝ｺｧ讓吶°繧峨き繝｡繝ｩ繧ｺ繝ｼ繝繧｢繧ｦ繝・
       if (prevTabRef.current === 'Report') {
         prevTabRef.current = null;
         const rTarget = { x: screenW * 0.40, y: screenH * 0.25, color: 'transparent' };
         zoomTargetRef.current = rTarget;
         setZoomTarget(rTarget);
-        // S=3 → (3-1)/(8-1)=2/7
+        // S=3 竊・(3-1)/(8-1)=2/7
         zoomAnim.setValue(2 / 7);
         Animated.timing(zoomAnim, {
           toValue: 0,
@@ -242,13 +237,13 @@ export default function HomeScreen() {
         });
         return;
       }
-      // Alarmタブから戻った時：目覚まし時計座標からカメラズームアウト
+      // Alarm繧ｿ繝悶°繧画綾縺｣縺滓凾・夂岼隕壹∪縺玲凾險亥ｺｧ讓吶°繧峨き繝｡繝ｩ繧ｺ繝ｼ繝繧｢繧ｦ繝・
       if (prevTabRef.current === 'Alarm') {
         prevTabRef.current = null;
         const aTarget = { x: screenW * 0.30, y: screenH * 0.55, color: 'transparent' };
         zoomTargetRef.current = aTarget;
         setZoomTarget(aTarget);
-        // S=3 → (3-1)/(8-1)=2/7
+        // S=3 竊・(3-1)/(8-1)=2/7
         zoomAnim.setValue(2 / 7);
         Animated.timing(zoomAnim, {
           toValue: 0,
@@ -319,21 +314,7 @@ export default function HomeScreen() {
     animatePanel(!isPanelExpanded);
   }, [animatePanel, isPanelExpanded]);
 
-  const toggleDreamExpand = useCallback(() => {
-    setIsDreamExpanded(prev => {
-      const next = !prev;
-      Animated.timing(dreamExpandAnim, {
-        toValue: next ? 1 : 0,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }).start();
-      animatePanel(!next);
-      return next;
-    });
-  }, [animatePanel, dreamExpandAnim]);
-
-  // スコアが null→数値に変わった瞬間に軽い触覚フィードバック
+  // 繧ｹ繧ｳ繧｢縺・null竊呈焚蛟､縺ｫ螟峨ｏ縺｣縺溽椪髢薙↓霆ｽ縺・ｧｦ隕壹ヵ繧｣繝ｼ繝峨ヰ繝・け
   const prevTodayLogRef = useRef<typeof todayLog>(undefined);
   useEffect(() => {
     const wasNull = prevTodayLogRef.current == null;
@@ -345,12 +326,13 @@ export default function HomeScreen() {
   }, [todayLog]);
 
 
-  // 連続記録日数（recentLogs は降順で渡す）
+  // 騾｣邯夊ｨ倬鹸譌･謨ｰ・・ecentLogs 縺ｯ髯埼・〒貂｡縺呻ｼ・
   const streak = calculateStreak(recentLogs);
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
-  // スコアコンテキスト（前日比・今週平均）
+  // 繧ｹ繧ｳ繧｢繧ｳ繝ｳ繝・く繧ｹ繝茨ｼ亥燕譌･豈斐・莉企ｱ蟷ｳ蝮・ｼ・
 
-  // 今週の目標達成
+  // 莉企ｱ縺ｮ逶ｮ讓咎＃謌・
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -374,25 +356,29 @@ export default function HomeScreen() {
     : '--:--';
   const heroSubtitle = todayLog ? t('home.heroReadySub') : t('home.heroEmptySub');
   const isEnglishUi = t('nav.aiChat') === 'AI Chat';
-  const homeBubbleAdvice = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 11) {
-      return isEnglishUi
-        ? 'Good morning. Keep today unhurried.'
-        : 'おはよう。今日もゆっくりいこう。';
-    }
-    if (hour < 18) {
-      return isEnglishUi
-        ? 'How is your energy today?'
-        : '今日はどんな調子で過ごせてる？';
-    }
-    return isEnglishUi
-      ? 'A calm night starts with a calm evening.'
-      : '穏やかな夜は、穏やかな夕方から。';
-  }, [isEnglishUi]);
+  const isJa = !isEnglishUi;
+  const reviewLanguage = isEnglishUi ? 'en' : 'ja';
+  const hasTodayLog = Boolean(todayLog ?? logMap.get(today));
+  const hasYesterdayLog = Boolean(logMap.get(yesterday));
+  const shouldOfferCatchUp = recentLogs.length > 0 && !hasTodayLog && !hasYesterdayLog;
+  const streakLabel = isEnglishUi ? `${streak} day streak` : `${streak}日継続`;
+  const premiumTeaserTitle = isEnglishUi
+    ? 'Premium turns raw logs into next steps'
+    : 'プレミアムで、記録が次の改善につながる';
+  const premiumTeaserBody = isEnglishUi
+    ? 'Weekly reports highlight your pattern, what changed, and the one action to try next.'
+    : '週次レポートで、睡眠の癖と前週比、次にやること1つまで見えるようになります。';
+  const premiumTeaserCta = isEnglishUi
+    ? `Start ${SUBSCRIPTION.TRIAL_DAYS}-day free trial`
+    : `${SUBSCRIPTION.TRIAL_DAYS}日間無料で試す`;
   const primaryActionLabel = todayLog
-    ? (isEnglishUi ? 'Result' : '結果')
-    : (isEnglishUi ? 'Log sleep' : '睡眠登録');
+    ? (isEnglishUi ? 'Result' : '結果を見る')
+    : (isEnglishUi ? 'Log sleep' : '睡眠記録');
+  const todayMarkerLabel = isJa ? '今日' : t('home.todayMarker');
+  const quickStatsTitle = isJa ? '今日のチェックポイント' : t('home.quickStatsTitle');
+  const durationLabel = isJa ? '睡眠時間' : t('home.duration');
+  const bedtimeLabel = isJa ? '就寝時間' : t('home.bedtime');
+  const wakeupLabel = isJa ? '起床時間' : t('home.wakeup');
   const statusTone = todayLog ? '#79E0B5' : '#FFD36E';
   const progressMeta = (
     <View style={styles.heroMetaColumn}>
@@ -404,7 +390,7 @@ export default function HomeScreen() {
       </View>
       {streak >= 2 && (
         <View style={styles.heroStreakBadge}>
-          <Text style={styles.heroStreakText}>🔥 {streak}日連続</Text>
+          <Text style={styles.heroStreakText}>{streakLabel}</Text>
         </View>
       )}
     </View>
@@ -422,19 +408,17 @@ export default function HomeScreen() {
     : `${debtHours > 0 ? `${debtHours}${t('common.hours')}` : ''}${debtMins > 0 ? `${debtMins}${t('common.minutes')}` : ''}`;
   const debtColor = debtMinutes === 0 ? '#4CAF50' : debtMinutes < 120 ? '#FFC107' : '#F44336';
 
-  // クマの画面座標（Home: focusX=0.5, focusY=0.43, scale=1.0）
+  // 繧ｯ繝槭・逕ｻ髱｢蠎ｧ讓呻ｼ・ome: focusX=0.5, focusY=0.43, scale=1.0・・
   const bearX = screenW * 0.4 + 40;
   const bearY = screenH * 0.35 + 70;
-  const dotRadius = 108; // 弧の半径(px)
-  // 夢吹き出し展開時の最大テキスト高（画面下端 - bubble上端 - bottomPanel分 の余裕）
-  const dreamExpandedH = Math.max(180, Math.round(screenH * 0.65 - 260));
-  const DOT_HALF = 18;   // ドットの半径(36/2)
-  // 7日分を上半分の弧（-150° 〜 -30°）に均等配置
+  const dotRadius = 108; // 蠑ｧ縺ｮ蜊雁ｾ・px)
+  const DOT_HALF = 18;   // 繝峨ャ繝医・蜊雁ｾ・36/2)
+  // 7譌･蛻・ｒ荳雁濠蛻・・蠑ｧ・・150ﾂｰ 縲・-30ﾂｰ・峨↓蝮・ｭ蛾・鄂ｮ
   const goalDotAngles = [-150, -125, -100, -75, -50, -25, 0];
 
-  // 睡眠負債計算
+  // 逹｡逵雋蛯ｵ險育ｮ・
 
-  // カメラズーム用トランスフォーム（ドット座標をピボットにスケールアップ）
+  // 繧ｫ繝｡繝ｩ繧ｺ繝ｼ繝逕ｨ繝医Λ繝ｳ繧ｹ繝輔か繝ｼ繝・医ラ繝・ヨ蠎ｧ讓吶ｒ繝斐・繝・ヨ縺ｫ繧ｹ繧ｱ繝ｼ繝ｫ繧｢繝・・・・
   const ZOOM_SCALE = 8;
   const zoomTransform = zoomTarget ? [
     {
@@ -462,6 +446,50 @@ export default function HomeScreen() {
     { key: 'dots', title: t('home.guideDotsTitle'), body: t('home.guideDotsBody') },
     { key: 'panel', title: t('home.guidePanelTitle'), body: t('home.guidePanelBody') },
   ];
+
+  useFocusEffect(
+    useCallback(() => {
+      promptForReviewIfEligible(reviewLanguage).catch(() => {});
+    }, [reviewLanguage]),
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!shouldOfferCatchUp) {
+      setShowMissedBanner(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    AsyncStorage.getItem(MISSED_LOG_BANNER_DISMISSED_KEY)
+      .then(storedDate => {
+        if (!isMounted) return;
+        setShowMissedBanner(storedDate !== yesterday);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setShowMissedBanner(true);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shouldOfferCatchUp, yesterday]);
+
+  const handleMissedBannerDismiss = useCallback(() => {
+    setShowMissedBanner(false);
+    AsyncStorage.setItem(MISSED_LOG_BANNER_DISMISSED_KEY, yesterday).catch(() => {});
+  }, [yesterday]);
+
+  const handleCatchUpPress = useCallback(async () => {
+    const currentGoal = goal ?? (await getGoal());
+    setGoal(currentGoal);
+    setModalTargetDate(yesterday);
+    setShowInputModal(true);
+    setShowMissedBanner(false);
+  }, [goal, yesterday]);
 
   return (
     <View style={[styles.root, { overflow: 'hidden' }]}>
@@ -509,7 +537,7 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
-      {/* 上部：日付（左）+ 雲＋サマリー（右）― stagger reveal [0ms] */}
+      {/* 荳企Κ・壽律莉假ｼ亥ｷｦ・・ 髮ｲ・九し繝槭Μ繝ｼ・亥承・俄・stagger reveal [0ms] */}
       <Animated.View style={{ opacity: revealScoreOpacity, transform: [{ translateY: revealScoreY }] }}>
         {false && <View style={[styles.heroCard, { marginTop: insets.top + 8 }]}>
           <View style={styles.heroCardHeader}>
@@ -525,7 +553,7 @@ export default function HomeScreen() {
               </View>
               {streak >= 2 && (
                 <View style={styles.heroStreakBadge}>
-                  <Text style={styles.heroStreakText}>🔥 {streak}日連続</Text>
+                  <Text style={styles.heroStreakText}>{streakLabel}</Text>
                 </View>
               )}
             </View>
@@ -533,28 +561,28 @@ export default function HomeScreen() {
         </View>}
 
       <View style={[styles.topZone, { paddingTop: insets.top + 8 }]}>
-        {/* 左：日付 + ストリークバッジ */}
+        {/* 蟾ｦ・壽律莉・+ 繧ｹ繝医Μ繝ｼ繧ｯ繝舌ャ繧ｸ */}
         <View style={styles.dateColumn}>
           <Text style={styles.dateText}>{dateLabel}</Text>
           {false && streak >= 2 && (
             <View style={styles.streakBadge}>
-              <Text style={styles.streakText}>🔥 {streak}日連続</Text>
+              <Text style={styles.streakText}>{streakLabel}</Text>
             </View>
           )}
         </View>
 
-        {/* 右：睡眠サマリー縦並び */}
+        {/* 蜿ｳ・夂擅逵繧ｵ繝槭Μ繝ｼ邵ｦ荳ｦ縺ｳ */}
         <View style={styles.topRightColumn}>
 
-          {/* 睡眠サマリー */}
+          {/* 逹｡逵繧ｵ繝槭Μ繝ｼ */}
 
-          {/* 記録ボタン（未記録時のみ、スコアリングの下） */}
+          {/* 險倬鹸繝懊ち繝ｳ・域悴險倬鹸譎ゅ・縺ｿ縲√せ繧ｳ繧｢繝ｪ繝ｳ繧ｰ縺ｮ荳具ｼ・*/}
           {progressMeta}
         </View>
       </View>
       </Animated.View>
 
-      {/* 睡眠負債 付箋紙（プレミアムのみ）― stagger reveal [240ms] */}
+      {/* 逹｡逵雋蛯ｵ 莉倡ｮ狗ｴ呻ｼ医・繝ｬ繝溘い繝縺ｮ縺ｿ・俄・stagger reveal [240ms] */}
       {false && isPremium && (
         <Animated.View style={{ opacity: revealDebtOpacity, transform: [{ translateY: revealDebtY }] }}>
           <StickyNoteDebt
@@ -567,7 +595,7 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {/* 今週の目標ドット（クマの周囲に弧状配置）― stagger reveal [180ms] */}
+      {/* 莉企ｱ縺ｮ逶ｮ讓吶ラ繝・ヨ・医け繝槭・蜻ｨ蝗ｲ縺ｫ蠑ｧ迥ｶ驟咲ｽｮ・俄・stagger reveal [180ms] */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: revealDotsOpacity, transform: [{ translateY: revealDotsY }] }]} pointerEvents="box-none">
       {goal && last7Days.map((dateStr, i) => {
         const log = logMap.get(dateStr);
@@ -575,7 +603,7 @@ export default function HomeScreen() {
         const dayLabel = format(safeToDate(dateStr), 'E', { locale: getDateFnsLocale() });
         const rad = (goalDotAngles[i] * Math.PI) / 180;
         const isTodayDot = i === 6;
-        // 今日のドットは1.6倍サイズ（57×44）なので中心合わせのオフセットを調整
+        // 莉頑律縺ｮ繝峨ャ繝医・1.6蛟阪し繧､繧ｺ・・7ﾃ・4・峨↑縺ｮ縺ｧ荳ｭ蠢・粋繧上○縺ｮ繧ｪ繝輔そ繝・ヨ繧定ｪｿ謨ｴ
         const dotHalfW = DOT_HALF;
         const dotHalfH = DOT_HALF;
         const dotX = bearX + dotRadius * Math.cos(rad) - dotHalfW;
@@ -588,45 +616,22 @@ export default function HomeScreen() {
             onPress={() => log && handleDotPress(dateStr, dotX + dotHalfW, dotY + dotHalfH, dotScoreColor)}
             activeOpacity={log ? 0.7 : 1}
           >
-            {isTodayDot && (
-              <View style={styles.todayMarker}>
-                <Text style={styles.todayMarkerText}>{t('home.todayMarker')}</Text>
-              </View>
-            )}
             <CloudDot score={log?.score} scoreColor={dotScoreColor} achieved={achieved} empty={!log} index={i} visible={dotsVisible} isToday={isTodayDot} />
-            <Text style={styles.goalDayLabel}>{dayLabel}</Text>
+            <View style={styles.goalDayMeta}>
+              <Text style={styles.goalDayLabel}>{dayLabel}</Text>
+              {isTodayDot && (
+                <View style={styles.todayMarker}>
+                  <Text style={styles.todayMarkerText}>{todayMarkerLabel}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         );
       })}
       </Animated.View>
 
-      {/* AIアドバイス夢吹き出し（しろくまペルソナ）― stagger reveal [100ms] */}
-      {goal !== null && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: Math.max(12, screenW - 350),
-            top: bearY + 28,
-            width: isDreamExpanded ? Math.min(screenW * 0.72, 280) : 150,
-            alignItems: 'flex-start',
-            opacity: revealAiOpacity,
-            transform: [{ translateY: revealAiY }],
-          }}
-        >
-          <ShirokumaBubble
-            advice={homeBubbleAdvice}
-            compactLabel={homeBubbleAdvice}
-            isLoading={false}
-            isDreamExpanded={isDreamExpanded}
-            onToggleExpand={toggleDreamExpand}
-            dreamExpandAnim={dreamExpandAnim}
-            ecgAnim={ecgAnim}
-            dreamExpandedH={dreamExpandedH}
-          />
-        </Animated.View>
-      )}
 
-      {/* ボトムパネル */}
+      {/* 繝懊ヨ繝繝代ロ繝ｫ */}
       <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 8 }]}>
         <TouchableOpacity onPress={togglePanel} activeOpacity={0.8} style={styles.handleWrap}>
           <View style={styles.handle} />
@@ -640,19 +645,36 @@ export default function HomeScreen() {
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#6B5CE7" />}
           >
             <View style={styles.panelActionGroup}>
+              {showMissedBanner && (
+                <View style={styles.missedBanner}>
+                  <View style={styles.missedBannerContent}>
+                    <Icon name="calendar-warning" size={18} color="#FFB55A" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.missedBannerText}>{t('home.missedBanner')}</Text>
+                      <TouchableOpacity onPress={handleCatchUpPress} activeOpacity={0.8}>
+                        <Text style={styles.missedBannerAction}>{t('home.missedBannerAction')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={handleMissedBannerDismiss} hitSlop={8}>
+                    <Text style={styles.missedBannerDismiss}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <View style={styles.panelQuickStats}>
-                <Text style={styles.panelQuickStatsTitle}>{t('home.quickStatsTitle')}</Text>
+                <Text style={styles.panelQuickStatsTitle}>{quickStatsTitle}</Text>
                 <View style={styles.panelQuickStatsRow}>
                   <View style={styles.panelQuickStat}>
-                    <Text style={styles.panelQuickLabel}>{t('home.duration')}</Text>
+                    <Text style={styles.panelQuickLabel}>{durationLabel}</Text>
                     <Text style={styles.panelQuickValue}>{todayDurationText}</Text>
                   </View>
                   <View style={styles.panelQuickStat}>
-                    <Text style={styles.panelQuickLabel}>{t('home.bedtime')}</Text>
+                    <Text style={styles.panelQuickLabel}>{bedtimeLabel}</Text>
                     <Text style={styles.panelQuickValue}>{todayBedtimeText}</Text>
                   </View>
                   <View style={styles.panelQuickStat}>
-                    <Text style={styles.panelQuickLabel}>{t('home.wakeup')}</Text>
+                    <Text style={styles.panelQuickLabel}>{wakeupLabel}</Text>
                     <Text style={styles.panelQuickValue}>{todayWakeText}</Text>
                   </View>
                 </View>
@@ -715,7 +737,7 @@ export default function HomeScreen() {
 
             </View>
 
-            {/* ウェルカムカード（初回） */}
+            {/* 繧ｦ繧ｧ繝ｫ繧ｫ繝繧ｫ繝ｼ繝会ｼ亥・蝗橸ｼ・*/}
             {!todayLog && recentLogs.length === 0 && (
               <View style={styles.firstTimeCard}>
                 <Text style={styles.firstTimeTitle}>{t('home.welcomeTitle')}</Text>
@@ -723,7 +745,22 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* 前日の未記録バナー（未実装・非表示） */}
+            {!isPremium && (
+              <View style={styles.premiumTeaserCard}>
+                <Text style={styles.premiumTeaserTitle}>{premiumTeaserTitle}</Text>
+                <Text style={styles.premiumTeaserBody}>{premiumTeaserBody}</Text>
+                <ScalePressable
+                  style={styles.miniRecordButton}
+                  onPress={() =>
+                    (navigation.getParent() as any)?.navigate('Profile', { screen: 'SubscriptionManage' })
+                  }
+                >
+                  <Text style={styles.miniRecordButtonText}>{premiumTeaserCta}</Text>
+                </ScalePressable>
+              </View>
+            )}
+
+            {/* 蜑肴律縺ｮ譛ｪ險倬鹸繝舌リ繝ｼ・域悴螳溯｣・・髱櫁｡ｨ遉ｺ・・*/}
 
           </ScrollView>
         </Animated.View>
@@ -742,7 +779,7 @@ export default function HomeScreen() {
         </ImageBackground>
       </Animated.View>
 
-      {/* 遷移ブリッジ：ズーム完了直前にスコアカラーで画面を覆う */}
+      {/* 驕ｷ遘ｻ繝悶Μ繝・ず・壹ぜ繝ｼ繝螳御ｺ・峩蜑阪↓繧ｹ繧ｳ繧｢繧ｫ繝ｩ繝ｼ縺ｧ逕ｻ髱｢繧定ｦ・≧ */}
       {zoomTarget && (
         <Animated.View
           pointerEvents="none"
@@ -757,7 +794,7 @@ export default function HomeScreen() {
 }
 
 // ============================================================
-// 雲形ゴールドット
+// 髮ｲ蠖｢繧ｴ繝ｼ繝ｫ繝峨ャ繝・
 // ============================================================
 function CloudDot({
   score,
@@ -777,23 +814,23 @@ function CloudDot({
   isToday?: boolean;
 }) {
   const floatAnim = useRef(new Animated.Value(0)).current;
-  // 落下アニメ用（translateY: -60→0, opacity: 0→1）
+  // 關ｽ荳九い繝九Γ逕ｨ・・ranslateY: -60竊・, opacity: 0竊・・・
   const dropY = useRef(new Animated.Value(-60)).current;
   const dropOpacity = useRef(new Animated.Value(0)).current;
-  // floatループ参照（blur時に停止するため）
+  // float繝ｫ繝ｼ繝怜盾辣ｧ・・lur譎ゅ↓蛛懈ｭ｢縺吶ｋ縺溘ａ・・
   const floatLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     if (visible) {
-      // ── 落下アニメ（画面に戻った時・初回mount）──
-      // 前のアニメをリセット
+      // 笏笏 關ｽ荳九い繝九Γ・育判髱｢縺ｫ謌ｻ縺｣縺滓凾繝ｻ蛻晏屓mount・俄楳笏
+      // 蜑阪・繧｢繝九Γ繧偵Μ繧ｻ繝・ヨ
       floatLoopRef.current?.stop();
       floatAnim.stopAnimation();
       floatAnim.setValue(0);
       dropY.setValue(-60);
       dropOpacity.setValue(0);
 
-      // 1) 左から順に落下（index × 90ms stagger）
+      // 1) 蟾ｦ縺九ｉ鬆・↓關ｽ荳具ｼ・ndex ﾃ・90ms stagger・・
       const DROP_DELAY = 300 + index * 90;
       const dropTimeout = setTimeout(() => {
         Animated.parallel([
@@ -812,7 +849,7 @@ function CloudDot({
         ]).start();
       }, DROP_DELAY);
 
-      // 2) 落下完了後にふわふわループ開始
+      // 2) 關ｽ荳句ｮ御ｺ・ｾ後↓縺ｵ繧上・繧上Ν繝ｼ繝鈴幕蟋・
       const floatTimeout = setTimeout(() => {
         floatLoopRef.current = Animated.loop(
           Animated.sequence([
@@ -839,13 +876,13 @@ function CloudDot({
         floatLoopRef.current?.stop();
       };
     } else {
-      // ── 上昇アニメ（画面を離れる時）──
-      // floatループを止めてy=0に即セット
+      // 笏笏 荳頑・繧｢繝九Γ・育判髱｢繧帝屬繧後ｋ譎ゑｼ俄楳笏
+      // float繝ｫ繝ｼ繝励ｒ豁｢繧√※y=0縺ｫ蜊ｳ繧ｻ繝・ヨ
       floatLoopRef.current?.stop();
       floatLoopRef.current = null;
       floatAnim.setValue(0);
 
-      // 右から順に上昇（逆stagger: index 6→0）
+      // 蜿ｳ縺九ｉ鬆・↓荳頑・・磯・tagger: index 6竊・・・
       const RISE_DELAY = (6 - index) * 60;
       const riseTimeout = setTimeout(() => {
         Animated.parallel([
@@ -888,7 +925,7 @@ function CloudDot({
             { translateY: floatAnim },
           ],
         },
-        // 今日のドット: 1.6倍サイズ＋発光ボーダー＋影
+        // 莉頑律縺ｮ繝峨ャ繝・ 1.6蛟阪し繧､繧ｺ・狗匱蜈峨・繝ｼ繝繝ｼ・句ｽｱ
         isToday && {
           borderWidth: 1.5,
           borderColor: (scoreColor ?? '#9C8FFF') + 'AA',
@@ -907,7 +944,7 @@ function CloudDot({
 }
 
 // ============================================================
-// 付箋紙コンポーネント（睡眠負債用）
+// 莉倡ｮ狗ｴ吶さ繝ｳ繝昴・繝阪Φ繝茨ｼ育擅逵雋蛯ｵ逕ｨ・・
 // ============================================================
 const STICKY_FONT = 'ZenKurenaido-Regular';
 
@@ -926,7 +963,7 @@ function StickyNoteDebt({
 }) {
   return (
     <View style={[stickyStyles.note, { left: screenW * 0.04, top: topOffset }]}>
-      {/* テープ風ストリップ（上端） */}
+      {/* 繝・・繝鈴｢ｨ繧ｹ繝医Μ繝・・・井ｸ顔ｫｯ・・*/}
       <View style={stickyStyles.tape} />
       <Text style={stickyStyles.label}>{label}</Text>
       <Text style={[stickyStyles.value, { color }]}>{value}</Text>
@@ -1153,7 +1190,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  // 上部ゾーン（日付左・ScoreRing右）
+  // 荳企Κ繧ｾ繝ｼ繝ｳ・域律莉伜ｷｦ繝ｻScoreRing蜿ｳ・・
   panelEmptyHint: {
     marginTop: 10,
     color: '#A8A4CC',
@@ -1230,16 +1267,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreContext: { fontSize: 10, color: 'rgba(200,200,224,0.85)', marginLeft: 10, flex: 1, textAlign: 'left' },
-  // クマ周囲のゴールドット（絶対配置）
+  // 繧ｯ繝槫捉蝗ｲ縺ｮ繧ｴ繝ｼ繝ｫ繝峨ャ繝茨ｼ育ｵｶ蟇ｾ驟咲ｽｮ・・
   floatingDotWrap: {
     position: 'absolute',
     alignItems: 'center',
     zIndex: 5,
   },
   todayMarker: {
-    position: 'absolute',
-    right: -12,
-    bottom: -6,
+    marginTop: 4,
+    minWidth: 32,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 999,
@@ -1257,6 +1293,7 @@ const styles = StyleSheet.create({
     color: '#F6F2D6',
     fontWeight: '800',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   cloudDot: {
     width: 36,
@@ -1270,10 +1307,15 @@ const styles = StyleSheet.create({
   },
   goalDotEmpty: { opacity: 0.35 },
   goalDotScore: { fontSize: 13, fontFamily: 'KiwiMaru-Regular', color: '#FFFFFF', lineHeight: 16, includeFontPadding: false },
-  // 今日のドット：雲が1.6倍サイズなのでスコアも大きく
-  goalDayLabel: { fontSize: 9, color: '#FFFFFF', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  // 今日の曜日ラベル（少し大きく）
-  // AIチャットボタン（ECG枠線アニメ）
+  goalDayMeta: {
+    marginTop: 2,
+    alignItems: 'center',
+    gap: 2,
+  },
+  // 莉頑律縺ｮ繝峨ャ繝茨ｼ夐峇縺・.6蛟阪し繧､繧ｺ縺ｪ縺ｮ縺ｧ繧ｹ繧ｳ繧｢繧ょ､ｧ縺阪￥
+  goalDayLabel: { fontSize: 9, color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  // 莉頑律縺ｮ譖懈律繝ｩ繝吶Ν・亥ｰ代＠螟ｧ縺阪￥・・
+  // AI繝√Ε繝・ヨ繝懊ち繝ｳ・・CG譫邱壹い繝九Γ・・
   guideAnchor: {
     position: 'absolute',
     left: 12,
@@ -1388,8 +1430,7 @@ const styles = StyleSheet.create({
   },
   chatButtonLocked: { backgroundColor: 'rgba(36, 32, 72, 0.92)' },
   chatButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
-  // AIアドバイス夢吹き出し（ShirokumaBubble に移行済み・スタイルは ShirokumaBubble 内で定義）
-  // AIチャットボタン（パネル内）
+  // AIチャット導線ボタン
   aiChatPanelButton: {
     backgroundColor: '#6B5CE7',
     borderRadius: 22,
@@ -1402,7 +1443,7 @@ const styles = StyleSheet.create({
   },
   aiChatPanelButtonLocked: { backgroundColor: 'rgba(36, 32, 72, 0.92)' },
   aiChatPanelButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
-  // ミニ記録ボタン（スコアリングの下）
+  // 繝溘ル險倬鹸繝懊ち繝ｳ・医せ繧ｳ繧｢繝ｪ繝ｳ繧ｰ縺ｮ荳具ｼ・
   miniRecordButton: {
     marginTop: 8,
     backgroundColor: '#6B5CE7',
@@ -1412,7 +1453,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   miniRecordButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
-  // 睡眠負債バッジ
+  // 逹｡逵雋蛯ｵ繝舌ャ繧ｸ
   debtBadge: {
     position: 'absolute',
     backgroundColor: 'rgba(13, 13, 30, 0.75)',
@@ -1427,7 +1468,7 @@ const styles = StyleSheet.create({
   },
   debtBadgeLabel: { fontSize: 9, color: '#9A9AB8', marginBottom: 2 },
   debtBadgeValue: { fontSize: 16, fontWeight: 'bold' },
-  // 今日の睡眠サマリー（旧横並び・未使用）
+  // 莉頑律縺ｮ逹｡逵繧ｵ繝槭Μ繝ｼ・域立讓ｪ荳ｦ縺ｳ繝ｻ譛ｪ菴ｿ逕ｨ・・
   topSummaryStrip: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1446,7 +1487,7 @@ const styles = StyleSheet.create({
     color: '#9C8FFF',
     fontWeight: '600',
   },
-  // ボトムパネル
+  // 繝懊ヨ繝繝代ロ繝ｫ
   bottomPanel: {
     position: 'absolute',
     bottom: 0,
@@ -1485,6 +1526,25 @@ const styles = StyleSheet.create({
   },
   firstTimeTitle: { fontSize: 15, fontWeight: 'bold', color: '#9C8FFF', marginBottom: 4 },
   firstTimeDesc: { fontSize: 12, color: '#C8C8E0', textAlign: 'center', lineHeight: 18 },
+  premiumTeaserCard: {
+    marginBottom: 12,
+    backgroundColor: 'rgba(107, 92, 231, 0.15)',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.25)',
+  },
+  premiumTeaserTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F2EFFF',
+    marginBottom: 6,
+  },
+  premiumTeaserBody: {
+    fontSize: 12,
+    color: '#D3D0F3',
+    lineHeight: 18,
+  },
   recordButton: {
     backgroundColor: '#6B5CE7',
     paddingHorizontal: 32,

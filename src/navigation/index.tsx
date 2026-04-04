@@ -39,9 +39,12 @@ import NotificationSettingsScreen from '../screens/Profile/NotificationSettingsS
 import DataManagementScreen from '../screens/Profile/DataManagementScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
 import {
+  BEDTIME_REMINDER_ACTION_ID,
+  BEDTIME_REMINDER_NOTIFICATION_ID,
   NOTIF_ID as MORNING_REMINDER_NOTIFICATION_ID,
   WEEKLY_REPORT_CHANNEL_ID,
   ensureWeeklyReportChannel,
+  savePendingSleepStart,
 } from '../services/notificationService';
 
 // ============================================================
@@ -234,6 +237,16 @@ function SplashScreen() {
 export default function AppNavigator() {
   const { isInitialized, hasCompletedOnboarding } = useAuthStore();
 
+  const handleBedtimeReminderPress = useCallback(async (pressActionId?: string) => {
+    if (pressActionId === BEDTIME_REMINDER_ACTION_ID) {
+      await savePendingSleepStart();
+    }
+
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('Main');
+    }
+  }, []);
+
   // アプリ起動時の通知タップ処理（Notifee / FCM 両対応）
   const handleNavigationReady = useCallback(async () => {
     // 週次レポートチャンネルを確保
@@ -243,6 +256,10 @@ export default function AppNavigator() {
     const initial = await notifee.getInitialNotification();
     if (initial?.notification?.id === MORNING_REMINDER_NOTIFICATION_ID) {
       navigationRef.navigate('Main');
+      return;
+    }
+    if (initial?.notification?.id === BEDTIME_REMINDER_NOTIFICATION_ID) {
+      await handleBedtimeReminderPress((initial as any)?.pressAction?.id);
       return;
     }
 
@@ -255,19 +272,32 @@ export default function AppNavigator() {
         }
       }, 500);
     }
-  }, []);
+  }, [handleBedtimeReminderPress]);
 
   // フォアグラウンドで起床リマインダー通知がタップされた場合 → Diary タブへ遷移
   useEffect(() => {
-    return notifee.onForegroundEvent(({ type, detail }) => {
+    return notifee.onForegroundEvent(async ({ type, detail }) => {
       const isWakeReminder =
         detail.notification?.id === MORNING_REMINDER_NOTIFICATION_ID;
-      if (!isWakeReminder) return;
+      if (isWakeReminder && type === EventType.PRESS && navigationRef.isReady()) {
+        navigationRef.navigate('Main');
+        return;
+      }
+
+      const isBedtimeReminder =
+        detail.notification?.id === BEDTIME_REMINDER_NOTIFICATION_ID;
+      if (!isBedtimeReminder) return;
+
+      if (type === EventType.ACTION_PRESS) {
+        await handleBedtimeReminderPress(detail.pressAction?.id);
+        return;
+      }
+
       if (type === EventType.PRESS && navigationRef.isReady()) {
         navigationRef.navigate('Main');
       }
     });
-  }, []);
+  }, [handleBedtimeReminderPress]);
 
   // FCM: フォアグラウンド通知受信 + バックグラウンド→フォアグラウンド時のタップ + トークンリフレッシュ
   useEffect(() => {

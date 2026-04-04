@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { DiaryStackParamList, SleepLog } from '../../types';
@@ -16,6 +17,8 @@ import { getScoreInfo } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
 import { i18n, useTranslation } from '../../i18n';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
+import HabitIcon from '../../components/common/HabitIcon';
+import { getSleepOnsetLabel, getWakeFeelingLabel } from '../../utils/sleepSubjective';
 
 type Props = NativeStackScreenProps<DiaryStackParamList, 'RecordDetail'>;
 
@@ -25,11 +28,21 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useTranslation();
 
-  useEffect(() => {
-    getSleepLog(date)
-      .then(l => setLog(l))
-      .finally(() => setIsLoading(false));
+  const reloadLog = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const nextLog = await getSleepLog(date);
+      setLog(nextLog);
+    } finally {
+      setIsLoading(false);
+    }
   }, [date]);
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadLog();
+    }, [reloadLog])
+  );
 
   if (isLoading) {
     return (
@@ -55,16 +68,8 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
   const hours = Math.floor(log.totalMinutes / 60);
   const mins = log.totalMinutes % 60;
 
-  const wakeFeelingLabel = {
-    GOOD: t('common.wakeFeeling.good'),
-    NORMAL: t('common.wakeFeeling.normal'),
-    BAD: t('common.wakeFeeling.bad'),
-  }[log.wakeFeeling];
-  const sleepOnsetLabel = {
-    FAST: t('common.sleepOnset.fast'),
-    NORMAL: t('common.sleepOnset.normal'),
-    SLOW: t('common.sleepOnset.slow'),
-  }[log.sleepOnset];
+  const wakeFeelingLabel = getWakeFeelingLabel(log.wakeFeeling, t);
+  const sleepOnsetLabel = getSleepOnsetLabel(log.sleepOnset, t);
 
   const checkedHabits = log.habits.filter(h => h.checked);
   const uncheckedHabits = log.habits.filter(h => !h.checked);
@@ -86,7 +91,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
             </View>
           </View>
           <Text style={styles.sourceLabel}>
-            {log.source === 'HEALTH_CONNECT' ? '❤️ Health Connect' : '✏️ 手動入力'}
+            {log.source === 'HEALTH_CONNECT' ? t('common.hcSource') : t('common.manualInput')}
           </Text>
         </View>
 
@@ -124,7 +129,13 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
               <View style={styles.habitsGrid}>
                 {checkedHabits.map(h => (
                   <View key={h.id} style={[styles.habitChip, styles.habitChipChecked]}>
-                    <Text style={styles.habitEmoji}>{h.emoji}</Text>
+                    <HabitIcon
+                      habit={h}
+                      size={22}
+                      backgroundColor="rgba(107, 92, 231, 0.18)"
+                      borderColor="rgba(107, 92, 231, 0.34)"
+                      color="#DCD8FF"
+                    />
                     <Text style={[styles.habitLabel, styles.habitLabelChecked]}>{h.label}</Text>
                   </View>
                 ))}
@@ -140,7 +151,13 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
               <View style={styles.habitsGrid}>
                 {uncheckedHabits.map(h => (
                   <View key={h.id} style={styles.habitChip}>
-                    <Text style={styles.habitEmoji}>{h.emoji}</Text>
+                    <HabitIcon
+                      habit={h}
+                      size={22}
+                      backgroundColor="rgba(255,255,255,0.04)"
+                      borderColor="#444"
+                      color="#9A9AB8"
+                    />
                     <Text style={styles.habitLabel}>{h.label}</Text>
                   </View>
                 ))}
@@ -235,7 +252,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   habitChipChecked: { borderColor: '#6B5CE7', backgroundColor: '#6B5CE715' },
-  habitEmoji: { fontSize: 14 },
   habitLabel: { fontSize: 12, color: '#888' },
   habitLabelChecked: { color: '#9C8FFF' },
   noHabitsText: { color: '#555', fontSize: 14 },

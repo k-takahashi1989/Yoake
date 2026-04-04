@@ -21,7 +21,7 @@ import { useSleepStore } from '../../stores/sleepStore';
 import { useHabitStore } from '../../stores/habitStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getScoreInfo } from '../../utils/scoreCalculator';
-import { SCORE_COLORS, FREE_LIMITS } from '../../constants';
+import { SCORE_COLORS, FREE_LIMITS, SUBSCRIPTION } from '../../constants';
 import { SleepLog, DiaryStackParamList, UserGoal } from '../../types';
 import HabitCustomizeModal from './HabitCustomizeModal';
 import SleepInputModal from '../Home/SleepInputModal';
@@ -209,6 +209,16 @@ export default function DiaryScreen() {
                 <Text style={styles.premiumText}>
                   {t('diary.premiumBanner')}
                 </Text>
+                <TouchableOpacity
+                  style={styles.premiumBannerButton}
+                  onPress={() =>
+                    (navigation.getParent() as any)?.navigate('Profile', { screen: 'SubscriptionManage' })
+                  }
+                >
+                  <Text style={styles.premiumBannerButtonText}>
+                    {t('report.upgradeBtn', { days: SUBSCRIPTION.TRIAL_DAYS })}
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : null
           }
@@ -292,7 +302,7 @@ function DiaryRow({ log, onPress }: { log: SleepLog; onPress: () => void }) {
         ) : null}
       </View>
 
-      {/* 右カラム：習慣emoji（あれば） */}
+      {/* 右カラム：習慣タグ（あれば） */}
       {checkedHabits.length > 0 ? (
         <View style={styles.rowRight}>
           <View style={styles.habitOverflow}>
@@ -580,7 +590,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(107, 92, 231, 0.25)',
   },
-  premiumText: { color: '#9C8FFF', fontSize: 14 },
+  premiumText: { color: '#9C8FFF', fontSize: 14, textAlign: 'center', marginBottom: 10 },
+  premiumBannerButton: {
+    backgroundColor: '#6B5CE7',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  premiumBannerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   // 過去の記録を追加ボタン
   addPastBtn: {
     marginHorizontal: 16,

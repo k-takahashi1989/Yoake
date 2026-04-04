@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { HabitEntry } from '../../types';
 import { useTranslation } from '../../i18n';
+import HabitIcon from '../common/HabitIcon';
 
 interface Props {
   habit: HabitEntry;
@@ -17,10 +18,12 @@ function getHabitDisplayLabel(habit: { id: string; label: string }, t: (key: str
 
 export default function HabitCheckRow({ habit, onToggle }: Props) {
   const { t } = useTranslation();
+  const displayLabel = getHabitDisplayLabel(habit, t);
+
   return (
     <TouchableOpacity style={styles.row} onPress={onToggle} activeOpacity={0.7}>
-      <Text style={styles.emoji}>{habit.emoji}</Text>
-      <Text style={styles.label}>{getHabitDisplayLabel(habit, t)}</Text>
+      <HabitIcon habit={habit} size={30} />
+      <Text style={styles.label}>{displayLabel}</Text>
       <View style={[styles.checkbox, habit.checked && styles.checkboxChecked]}>
         {habit.checked && <Text style={styles.checkmark}>✓</Text>}
       </View>
@@ -35,11 +38,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#3D3D55',
-  },
-  emoji: {
-    fontSize: 20,
-    marginRight: 10,
-    width: 28,
+    gap: 10,
   },
   label: {
     flex: 1,

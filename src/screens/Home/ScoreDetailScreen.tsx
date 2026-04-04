@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { SleepLog } from '../../types';
@@ -45,10 +46,12 @@ type SharedParamList = {
   RecordEdit: { date: string };
 };
 import { i18n, useTranslation } from '../../i18n';
-import { getSleepLog } from '../../services/firebase';
+import { getAiReport, getSleepLog } from '../../services/firebase';
 import { getScoreInfo, calculateScore } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
+import HabitIcon from '../../components/common/HabitIcon';
+import { getSleepOnsetLabel, getWakeFeelingLabel } from '../../utils/sleepSubjective';
 
 type Props = NativeStackScreenProps<SharedParamList, 'ScoreDetail'>;
 
@@ -57,6 +60,8 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const { date, scoreColor: routeScoreColor } = route.params;
   const [log, setLog] = useState<SleepLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [aiComment, setAiComment] = useState<string | null>(null);
+  const [isLoadingAiComment, setIsLoadingAiComment] = useState(false);
   const isAnimatingBack = useRef(false);
   const gradientAnim = useRef(new Animated.Value(0)).current;
   // stagger: header=0, card0..N
@@ -95,11 +100,36 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
     return unsub;
   }, [navigation, gradientAnim, staggerAnims]);
 
-  useEffect(() => {
-    getSleepLog(date)
-      .then(l => setLog(l))
-      .finally(() => setIsLoading(false));
+  const reloadLog = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const nextLog = await getSleepLog(date);
+      setLog(nextLog);
+    } finally {
+      setIsLoading(false);
+    }
   }, [date]);
+
+  const loadAiComment = useCallback(async () => {
+    setIsLoadingAiComment(true);
+    try {
+      const insightKey = `insight:${date}`;
+      const cached = await getAiReport(insightKey);
+      setAiComment(cached?.type === 'insight' ? cached.content : null);
+    } catch (error) {
+      console.error('Failed to load score detail comment:', error);
+      setAiComment(null);
+    } finally {
+      setIsLoadingAiComment(false);
+    }
+  }, [date]);
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadLog();
+      loadAiComment();
+    }, [loadAiComment, reloadLog])
+  );
 
   // A: gradient fade-in on mount
   useEffect(() => {
@@ -165,6 +195,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const hours = Math.floor(log.totalMinutes / 60);
   const mins = log.totalMinutes % 60;
   const actionsTitle = i18n.language === 'ja' ? '記録した行動' : t('scoreDetail.habitsTitle');
+  const commentTitle = i18n.language === 'ja' ? 'この日の見立て' : 'Insight';
 
   const gradientStyle = {
     opacity: gradientAnim,
@@ -210,7 +241,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
           </View>
           <View style={styles.sourceRow}>
             <Text style={styles.sourceText}>
-              {isHC ? '❤️ Health Connect' : '✏️ 手動入力'}
+              {isHC ? t('common.hcSource') : t('common.manualInput')}
             </Text>
           </View>
         </View>)}
@@ -222,19 +253,11 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
           <DataRow label={t('common.sleepDuration')} value={`${hours}${t('common.hours')}${mins}${t('common.minutes')}`} />
           <DataRow
             label={t('scoreDetail.wakeFeeling')}
-            value={{
-              GOOD: t('common.wakeFeeling.good'),
-              NORMAL: t('common.wakeFeeling.normal'),
-              BAD: t('common.wakeFeeling.bad'),
-            }[log.wakeFeeling]}
+            value={getWakeFeelingLabel(log.wakeFeeling, t)}
           />
           <DataRow
             label={t('scoreDetail.sleepOnset')}
-            value={{
-              FAST: t('common.sleepOnset.fast'),
-              NORMAL: t('common.sleepOnset.normal'),
-              SLOW: t('common.sleepOnset.slow'),
-            }[log.sleepOnset]}
+            value={getSleepOnsetLabel(log.sleepOnset, t)}
           />
         </SectionCard>)}
 
@@ -311,7 +334,13 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
                     key={h.id}
                     style={[styles.habitChip, h.checked && styles.habitChipChecked]}
                   >
-                    <Text style={styles.habitEmoji}>{h.emoji}</Text>
+                    <HabitIcon
+                      habit={h}
+                      size={22}
+                      backgroundColor={h.checked ? 'rgba(107, 92, 231, 0.18)' : 'rgba(255,255,255,0.04)'}
+                      borderColor={h.checked ? 'rgba(107, 92, 231, 0.34)' : '#444'}
+                      color={h.checked ? '#DCD8FF' : '#9A9AB8'}
+                    />
                     <Text style={[styles.habitLabel, h.checked && styles.habitLabelChecked]}>
                       {h.label}
                     </Text>
@@ -325,6 +354,15 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
               <Text style={styles.memoText}>{log.memo}</Text>
             </SectionCard>
           )}
+          {(isLoadingAiComment || aiComment) && (
+            <SectionCard title={commentTitle}>
+              {isLoadingAiComment ? (
+                <ActivityIndicator color="#9C8FFF" />
+              ) : (
+                <Text style={styles.memoText}>{aiComment}</Text>
+              )}
+            </SectionCard>
+          )}
         </>)}
 
         {/* 編集ボタン */}
@@ -332,7 +370,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
           style={styles.editButton}
           onPress={() => navigation.navigate('RecordEdit', { date })}
         >
-          <Text style={styles.editButtonText}>✏️ {t('recordDetail.editButton').replace('✏️ ', '')}</Text>
+          <Text style={styles.editButtonText}>{t('recordDetail.editButton')}</Text>
         </TouchableOpacity>
 
         <View style={styles.spacer} />
@@ -489,7 +527,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   habitChipChecked: { borderColor: '#6B5CE7', backgroundColor: '#6B5CE715' },
-  habitEmoji: { fontSize: 14 },
   habitLabel: { fontSize: 12, color: '#9A9AB8' },
   habitLabelChecked: { color: '#9C8FFF' },
   memoText: { fontSize: 14, color: '#D0D0E8', lineHeight: 22, fontFamily: 'ZenKurenaido-Regular' },

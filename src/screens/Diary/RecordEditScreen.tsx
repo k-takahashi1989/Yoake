@@ -14,15 +14,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { subHours } from 'date-fns';
-import { SleepLog, SleepInputForm, SleepOnset, WakeFeeling } from '../../types';
+import { SleepLog, SleepInputForm } from '../../types';
 import { getSleepLog, getGoal } from '../../services/firebase';
 import { safeToDate } from '../../utils/dateUtils';
 import { useSleepStore } from '../../stores/sleepStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
+import SubjectiveScaleInput from '../../components/common/SubjectiveScaleInput';
 import { i18n, useTranslation } from '../../i18n';
+import {
+  getSleepOnsetOptions,
+  getWakeFeelingOptions,
+} from '../../utils/sleepSubjective';
 
-// HomeStack / DiaryStack 両方から遷移できる共通型
 type SharedParamList = { RecordEdit: { date: string } };
 type Props = NativeStackScreenProps<SharedParamList, 'RecordEdit'>;
 
@@ -33,6 +37,7 @@ export default function RecordEditScreen({ route, navigation }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [originalLog, setOriginalLog] = useState<SleepLog | null>(null);
   const { t } = useTranslation();
+  const isJa = i18n.language === 'ja';
 
   const defaultBedTime = subHours(new Date(), 8);
   defaultBedTime.setMinutes(0, 0, 0);
@@ -87,15 +92,16 @@ export default function RecordEditScreen({ route, navigation }: Props) {
     ]);
   };
 
+  const resolvedWakeTime = (() => {
+    if (form.wakeTime <= form.bedTime) {
+      const next = new Date(form.wakeTime);
+      next.setDate(next.getDate() + 1);
+      return next;
+    }
+    return form.wakeTime;
+  })();
+
   const handleSave = async () => {
-    const resolvedWakeTime = (() => {
-      if (form.wakeTime <= form.bedTime) {
-        const next = new Date(form.wakeTime);
-        next.setDate(next.getDate() + 1);
-        return next;
-      }
-      return form.wakeTime;
-    })();
     const correctedForm = { ...form, wakeTime: resolvedWakeTime };
     setIsSaving(true);
     try {
@@ -104,6 +110,8 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         correctedForm,
         goal ?? { targetHours: 7.5, targetScore: 80, bedTimeTarget: null, updatedAt: null },
         originalLog?.source ?? 'MANUAL',
+        date,
+        { generateInsight: false },
       );
       navigation.goBack();
     } catch {
@@ -116,23 +124,41 @@ export default function RecordEditScreen({ route, navigation }: Props) {
   const toggleHabit = (id: string) => {
     setForm(prev => ({
       ...prev,
-      habits: prev.habits.map(h => h.id === id ? { ...h, checked: !h.checked } : h),
+      habits: prev.habits.map(h => (h.id === id ? { ...h, checked: !h.checked } : h)),
     }));
   };
 
   const totalMinutes = Math.max(
     0,
-    Math.round((form.wakeTime.getTime() - form.bedTime.getTime()) / 60000),
+    Math.round((resolvedWakeTime.getTime() - form.bedTime.getTime()) / 60000),
   );
 
-  const SLEEP_ONSET_OPTIONS = getSleepOnsetOptions(t);
-  const WAKE_FEELING_OPTIONS = getWakeFeelingOptions(t);
-  const actionsTitle = i18n.language === 'ja' ? '行動' : t('recordEdit.habitsTitle');
+  const sleepOnsetOptions = isJa
+    ? [
+        { value: 'FAST' as const, label: 'すぐ寝れた' },
+        { value: 'SLIGHTLY_FAST' as const, label: 'やや早く寝れた' },
+        { value: 'NORMAL' as const, label: 'ふつう' },
+        { value: 'SLIGHTLY_SLOW' as const, label: 'やや寝つきに時間がかかった' },
+        { value: 'SLOW' as const, label: '寝つきに時間がかかった' },
+      ]
+    : getSleepOnsetOptions(t);
+  const wakeFeelingOptions = isJa
+    ? [
+        { value: 'GOOD' as const, label: 'すっきり' },
+        { value: 'SLIGHTLY_GOOD' as const, label: 'ややすっきり' },
+        { value: 'NORMAL' as const, label: 'ふつう' },
+        { value: 'SLIGHTLY_BAD' as const, label: 'やや重い' },
+        { value: 'BAD' as const, label: '重い' },
+      ]
+    : getWakeFeelingOptions(t);
+  const actionsTitle = isJa ? '行動チェック' : t('recordEdit.habitsTitle');
 
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.center}><ActivityIndicator color="#6B5CE7" /></View>
+        <View style={styles.center}>
+          <ActivityIndicator color="#6B5CE7" />
+        </View>
       </SafeAreaView>
     );
   }
@@ -150,108 +176,90 @@ export default function RecordEditScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      {/* ヘッダー */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
-          <Text style={styles.cancelText}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('recordEdit.title')}</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
-            <Text style={styles.deleteText}>{t('common.delete')}</Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
+            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleSave}
-            style={[styles.saveBtn, isSaving && styles.saveBtnDisabled]}
-            disabled={isSaving}
-          >
-            <Text style={styles.saveText}>{t('common.save')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* 睡眠時間プレビュー */}
-        <View style={styles.durationPreview}>
-          <Text style={styles.durationValue}>
-            {Math.floor(totalMinutes / 60)}時間{totalMinutes % 60}分
-          </Text>
-          <Text style={styles.durationLabel}>睡眠時間</Text>
+          <Text style={styles.title}>{isJa ? '睡眠記録を編集' : t('recordEdit.title')}</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+              <Text style={styles.deleteText}>{t('common.delete')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={[styles.saveBtn, isSaving && styles.saveBtnDisabled]}
+              disabled={isSaving}
+            >
+              <Text style={styles.saveText}>{t('common.save')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* 就寝・起床 */}
-        <SectionCard title={t('sleepInput.bedWakeTitle')}>
-          <TimePickerRow
-            label="就寝"
-            value={form.bedTime}
-            onChange={d => setForm(prev => ({ ...prev, bedTime: d }))}
-          />
-          <TimePickerRow
-            label="起床"
-            value={form.wakeTime}
-            onChange={d => setForm(prev => ({ ...prev, wakeTime: d }))}
-          />
-        </SectionCard>
-
-        {/* 寝つき */}
-        <SectionCard title={t('sleepInput.sleepOnsetTitle')}>
-          <View style={styles.optionRow}>
-            {SLEEP_ONSET_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.optionChip, form.sleepOnset === opt.value && styles.optionChipActive]}
-                onPress={() => setForm(prev => ({ ...prev, sleepOnset: opt.value }))}
-              >
-                <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                <Text style={[styles.optionLabel, form.sleepOnset === opt.value && styles.optionLabelActive]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.durationPreview}>
+            <Text style={styles.durationValue}>
+              {isJa
+                ? `${Math.floor(totalMinutes / 60)}時間${totalMinutes % 60}分`
+                : `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60}m`}
+            </Text>
+            <Text style={styles.durationLabel}>{isJa ? '睡眠時間' : t('common.sleepDuration')}</Text>
           </View>
-        </SectionCard>
 
-        {/* 目覚め */}
-        <SectionCard title={t('sleepInput.wakeFeelingTitle')}>
-          <View style={styles.optionRow}>
-            {WAKE_FEELING_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.optionChip, form.wakeFeeling === opt.value && styles.optionChipActive]}
-                onPress={() => setForm(prev => ({ ...prev, wakeFeeling: opt.value }))}
-              >
-                <Text style={styles.optionEmoji}>{opt.emoji}</Text>
-                <Text style={[styles.optionLabel, form.wakeFeeling === opt.value && styles.optionLabelActive]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
+          <SectionCard title={isJa ? '就寝時間・起床時間' : t('sleepInput.bedWakeTitle')}>
+            <TimePickerRow
+              label={isJa ? '就寝時間' : t('common.bedTime')}
+              value={form.bedTime}
+              onChange={nextDate => setForm(prev => ({ ...prev, bedTime: nextDate }))}
+            />
+            <TimePickerRow
+              label={isJa ? '起床時間' : t('common.wakeTime')}
+              value={form.wakeTime}
+              onChange={nextDate => setForm(prev => ({ ...prev, wakeTime: nextDate }))}
+            />
+          </SectionCard>
+
+          <SectionCard title={isJa ? '寝つきはどうでしたか？' : t('sleepInput.sleepOnsetTitle')}>
+            <SubjectiveScaleInput
+              options={sleepOnsetOptions}
+              value={form.sleepOnset}
+              onChange={nextValue => setForm(prev => ({ ...prev, sleepOnset: nextValue }))}
+            />
+          </SectionCard>
+
+          <SectionCard title={isJa ? '目覚めはどうでしたか？' : t('sleepInput.wakeFeelingTitle')}>
+            <SubjectiveScaleInput
+              options={wakeFeelingOptions}
+              value={form.wakeFeeling}
+              onChange={nextValue => setForm(prev => ({ ...prev, wakeFeeling: nextValue }))}
+            />
+          </SectionCard>
+
+          <SectionCard title={actionsTitle}>
+            {form.habits.map(habit => (
+              <HabitCheckRow key={habit.id} habit={habit} onToggle={() => toggleHabit(habit.id)} />
             ))}
-          </View>
-        </SectionCard>
+          </SectionCard>
 
-        {/* 習慣 */}
-        <SectionCard title={actionsTitle}>
-          {form.habits.map(habit => (
-            <HabitCheckRow key={habit.id} habit={habit} onToggle={() => toggleHabit(habit.id)} />
-          ))}
-        </SectionCard>
+          <SectionCard title={isJa ? 'メモ（任意）' : t('common.memoOptional')}>
+            <TextInput
+              style={styles.memoInput}
+              value={form.memo}
+              onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
+              placeholder={isJa ? '気づいたことを記録できます' : t('common.memoPlaceholder')}
+              placeholderTextColor="#555"
+              multiline
+              numberOfLines={3}
+              maxLength={200}
+            />
+          </SectionCard>
 
-        {/* メモ */}
-        <SectionCard title={t('common.memoOptional')}>
-          <TextInput
-            style={styles.memoInput}
-            value={form.memo}
-            onChangeText={text => setForm(prev => ({ ...prev, memo: text }))}
-            placeholder={t('common.memoPlaceholder')}
-            placeholderTextColor="#555"
-            multiline
-            numberOfLines={3}
-            maxLength={200}
-          />
-        </SectionCard>
-
-        <View style={styles.spacer} />
-      </ScrollView>
+          <View style={styles.spacer} />
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -264,22 +272,6 @@ function SectionCard({ title, children }: { title: string; children: React.React
       {children}
     </View>
   );
-}
-
-function getSleepOnsetOptions(t: (key: string) => string): Array<{ value: SleepOnset; label: string; emoji: string }> {
-  return [
-    { value: 'FAST', label: t('sleepInput.onsetFast'), emoji: '😴' },
-    { value: 'NORMAL', label: t('sleepInput.onsetNormal'), emoji: '😐' },
-    { value: 'SLOW', label: t('sleepInput.onsetSlow'), emoji: '😫' },
-  ];
-}
-
-function getWakeFeelingOptions(t: (key: string) => string): Array<{ value: WakeFeeling; label: string; emoji: string }> {
-  return [
-    { value: 'GOOD', label: t('sleepInput.wakeFeelingGood'), emoji: '😊' },
-    { value: 'NORMAL', label: t('sleepInput.wakeFeelingNormal'), emoji: '😐' },
-    { value: 'BAD', label: t('sleepInput.wakeFeelingBad'), emoji: '😩' },
-  ];
 }
 
 const styles = StyleSheet.create({
@@ -316,20 +308,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: { fontSize: 14, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 },
-  optionRow: { flexDirection: 'row', gap: 8 },
-  optionChip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#1A1A2E',
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-  optionChipActive: { backgroundColor: '#6B5CE710', borderColor: '#6B5CE7' },
-  optionEmoji: { fontSize: 22, marginBottom: 4 },
-  optionLabel: { fontSize: 10, color: '#9A9AB8', textAlign: 'center' },
-  optionLabelActive: { color: '#6B5CE7', fontWeight: '600' },
   memoInput: {
     color: '#FFFFFF',
     fontSize: 14,

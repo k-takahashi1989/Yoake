@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
+  Alert,
   FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
   TouchableWithoutFeedback,
+  View,
 } from 'react-native';
-import { saveGoal } from '../../../services/firebase';
 import firestore from '@react-native-firebase/firestore';
-import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
+import { useTranslation } from '../../../i18n';
+import { saveGoal } from '../../../services/firebase';
+import { useAuthStore } from '../../../stores/authStore';
 
 interface Props {
   onNext: () => void;
@@ -20,34 +22,54 @@ interface Props {
 
 const SLEEP_HOUR_OPTIONS = [5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5];
 const SCORE_OPTIONS = [65, 70, 75, 80, 85, 90];
-const BEDTIME_OPTIONS = ['21:00', '21:30', '22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00', '01:30', '02:00'];
-
-// ============================================================
-// SelectRow
-// ============================================================
+const BEDTIME_OPTIONS = [
+  '21:00',
+  '21:30',
+  '22:00',
+  '22:30',
+  '23:00',
+  '23:30',
+  '00:00',
+  '00:30',
+  '01:00',
+  '01:30',
+  '02:00',
+];
 
 interface SelectRowProps<T> {
   label: string;
   value: T;
   options: T[];
-  renderLabel: (v: T) => string;
-  onChange: (v: T) => void;
+  renderLabel: (value: T) => string;
+  onChange: (value: T) => void;
   nullable?: boolean;
   nullLabel?: string;
 }
 
-function SelectRow<T>({ label, value, options, renderLabel, onChange, nullable, nullLabel }: SelectRowProps<T>) {
+function SelectRow<T>({
+  label,
+  value,
+  options,
+  renderLabel,
+  onChange,
+  nullable,
+  nullLabel,
+}: SelectRowProps<T>) {
   const [open, setOpen] = useState(false);
+  const displayValue =
+    value === null ? (nullLabel ?? 'Not set') : renderLabel(value);
 
   return (
     <>
-      <TouchableOpacity style={styles.selectRow} onPress={() => setOpen(true)} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.selectRow}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+      >
         <Text style={styles.selectLabel}>{label}</Text>
         <View style={styles.selectValue}>
-          <Text style={styles.selectValueText}>
-            {value === null ? (nullLabel ?? '未設定') : renderLabel(value)}
-          </Text>
-          <Text style={styles.chevron}>›</Text>
+          <Text style={styles.selectValueText}>{displayValue}</Text>
+          <Text style={styles.chevron}>{'>'}</Text>
         </View>
       </TouchableOpacity>
 
@@ -58,19 +80,36 @@ function SelectRow<T>({ label, value, options, renderLabel, onChange, nullable, 
               <View style={styles.sheet}>
                 <Text style={styles.sheetTitle}>{label}</Text>
                 <FlatList
-                  data={nullable ? ([null, ...options] as (T | null)[]) : options as (T | null)[]}
-                  keyExtractor={(_, i) => String(i)}
+                  data={
+                    nullable
+                      ? ([null, ...options] as Array<T | null>)
+                      : (options as Array<T | null>)
+                  }
+                  keyExtractor={(_, index) => String(index)}
                   renderItem={({ item }) => {
                     const isSelected = item === value;
+                    const optionLabel =
+                      item === null
+                        ? (nullLabel ?? 'Not set')
+                        : renderLabel(item as T);
+
                     return (
                       <TouchableOpacity
                         style={[styles.option, isSelected && styles.optionSelected]}
-                        onPress={() => { onChange(item as T); setOpen(false); }}
+                        onPress={() => {
+                          onChange(item as T);
+                          setOpen(false);
+                        }}
                       >
-                        <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                          {item === null ? (nullLabel ?? '未設定') : renderLabel(item as T)}
+                        <Text
+                          style={[
+                            styles.optionText,
+                            isSelected && styles.optionTextSelected,
+                          ]}
+                        >
+                          {optionLabel}
                         </Text>
-                        {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                        {isSelected && <Text style={styles.checkmark}>OK</Text>}
                       </TouchableOpacity>
                     );
                   }}
@@ -84,12 +123,9 @@ function SelectRow<T>({ label, value, options, renderLabel, onChange, nullable, 
   );
 }
 
-// ============================================================
-// GoalSetupStep
-// ============================================================
-
 export default function GoalSetupStep({ onNext }: Props) {
   const { t } = useTranslation();
+  const ensureSignedIn = useAuthStore(state => state.ensureSignedIn);
   const [targetHours, setTargetHours] = useState(7.5);
   const [targetScore, setTargetScore] = useState(80);
   const [bedTimeTarget, setBedTimeTarget] = useState<string | null>('23:00');
@@ -98,6 +134,7 @@ export default function GoalSetupStep({ onNext }: Props) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      await ensureSignedIn();
       await saveGoal({
         targetHours,
         targetScore,
@@ -105,15 +142,19 @@ export default function GoalSetupStep({ onNext }: Props) {
         updatedAt: firestore.Timestamp.now(),
       });
       onNext();
-    } catch (e) {
-      console.error('目標保存失敗:', e);
+    } catch (error) {
+      console.error('[GoalSetupStep] failed to save goal:', error);
+      Alert.alert(t('common.error'), t('common.saveFailed'));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>{t('onboarding.goal.title')}</Text>
       <Text style={styles.subtitle}>{t('onboarding.goal.subtitle')}</Text>
 
@@ -122,7 +163,7 @@ export default function GoalSetupStep({ onNext }: Props) {
           label={t('onboarding.goal.sleepHours')}
           value={targetHours}
           options={SLEEP_HOUR_OPTIONS}
-          renderLabel={h => t('onboarding.goal.hoursFormat', { h })}
+          renderLabel={hours => t('onboarding.goal.hoursFormat', { h: hours })}
           onChange={setTargetHours}
         />
         <View style={styles.divider} />
@@ -130,7 +171,7 @@ export default function GoalSetupStep({ onNext }: Props) {
           label={t('onboarding.goal.targetScore')}
           value={targetScore}
           options={SCORE_OPTIONS}
-          renderLabel={s => t('onboarding.goal.scoreFormat', { s })}
+          renderLabel={score => t('onboarding.goal.scoreFormat', { s: score })}
           onChange={setTargetScore}
         />
         <View style={styles.divider} />
@@ -138,7 +179,7 @@ export default function GoalSetupStep({ onNext }: Props) {
           label={t('onboarding.goal.bedTimeTarget')}
           value={bedTimeTarget}
           options={BEDTIME_OPTIONS}
-          renderLabel={v => v ?? ''}
+          renderLabel={value => value ?? ''}
           onChange={setBedTimeTarget}
           nullable
           nullLabel={t('onboarding.goal.notSet')}
@@ -150,7 +191,9 @@ export default function GoalSetupStep({ onNext }: Props) {
         onPress={handleSave}
         disabled={isSaving}
       >
-        <Text style={styles.buttonText}>{isSaving ? t('onboarding.goal.saving') : t('common.next')}</Text>
+        <Text style={styles.buttonText}>
+          {isSaving ? t('onboarding.goal.saving') : t('common.next')}
+        </Text>
       </ScalePressable>
     </ScrollView>
   );
@@ -189,7 +232,6 @@ const styles = StyleSheet.create({
   selectValueText: { fontSize: 15, color: '#9C8FFF', fontWeight: '600' },
   chevron: { fontSize: 20, color: '#6B5CE7', marginTop: 1 },
   divider: { height: 1, backgroundColor: '#3D3D55', marginHorizontal: 16 },
-  // Modal
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -221,8 +263,7 @@ const styles = StyleSheet.create({
   optionSelected: { backgroundColor: '#6B5CE720' },
   optionText: { fontSize: 16, color: '#FFFFFF' },
   optionTextSelected: { color: '#9C8FFF', fontWeight: '600' },
-  checkmark: { color: '#6B5CE7', fontSize: 16 },
-  // Button
+  checkmark: { color: '#6B5CE7', fontSize: 12, fontWeight: '700' },
   button: {
     backgroundColor: '#6B5CE7',
     paddingVertical: 16,

@@ -44,7 +44,9 @@ function calcDeepSleepScore(totalMinutes: number, deepSleepMinutes: number | nul
 
 function calcWakeFeelingScore(wakeFeeling: string): number {
   if (wakeFeeling === 'GOOD') return 15;
+  if (wakeFeeling === 'SLIGHTLY_GOOD') return 12;
   if (wakeFeeling === 'NORMAL') return 9;
+  if (wakeFeeling === 'SLIGHTLY_BAD') return 6;
   return 3;
 }
 
@@ -59,7 +61,9 @@ function calcContinuityScore(awakenings: number | null): number {
 
 function calcSleepOnsetScore(sleepOnset: string): number {
   if (sleepOnset === 'FAST') return 10;
+  if (sleepOnset === 'SLIGHTLY_FAST') return 8;
   if (sleepOnset === 'NORMAL') return 6;
+  if (sleepOnset === 'SLIGHTLY_SLOW') return 4;
   return 2;
 }
 
@@ -92,13 +96,17 @@ function calcBedTimeScoreManual(bedTime: Date): number {
 
 function calcWakeFeelingScoreManual(wakeFeeling: string): number {
   if (wakeFeeling === 'GOOD') return 20;
+  if (wakeFeeling === 'SLIGHTLY_GOOD') return 16;
   if (wakeFeeling === 'NORMAL') return 12;
+  if (wakeFeeling === 'SLIGHTLY_BAD') return 8;
   return 4;
 }
 
 function calcSleepOnsetScoreManual(sleepOnset: string): number {
   if (sleepOnset === 'FAST') return 15;
+  if (sleepOnset === 'SLIGHTLY_FAST') return 12;
   if (sleepOnset === 'NORMAL') return 9;
+  if (sleepOnset === 'SLIGHTLY_SLOW') return 6;
   return 3;
 }
 

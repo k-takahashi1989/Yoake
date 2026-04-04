@@ -135,6 +135,10 @@ export async function saveAiReport(key: string, report: AiReport): Promise<void>
   await userDoc().collection('aiReports').doc(key).set(report);
 }
 
+export async function deleteAiReport(key: string): Promise<void> {
+  await userDoc().collection('aiReports').doc(key).delete();
+}
+
 export async function getPastWeeklyReports(n: number): Promise<Array<{ key: string } & AiReport>> {
   const snap = await userDoc()
     .collection('aiReports')

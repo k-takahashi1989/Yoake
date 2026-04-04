@@ -32,6 +32,12 @@ import ScoreTrendCard from './components/ScoreTrendCard';
 import WeeklyReportCard from './components/WeeklyReportCard';
 import HabitCorrelationCard from './components/HabitCorrelationCard';
 import LockedContentOverlay from './components/LockedContentOverlay';
+import HabitIcon from '../../components/common/HabitIcon';
+import Icon from '../../components/common/Icon';
+import {
+  promptForReviewIfEligible,
+  queueWeeklyReportReviewMoment,
+} from '../../services/reviewService';
 
 // ============================================================
 // ヘルパー型
@@ -100,6 +106,7 @@ export default function ReportScreen() {
   const [pastReports, setPastReports] = useState<Array<{ key: string } & AiReport>>([]);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const reviewLanguage = i18n.language === 'ja' ? 'ja' : 'en';
 
   // NOTE: useMemo はペイウォール early return の前に置く（Rules of Hooks）
   const logs = useMemo(
@@ -130,10 +137,10 @@ export default function ReportScreen() {
       prevPeriodAvgScore: avgScore(prevWeek),
       threeMonthAvgScore: threeMonthAvg,
       topPositiveHabit: positives[0]
-        ? { label: positives[0].label, emoji: positives[0].emoji, diff: diff(positives[0]) }
+        ? { label: positives[0].label, diff: diff(positives[0]) }
         : null,
       topNegativeHabit: negatives[0]
-        ? { label: negatives[0].label, emoji: negatives[0].emoji, diff: diff(negatives[0]) }
+        ? { label: negatives[0].label, diff: diff(negatives[0]) }
         : null,
       ageGroup: profile?.ageGroup ?? null,
     };
@@ -150,6 +157,7 @@ export default function ReportScreen() {
     const cached = past[0]?.key === weekKey ? past[0] : await getAiReport(weekKey);
     if (cached) {
       setWeeklyReport(cached);
+      queueWeeklyReportReviewMoment(weekKey).catch(() => {});
       return;
     }
 
@@ -165,6 +173,7 @@ export default function ReportScreen() {
         );
         await saveAiReport(weekKey, report);
         setWeeklyReport(report);
+        queueWeeklyReportReviewMoment(weekKey).catch(() => {});
       } catch {
         // ignore API errors
       } finally {
@@ -203,6 +212,12 @@ export default function ReportScreen() {
     loadData();
   }, [loadData]);
 
+  useFocusEffect(
+    useCallback(() => {
+      promptForReviewIfEligible(reviewLanguage).catch(() => {});
+    }, [reviewLanguage]),
+  );
+
   const handleGenerateReport = async () => {
     const today = new Date();
     const weekKey = format(today, "RRRR-'W'II");
@@ -218,6 +233,7 @@ export default function ReportScreen() {
       );
       await saveAiReport(weekKey, report);
       setWeeklyReport(report);
+      queueWeeklyReportReviewMoment(weekKey).catch(() => {});
     } catch (e) {
       console.error('generateWeeklyReport failed:', e);
       Alert.alert(t('common.error'), t('report.generateFailed'));
@@ -301,7 +317,9 @@ export default function ReportScreen() {
           </View>
         ) : logs.length === 0 ? (
           <View style={styles.center}>
-            <Text style={styles.emptyIcon}>📊</Text>
+            <View style={styles.emptyIconWrap}>
+              <Icon name="data-analytics" size={28} color="#DCD8FF" />
+            </View>
             <Text style={styles.emptyText}>{t('report.insufficientData')}</Text>
             <Text style={styles.emptySubText}>
               {tab === 'weekly' ? t('report.insufficientDataSub_weekly') : t('report.insufficientDataSub_monthly')}
@@ -457,7 +475,7 @@ function SummaryHeroCard({
         <Text style={styles.summaryInsightsLabel}>{insightLabel}</Text>
         <InsightChip
           tone="positive"
-          emoji={topPositiveHabit?.emoji ?? '✨'}
+          label={topPositiveHabit?.label}
           text={
             topPositiveHabit && positiveDiff != null
               ? `${topPositiveHabit.label} ${positiveDiff > 0 ? `+${positiveDiff}` : positiveDiff}`
@@ -466,7 +484,7 @@ function SummaryHeroCard({
         />
         <InsightChip
           tone="negative"
-          emoji={topNegativeHabit?.emoji ?? '🌙'}
+          label={topNegativeHabit?.label}
           text={
             topNegativeHabit && negativeDiff != null
               ? `${topNegativeHabit.label} ${negativeDiff > 0 ? `+${negativeDiff}` : negativeDiff}`
@@ -488,17 +506,25 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
 }
 
 function InsightChip({
-  emoji,
+  label,
   text,
   tone,
 }: {
-  emoji: string;
+  label?: string;
   text: string;
   tone: 'positive' | 'negative';
 }) {
   return (
     <View style={[styles.insightChip, tone === 'positive' ? styles.insightChipPositive : styles.insightChipNegative]}>
-      <Text style={styles.insightChipEmoji}>{emoji}</Text>
+      {label ? (
+        <HabitIcon
+          habit={{ label }}
+          size={24}
+          backgroundColor={tone === 'positive' ? 'rgba(76, 175, 80, 0.14)' : 'rgba(255, 152, 0, 0.14)'}
+          borderColor={tone === 'positive' ? 'rgba(76, 175, 80, 0.24)' : 'rgba(255, 152, 0, 0.24)'}
+          color="#E1DFF3"
+        />
+      ) : null}
       <Text style={styles.insightChipText} numberOfLines={1}>{text}</Text>
     </View>
   );
@@ -581,7 +607,17 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, color: '#C8C8E0' },
   tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyIcon: { fontSize: 48 },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(107, 92, 231, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.2)',
+    marginBottom: 8,
+  },
   emptyText: { fontSize: 16, color: '#C8C8E0', marginTop: 8 },
   emptySubText: { fontSize: 13, color: '#C8C8E0', textAlign: 'center', marginTop: 4 },
   scroll: { flex: 1 },
@@ -651,7 +687,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 152, 0, 0.10)',
     borderColor: 'rgba(255, 152, 0, 0.20)',
   },
-  insightChipEmoji: { fontSize: 16 },
   insightChipText: { flex: 1, fontSize: 12, color: '#E1DFF3' },
   statsRow: {
     flexDirection: 'row',

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YOAKE Feedback</title>
+    <style>
+      :root {
+        --bg: #0f2140;
+        --card: rgba(16, 31, 58, 0.86);
+        --text: #f6efe2;
+        --muted: #cfbf9d;
+        --accent: #f0be62;
+        --accent-soft: rgba(240, 190, 98, 0.18);
+        --line: rgba(255, 255, 255, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(240, 190, 98, 0.28), transparent 28%),
+          linear-gradient(180deg, #14335d 0%, var(--bg) 52%, #0c1830 100%);
+      }
+
+      main {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0 64px;
+      }
+
+      .hero,
+      .panel {
+        padding: 24px;
+        border-radius: 24px;
+        background:
+          linear-gradient(140deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
+          var(--card);
+        border: 1px solid var(--line);
+        box-shadow: 0 16px 40px rgba(3, 11, 24, 0.24);
+      }
+
+      .hero { margin-bottom: 20px; }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 8px;
+        font-size: clamp(32px, 5vw, 48px);
+        line-height: 1.05;
+      }
+
+      p, label, li {
+        color: rgba(246, 239, 226, 0.86);
+        line-height: 1.7;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 20px;
+      }
+
+      .form { display: grid; gap: 14px; }
+      .field { display: grid; gap: 8px; }
+      .field span { font-size: 14px; color: var(--muted); }
+
+      input, select, textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 16px;
+        background: rgba(5, 14, 29, 0.32);
+        color: var(--text);
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 180px;
+        resize: vertical;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .button,
+      .button-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 20px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .button {
+        border: none;
+        background: linear-gradient(135deg, #f3c86e, #e9ab45);
+        color: #152542;
+        cursor: pointer;
+      }
+
+      .button-secondary {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: var(--text);
+        background: transparent;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li + li { margin-top: 8px; }
+
+      .small {
+        font-size: 13px;
+        color: rgba(246, 239, 226, 0.62);
+      }
+
+      .mail {
+        word-break: break-all;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          width: min(100% - 20px, 920px);
+          padding-top: 20px;
+        }
+
+        .hero,
+        .panel {
+          padding: 20px;
+          border-radius: 20px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">YOAKE Support</div>
+        <h1>Feedback & bug report</h1>
+        <p>
+          Send feature requests, bug reports, or anything that felt confusing while using YOAKE.
+          We use these reports to improve the app experience.
+        </p>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>Report form</h2>
+          <form class="form" id="feedback-form">
+            <label class="field">
+              <span>Category</span>
+              <select id="category" name="category">
+                <option>Bug report</option>
+                <option>Feature request</option>
+                <option>UI / UX feedback</option>
+                <option>Other</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Email address (optional)</span>
+              <input type="email" id="email" name="email" placeholder="you@example.com" />
+            </label>
+
+            <label class="field">
+              <span>Message</span>
+              <textarea id="message" name="message" placeholder="Tell us what happened, what you expected, and any device or OS details you know." required></textarea>
+            </label>
+
+            <div class="actions">
+              <button class="button" type="submit">Create feedback email</button>
+              <a class="button-secondary" href="mailto:neighborhood1230@gmail.com">Email directly</a>
+            </div>
+
+            <p class="small">
+              Contact: <span class="mail">neighborhood1230@gmail.com</span>
+            </p>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>What helps the most</h2>
+          <ul>
+            <li>Which screen you were using.</li>
+            <li>What you expected to happen.</li>
+            <li>What actually happened.</li>
+            <li>Your device model and Android / iOS version if known.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById('feedback-form');
+
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+
+        const category = document.getElementById('category').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const message = document.getElementById('message').value.trim();
+
+        if (!message) {
+          return;
+        }
+
+        const subject = encodeURIComponent(`[YOAKE] ${category}`);
+        const body = encodeURIComponent(
+          `Category: ${category}\nEmail: ${email || 'Not provided'}\n\nMessage:\n${message}`,
+        );
+
+        window.location.href = `mailto:neighborhood1230@gmail.com?subject=${subject}&body=${body}`;
+      });
+    </script>
+  </body>
+</html>

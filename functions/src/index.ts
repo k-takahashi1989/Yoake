@@ -1,6 +1,7 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+﻿import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
+import * as crypto from 'crypto';
 import { google } from 'googleapis';
 
 admin.initializeApp();
@@ -9,10 +10,11 @@ const db = admin.firestore();
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const PACKAGE_NAME = 'com.ktakahashi.yoake';
+const APP_STORE_BUNDLE_ID = 'com.ktakahashi.yoake';
 const TRIAL_DAYS = 7;
 
 // ============================================================
-// 内部ヘルパー
+// 蜀・Κ繝倥Ν繝代・
 // ============================================================
 
 async function callClaudeApi(
@@ -62,23 +64,47 @@ async function callClaudeApi(
 
 async function isPremiumUser(uid: string): Promise<boolean> {
   console.log('[isPremiumUser] checking uid:', uid);
-  const subSnap = await db
-    .collection('users').doc(uid)
-    .collection('subscription').doc('main')
-    .get();
+  const userRef = db.collection('users').doc(uid);
+  const subRef = userRef.collection('subscription').doc('main');
+  const subSnap = await subRef.get();
   if (!subSnap.exists) {
     console.log('[isPremiumUser] no subscription doc found');
+    await userRef.set(
+      { isPremium: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true },
+    );
     return false;
   }
   const data = subSnap.data()!;
   console.log('[isPremiumUser] status:', data.status);
-  if (data.status === 'active' || data.status === 'trial') {
-    const endAt: admin.firestore.Timestamp | null =
-      data.currentPeriodEndAt ?? data.trialEndAt ?? null;
-    const now = new Date();
-    console.log('[isPremiumUser] endAt:', endAt?.toDate().toISOString(), 'now:', now.toISOString());
-    if (endAt && endAt.toDate() > now) return true;
+  const endAt: admin.firestore.Timestamp | null =
+    data.currentPeriodEndAt ?? data.trialEndAt ?? null;
+  const now = new Date();
+  const hasEntitlement =
+    (data.status === 'active' || data.status === 'trial') &&
+    endAt &&
+    endAt.toDate() > now;
+
+  console.log('[isPremiumUser] endAt:', endAt?.toDate().toISOString(), 'now:', now.toISOString());
+
+  if (hasEntitlement) {
+    return true;
   }
+
+  await Promise.all([
+    subRef.set(
+      {
+        status: 'expired',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    ),
+    userRef.set(
+      { isPremium: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true },
+    ),
+  ]);
+
   console.log('[isPremiumUser] not premium');
   return false;
 }
@@ -90,35 +116,226 @@ async function getAndroidPublisher() {
   return google.androidpublisher({ version: 'v3', auth });
 }
 
+type SubscriptionWriteInput = {
+  uid: string;
+  platform: 'android' | 'ios';
+  productId: string;
+  purchaseToken: string;
+  status: 'trial' | 'active';
+  currentPeriodEndAt: Date | null;
+  trialStartAt: Date | null;
+  trialEndAt: Date | null;
+  transactionId?: string | null;
+  originalTransactionId?: string | null;
+  environment?: string | null;
+};
+
+type AppStoreTransactionInfo = {
+  bundleId?: string;
+  productId?: string;
+  transactionId?: string;
+  originalTransactionId?: string;
+  environment?: string;
+  purchaseDate?: number | string;
+  expiresDate?: number | string;
+  revocationDate?: number | string;
+  offerType?: number | string;
+};
+
+function toBase64Url(value: string | Buffer): string {
+  return Buffer.from(value)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function decodeBase64Url(value: string): string {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
+  return Buffer.from(`${normalized}${padding}`, 'base64').toString('utf8');
+}
+
+function parseStoreDate(value: string | number | null | undefined): Date | null {
+  if (value === null || value === undefined) return null;
+  const raw = typeof value === 'string' ? Number(value) : value;
+  if (!Number.isFinite(raw)) return null;
+
+  // Apple often returns milliseconds since epoch, but keep a seconds fallback.
+  const normalized = raw > 1_000_000_000_000 ? raw : raw * 1000;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function decodeSignedPayload<T>(signedValue: string): T {
+  const parts = signedValue.split('.');
+  if (parts.length < 2) {
+    throw new Error('Signed payload is malformed');
+  }
+
+  return JSON.parse(decodeBase64Url(parts[1])) as T;
+}
+
+function getAppStorePrivateKey(): string {
+  const raw = process.env.APP_STORE_PRIVATE_KEY;
+  if (!raw) {
+    throw new HttpsError(
+      'failed-precondition',
+      'APP_STORE_PRIVATE_KEY is not configured',
+    );
+  }
+
+  const normalized = raw.includes('BEGIN PRIVATE KEY')
+    ? raw.replace(/\\n/g, '\n')
+    : Buffer.from(raw, 'base64').toString('utf8').replace(/\\n/g, '\n');
+
+  if (!normalized.includes('BEGIN PRIVATE KEY')) {
+    throw new HttpsError(
+      'failed-precondition',
+      'APP_STORE_PRIVATE_KEY is not a valid private key',
+    );
+  }
+
+  return normalized;
+}
+
+function createAppStoreServerToken(): string {
+  const issuerId = process.env.APP_STORE_ISSUER_ID;
+  const keyId = process.env.APP_STORE_KEY_ID;
+
+  if (!issuerId || !keyId) {
+    throw new HttpsError(
+      'failed-precondition',
+      'APP_STORE_ISSUER_ID and APP_STORE_KEY_ID must be configured',
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = toBase64Url(JSON.stringify({ alg: 'ES256', kid: keyId, typ: 'JWT' }));
+  const payload = toBase64Url(JSON.stringify({
+    iss: issuerId,
+    iat: now,
+    exp: now + 300,
+    aud: 'appstoreconnect-v1',
+    bid: APP_STORE_BUNDLE_ID,
+  }));
+  const signingInput = `${header}.${payload}`;
+  const signature = crypto.sign(
+    'sha256',
+    Buffer.from(signingInput),
+    crypto.createPrivateKey(getAppStorePrivateKey()),
+  );
+
+  return `${signingInput}.${toBase64Url(signature)}`;
+}
+
+async function fetchAppStoreTransactionInfo(
+  transactionId: string,
+  environmentHint?: string | null,
+): Promise<AppStoreTransactionInfo> {
+  const authToken = createAppStoreServerToken();
+  const wantsSandbox = (environmentHint ?? '').toLowerCase().includes('sandbox');
+  const endpoints = wantsSandbox
+    ? [
+        'https://api.storekit-sandbox.itunes.apple.com',
+        'https://api.storekit.itunes.apple.com',
+      ]
+    : [
+        'https://api.storekit.itunes.apple.com',
+        'https://api.storekit-sandbox.itunes.apple.com',
+      ];
+
+  let lastError: string | null = null;
+
+  for (const baseUrl of endpoints) {
+    const response = await fetch(
+      `${baseUrl}/inApps/v1/transactions/${encodeURIComponent(transactionId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      lastError = `${response.status} ${await response.text()}`;
+      continue;
+    }
+
+    const data = await response.json() as { signedTransactionInfo?: string };
+    if (!data.signedTransactionInfo) {
+      throw new Error('App Store transaction payload is missing signedTransactionInfo');
+    }
+
+    return decodeSignedPayload<AppStoreTransactionInfo>(data.signedTransactionInfo);
+  }
+
+  throw new Error(lastError ?? 'Unable to fetch App Store transaction info');
+}
+
+async function writeSubscriptionEntitlement({
+  uid,
+  platform,
+  productId,
+  purchaseToken,
+  status,
+  currentPeriodEndAt,
+  trialStartAt,
+  trialEndAt,
+  transactionId = null,
+  originalTransactionId = null,
+  environment = null,
+}: SubscriptionWriteInput): Promise<void> {
+  const isYearly = productId === 'yoake_yearly_2800';
+
+  await db.collection('users').doc(uid)
+    .collection('subscription').doc('main')
+    .set({
+      plan: isYearly ? 'yearly' : 'monthly',
+      platform,
+      status,
+      purchaseToken,
+      productId,
+      transactionId,
+      originalTransactionId,
+      environment,
+      currentPeriodEndAt: currentPeriodEndAt
+        ? admin.firestore.Timestamp.fromDate(currentPeriodEndAt)
+        : null,
+      trialStartAt: trialStartAt
+        ? admin.firestore.Timestamp.fromDate(trialStartAt)
+        : null,
+      trialEndAt: trialEndAt
+        ? admin.firestore.Timestamp.fromDate(trialEndAt)
+        : null,
+      trialUsed: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+  await db.collection('users').doc(uid).set(
+    { isPremium: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+}
+
 // ============================================================
-// 週次レポート自動生成 — ヘルパー
+// 騾ｱ谺｡繝ｬ繝昴・繝郁・蜍慕函謌・窶・繝倥Ν繝代・
 // ============================================================
 
-// サーバー側週次レポート生成用システムプロンプト
-const SERVER_WEEKLY_SYSTEM_PROMPT = `あなたは「ヨアケ」という名前の睡眠コーチAIです。
-ユーザーの1週間の睡眠データを分析し、週次レポートを日本語で作成してください。
+// 繧ｵ繝ｼ繝舌・蛛ｴ騾ｱ谺｡繝ｬ繝昴・繝育函謌千畑繧ｷ繧ｹ繝・Β繝励Ο繝ｳ繝励ヨ
+const SERVER_WEEKLY_SYSTEM_PROMPT = `縺ゅ↑縺溘・縲後Κ繧｢繧ｱ縲阪→縺・≧蜷榊燕縺ｮ逹｡逵繧ｳ繝ｼ繝、I縺ｧ縺吶・繝ｦ繝ｼ繧ｶ繝ｼ縺ｮ1騾ｱ髢薙・逹｡逵繝・・繧ｿ繧貞・譫舌＠縲・ｱ谺｡繝ｬ繝昴・繝医ｒ譌･譛ｬ隱槭〒菴懈・縺励※縺上□縺輔＞縲・
+莉･荳九・讒区・縺ｧ蜃ｺ蜉帙＠縺ｦ縺上□縺輔＞・亥粋險・00縲・00譁・ｭ暦ｼ会ｼ・投 莉企ｱ縺ｮ邱剰ｩ包ｼ・譁・・蟷ｳ蝮・せ繧ｳ繧｢縺ｨ蜑埼ｱ豈斐↓蠢・★隗ｦ繧後ｋ・・笨・濶ｯ縺九▲縺溽せ・・縲・轤ｹ繝ｻ蜈ｷ菴鍋噪縺ｪ譌･莉倥ｄ謨ｰ蛟､繧貞性繧√ｋ・・庁 謾ｹ蝟・〒縺阪ｋ轤ｹ・・縲・轤ｹ繝ｻ蜴溷屏迚ｹ螳壹→蜈ｷ菴鍋噪縺ｪ1繧ｹ繝・ャ繝励∪縺ｧ遉ｺ縺呻ｼ・識 譚･騾ｱ縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ・・縺､繝ｻ鄙呈・逶ｸ髢｢繝ｻ逶ｮ隕壹ａ/蟇昴▽縺阪・繝代ち繝ｼ繝ｳ繧呈ｹ諡縺ｫ・・
+繝ｫ繝ｼ繝ｫ・・繝ｻ蠢・★荳願ｨ倥・邨ｵ譁・ｭ苓ｦ句・縺励ｒ鬆・分騾壹ｊ菴ｿ縺・繝ｻ謨ｰ蛟､繧堤ｩ肴･ｵ逧・↓菴ｿ縺・ｼ医せ繧ｳ繧｢繝ｻ譎る俣繝ｻ蜑埼ｱ豈費ｼ・繝ｻ繝｡繝｢繧呈嶌縺・※縺・ｋ譌･縺後≠繧後・蜀・ｮｹ繧偵Ξ繝昴・繝医↓豢ｻ縺九☆
+繝ｻ蛹ｻ逋ら噪縺ｪ陦ｨ迴ｾ縺ｯ菴ｿ繧上↑縺・繝ｻ繝・・繧ｿ縺・縲・譌･蛻・＠縺九↑縺・ｴ蜷医・蜀帝ｭ縺ｧ陬懆ｶｳ縺吶ｋ`;
 
-以下の構成で出力してください（合計400〜500文字）：
-📊 今週の総評（2文・平均スコアと前週比に必ず触れる）
-✅ 良かった点（1〜2点・具体的な日付や数値を含める）
-💡 改善できる点（1〜2点・原因特定と具体的な1ステップまで示す）
-🎯 来週のアクション（2つ・習慣相関・目覚め/寝つきのパターンを根拠に）
-
-ルール：
-・必ず上記の絵文字見出しを順番通り使う
-・数値を積極的に使う（スコア・時間・前週比）
-・メモを書いている日があれば内容をレポートに活かす
-・医療的な表現は使わない
-・データが3〜4日分しかない場合は冒頭で補足する`;
-
-// 配列をsize件ずつのチャンクに分割する
+// 驟榊・繧痴ize莉ｶ縺壹▽縺ｮ繝√Ε繝ｳ繧ｯ縺ｫ蛻・牡縺吶ｋ
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
   return chunks;
 }
 
-// ISO週番号（月曜始まり）を "YYYY-WNN" 形式で返す
+// ISO騾ｱ逡ｪ蜿ｷ・域怦譖懷ｧ九∪繧奇ｼ峨ｒ "YYYY-WNN" 蠖｢蠑上〒霑斐☆
 function getISOWeekKey(date: Date): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const day = d.getUTCDay() || 7;
@@ -128,7 +345,7 @@ function getISOWeekKey(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-// Claudeへ渡すユーザーメッセージを睡眠ログから組み立てる
+// Claude に渡すユーザーメッセージを生成する
 function buildServerWeeklyUserMessage(logs: any[], prevLogs: any[], goal: any | null): string {
   const avgScore = logs.length > 0
     ? Math.round(logs.reduce((s: number, l: any) => s + (l.score ?? 0), 0) / logs.length)
@@ -138,15 +355,36 @@ function buildServerWeeklyUserMessage(logs: any[], prevLogs: any[], goal: any | 
     : null;
 
   const scoreLine = prevAvg !== null
-    ? `平均スコア: ${avgScore}点（前週比 ${avgScore - prevAvg >= 0 ? '+' : ''}${avgScore - prevAvg}点）`
-    : `平均スコア: ${avgScore}点`;
+    ? `今週のスコア: ${avgScore}点 (先週比 ${avgScore - prevAvg >= 0 ? '+' : ''}${avgScore - prevAvg}点)`
+    : `今週のスコア: ${avgScore}点`;
 
-  const wakeFeelingMap: Record<string, string> = { GOOD: 'すっきり', NORMAL: 'ふつう', BAD: 'つらい' };
-  const sleepOnsetMap: Record<string, string> = { FAST: '5分以内', NORMAL: '15〜30分', SLOW: '30分以上' };
+  const wakeFeelingMap: Record<string, string> = {
+    GOOD: 'すっきり',
+    SLIGHTLY_GOOD: 'ややすっきり',
+    NORMAL: 'ふつう',
+    SLIGHTLY_BAD: 'ややつらい',
+    BAD: 'つらい',
+  };
+  const sleepOnsetMap: Record<string, string> = {
+    FAST: 'すぐ寝れた',
+    SLIGHTLY_FAST: 'ややすぐ寝れた',
+    NORMAL: 'ふつう',
+    SLIGHTLY_SLOW: 'やや寝つきが悪い',
+    SLOW: 'なかなか寝れなかった',
+  };
   const seasonMap: Record<number, string> = {
-    1: '1月・冬', 2: '2月・冬', 3: '3月・春', 4: '4月・春', 5: '5月・春',
-    6: '6月・初夏', 7: '7月・夏', 8: '8月・真夏', 9: '9月・秋',
-    10: '10月・秋', 11: '11月・秋', 12: '12月・冬',
+    1: '1月',
+    2: '2月',
+    3: '3月',
+    4: '4月',
+    5: '5月',
+    6: '6月',
+    7: '7月',
+    8: '8月',
+    9: '9月',
+    10: '10月',
+    11: '11月',
+    12: '12月',
   };
 
   const logsText = logs.map((log: any) => {
@@ -159,31 +397,41 @@ function buildServerWeeklyUserMessage(logs: any[], prevLogs: any[], goal: any | 
       .map((hb: any) => `${hb.emoji}${hb.label}`)
       .join(', ');
     const lines = [
-      `【${log.date} ${bedTime.getHours()}:${String(bedTime.getMinutes()).padStart(2, '0')}就寝 → ${wakeTime.getHours()}:${String(wakeTime.getMinutes()).padStart(2, '0')}起床 / ${h}時間${m}分 / スコア${log.score}点】`,
-      `  目覚め: ${wakeFeelingMap[log.wakeFeeling] ?? log.wakeFeeling ?? '不明'} / 寝つき: ${sleepOnsetMap[log.sleepOnset] ?? log.sleepOnset ?? '不明'}`,
+      `・${log.date} 就寝 ${bedTime.getHours()}:${String(bedTime.getMinutes()).padStart(2, '0')} / 起床 ${wakeTime.getHours()}:${String(wakeTime.getMinutes()).padStart(2, '0')} / ${h}時間${m}分 / スコア${log.score ?? '-'}点`,
+      `  目覚め: ${wakeFeelingMap[log.wakeFeeling] ?? log.wakeFeeling ?? '未入力'} / 寝つき: ${sleepOnsetMap[log.sleepOnset] ?? log.sleepOnset ?? '未入力'}`,
     ];
-    if (log.deepSleepMinutes != null) lines.push(`  深睡眠: ${log.deepSleepMinutes}分 / 覚醒: ${log.awakenings ?? 0}回`);
-    if (habits) lines.push(`  習慣: ${habits}`);
-    if (log.memo) lines.push(`  メモ: ${log.memo}`);
+    if (log.deepSleepMinutes != null) {
+      lines.push(`  深睡眠: ${log.deepSleepMinutes}分 / 覚醒: ${log.awakenings ?? 0}回`);
+    }
+    if (habits) {
+      lines.push(`  習慣: ${habits}`);
+    }
+    if (log.memo) {
+      lines.push(`  メモ: ${log.memo}`);
+    }
     return lines.join('\n');
   }).join('\n');
 
   const month = new Date().getMonth() + 1;
-  const goalText = goal ? `${goal.targetHours}時間 / スコア${goal.targetScore}点以上` : '未設定';
+  const goalText = goal
+    ? `${goal.targetHours}時間 / スコア${goal.targetScore}点`
+    : '未設定';
 
   return [
-    `【季節】${seasonMap[month] ?? ''}`,
+    `季節: ${seasonMap[month] ?? ''}`,
     '',
-    `【直近7日の睡眠データ（${logs.length}日分）】`,
+    `直近7日の睡眠データ (${logs.length}日分)`,
     logsText,
     '',
-    `【統計】${scoreLine}`,
+    '要約',
+    scoreLine,
     '',
-    `【目標】${goalText}`,
+    '目標',
+    goalText,
   ].join('\n');
 }
 
-// FCMプッシュ通知を送信し、無効トークンをFirestoreでフラグ更新する
+// FCM push を送り、無効トークンは Firestore で flag 更新する
 async function sendWeeklyReportNotification(uid: string): Promise<void> {
   const tokensSnap = await db.collection('users').doc(uid)
     .collection('fcmTokens')
@@ -196,16 +444,15 @@ async function sendWeeklyReportNotification(uid: string): Promise<void> {
       admin.messaging().send({
         token: d.data().token as string,
         notification: {
-          title: '📊 今週の睡眠レポートが届きました',
-          body: '先週の睡眠を振り返りましょう',
+          title: '今週の睡眠レポートが届きました',
+          body: '先週の睡眠を振り返ってみましょう',
         },
         data: { type: 'weekly_report' },
         android: { notification: { channelId: 'yoake_weekly_report' }, priority: 'high' },
-      })
-    )
+      }),
+    ),
   );
 
-  // 無効トークンを Firestore でフラグ更新
   const batch = db.batch();
   let hasInvalid = false;
   sendResults.forEach((result, i) => {
@@ -223,14 +470,14 @@ async function sendWeeklyReportNotification(uid: string): Promise<void> {
   if (hasInvalid) await batch.commit();
 }
 
-// 1ユーザー分の週次レポートを生成・保存する（冪等）
+// 1ユーザー分の週次レポートを生成・保存する
 async function processUserWeeklyReport(uid: string, weekKey: string): Promise<void> {
-  // 冪等チェック — すでに生成済みなら何もしない
+  if (!(await isPremiumUser(uid))) return;
+
   const reportRef = db.collection('users').doc(uid).collection('aiReports').doc(weekKey);
   const existing = await reportRef.get();
   if (existing.exists) return;
 
-  // 直近7日の sleepLogs を取得
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const startDate = sevenDaysAgo.toISOString().split('T')[0];
@@ -241,10 +488,8 @@ async function processUserWeeklyReport(uid: string, weekKey: string): Promise<vo
     .limit(7)
     .get();
 
-  // データが3日未満の場合はスキップ
   if (logsSnap.docs.length < 3) return;
 
-  // 前週のログ（前週比計算用）
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const prevStart = fourteenDaysAgo.toISOString().split('T')[0];
   const [prevLogsSnap, goalSnap] = await Promise.all([
@@ -278,13 +523,13 @@ async function processUserWeeklyReport(uid: string, weekKey: string): Promise<vo
   await sendWeeklyReportNotification(uid);
 }
 
-// プレミアムユーザー全員をページネーションしながら週次レポートを生成するバッチ
+// プレミアムユーザー全体をページネーションしながら週次レポートを生成するバッチ
 async function runWeeklyReportBatch(): Promise<void> {
   const weekKey = getISOWeekKey(new Date());
   console.log('[weeklyBatch] start weekKey:', weekKey);
 
   let lastDoc: admin.firestore.QueryDocumentSnapshot | null = null;
-  const PAGE_SIZE = 50;
+  const pageSize = 50;
   let processedCount = 0;
   let errorCount = 0;
 
@@ -292,21 +537,20 @@ async function runWeeklyReportBatch(): Promise<void> {
     let query = db.collection('users')
       .where('isPremium', '==', true)
       .orderBy('__name__')
-      .limit(PAGE_SIZE) as admin.firestore.Query;
+      .limit(pageSize) as admin.firestore.Query;
     if (lastDoc) query = query.startAfter(lastDoc);
 
     const snap = await query.get();
     if (snap.empty) break;
 
-    // 5件ずつ並列処理して API レート超過を防ぐ
     const chunks = chunkArray(snap.docs, 5);
     for (const chunk of chunks) {
       const results = await Promise.allSettled(
-        chunk.map(doc => processUserWeeklyReport(doc.id, weekKey))
+        chunk.map(doc => processUserWeeklyReport(doc.id, weekKey)),
       );
-      results.forEach(r => {
-        if (r.status === 'rejected') {
-          console.error('[weeklyBatch] error for user:', r.reason);
+      results.forEach(result => {
+        if (result.status === 'rejected') {
+          console.error('[weeklyBatch] error for user:', result.reason);
           errorCount++;
         } else {
           processedCount++;
@@ -315,20 +559,18 @@ async function runWeeklyReportBatch(): Promise<void> {
     }
 
     lastDoc = snap.docs[snap.docs.length - 1];
-    if (snap.docs.length < PAGE_SIZE) break;
+    if (snap.docs.length < pageSize) break;
   }
 
   console.log(`[weeklyBatch] done. processed: ${processedCount}, errors: ${errorCount}`);
 }
 
-// ============================================================
-// ① 毎朝ひとこと（無料）
-// ============================================================
-
+// Daily insight generation
 export const claudeGenerateDaily = onCall(
   { region: 'asia-northeast1', secrets: ['CLAUDE_API_KEY'] },
   async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '認証が必要です');
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+
     const { systemPrompt, userMessage } = request.data as {
       systemPrompt: string;
       userMessage: string;
@@ -336,21 +578,20 @@ export const claudeGenerateDaily = onCall(
     if (!systemPrompt || !userMessage) {
       throw new HttpsError('invalid-argument', 'systemPrompt and userMessage are required');
     }
+
     return callClaudeApi(systemPrompt, [{ role: 'user', content: userMessage }], 150);
   },
 );
 
-// ============================================================
-// ② 週次AIレポート（有料）
-// ============================================================
-
+// Weekly insight generation
 export const claudeGenerateWeekly = onCall(
   { region: 'asia-northeast1', secrets: ['CLAUDE_API_KEY'] },
   async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '認証が必要です');
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
     if (!(await isPremiumUser(request.auth.uid))) {
-      throw new HttpsError('permission-denied', 'プレミアム機能です');
+      throw new HttpsError('permission-denied', 'Premium subscription required');
     }
+
     const { systemPrompt, userMessage } = request.data as {
       systemPrompt: string;
       userMessage: string;
@@ -358,36 +599,35 @@ export const claudeGenerateWeekly = onCall(
     if (!systemPrompt || !userMessage) {
       throw new HttpsError('invalid-argument', 'systemPrompt and userMessage are required');
     }
+
     return callClaudeApi(systemPrompt, [{ role: 'user', content: userMessage }], 700);
   },
 );
 
-// ============================================================
-// ③ AIチャット（有料）
-// ============================================================
-
 const DAILY_CHAT_LIMIT = 10;
 
+// Premium chat
 export const claudeSendChatMessage = onCall(
   { region: 'asia-northeast1', secrets: ['CLAUDE_API_KEY'] },
   async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '認証が必要です');
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
     const uid = request.auth.uid;
     console.log('[claudeSendChatMessage] uid:', uid);
+
     if (!(await isPremiumUser(uid))) {
-      throw new HttpsError('permission-denied', 'プレミアム機能です');
+      throw new HttpsError('permission-denied', 'Premium subscription required');
     }
 
-    // 日次使用回数チェック
     const today = new Date().toISOString().split('T')[0];
     const usageRef = db.collection('users').doc(uid).collection('chatUsage').doc(today);
     const usageSnap = await usageRef.get();
     const count = usageSnap.exists ? ((usageSnap.data()!.count as number) ?? 0) : 0;
     console.log('[claudeSendChatMessage] today:', today, 'count:', count);
+
     if (count >= DAILY_CHAT_LIMIT) {
       throw new HttpsError(
         'resource-exhausted',
-        `本日のチャット上限(${DAILY_CHAT_LIMIT}回)に達しました`,
+        `Daily chat limit reached (${DAILY_CHAT_LIMIT})`,
       );
     }
 
@@ -398,9 +638,8 @@ export const claudeSendChatMessage = onCall(
     if (!systemPrompt || !Array.isArray(messages) || messages.length === 0) {
       throw new HttpsError('invalid-argument', 'systemPrompt and messages are required');
     }
-    const result = await callClaudeApi(systemPrompt, messages, 400);
 
-    // 使用回数をインクリメント
+    const result = await callClaudeApi(systemPrompt, messages, 400);
     await usageRef.set({ count: admin.firestore.FieldValue.increment(1) }, { merge: true });
     console.log('[claudeSendChatMessage] success. new count:', count + 1);
 
@@ -408,24 +647,81 @@ export const claudeSendChatMessage = onCall(
   },
 );
 
-// ============================================================
-// ④ サブスクリプション購入検証（Google Play）
-// ============================================================
-
+// Purchase validation for Google Play and App Store
 export const validatePurchase = onCall(
-  { region: 'asia-northeast1' },
+  {
+    region: 'asia-northeast1',
+    secrets: ['APP_STORE_ISSUER_ID', 'APP_STORE_KEY_ID', 'APP_STORE_PRIVATE_KEY'],
+  },
   async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '認証が必要です');
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
     const uid = request.auth.uid;
-    const { purchaseToken, productId } = request.data as {
+    const {
+      purchaseToken,
+      productId,
+      platform = 'android',
+      transactionId,
+      environmentIOS,
+      appBundleIdIOS,
+    } = request.data as {
       purchaseToken: string;
       productId: string;
+      platform?: 'android' | 'ios';
+      transactionId?: string | null;
+      environmentIOS?: string | null;
+      appBundleIdIOS?: string | null;
     };
+
     if (!purchaseToken || !productId) {
       throw new HttpsError('invalid-argument', 'purchaseToken and productId are required');
     }
 
     try {
+      if (platform === 'ios') {
+        if (!transactionId) {
+          throw new HttpsError('invalid-argument', 'transactionId is required for iOS');
+        }
+        if (appBundleIdIOS && appBundleIdIOS !== APP_STORE_BUNDLE_ID) {
+          throw new HttpsError('failed-precondition', 'iOS bundle id does not match');
+        }
+
+        const transaction = await fetchAppStoreTransactionInfo(transactionId, environmentIOS);
+        if (transaction.bundleId && transaction.bundleId !== APP_STORE_BUNDLE_ID) {
+          throw new HttpsError('failed-precondition', 'App Store bundle id does not match');
+        }
+        if (transaction.productId && transaction.productId !== productId) {
+          throw new HttpsError('failed-precondition', 'App Store product does not match');
+        }
+
+        const expiryTime = parseStoreDate(transaction.expiresDate);
+        if (!expiryTime || expiryTime <= new Date() || transaction.revocationDate) {
+          throw new HttpsError('failed-precondition', 'App Store entitlement is not active');
+        }
+
+        const purchaseDate = parseStoreDate(transaction.purchaseDate) ?? new Date();
+        const isTrial = Number(transaction.offerType ?? 0) === 1;
+
+        await writeSubscriptionEntitlement({
+          uid,
+          platform: 'ios',
+          productId,
+          purchaseToken,
+          status: isTrial ? 'trial' : 'active',
+          currentPeriodEndAt: isTrial ? null : expiryTime,
+          trialStartAt: isTrial ? purchaseDate : null,
+          trialEndAt: isTrial ? expiryTime : null,
+          transactionId: transaction.transactionId ?? transactionId,
+          originalTransactionId: transaction.originalTransactionId ?? null,
+          environment: transaction.environment ?? environmentIOS ?? null,
+        });
+
+        return {
+          success: true,
+          status: isTrial ? 'trial' : 'active',
+          expiryTime: expiryTime.toISOString(),
+        };
+      }
+
       const androidpublisher = await getAndroidPublisher();
       const response = await androidpublisher.purchases.subscriptionsv2.get({
         packageName: PACKAGE_NAME,
@@ -433,96 +729,93 @@ export const validatePurchase = onCall(
       });
 
       const sub = response.data;
+      const subscriptionState = sub.subscriptionState ?? 'SUBSCRIPTION_STATE_UNSPECIFIED';
       const lineItem = (sub.lineItems ?? [])[0];
       if (!lineItem) {
-        throw new HttpsError('invalid-argument', '有効なサブスクリプションが見つかりません');
+        throw new HttpsError('invalid-argument', 'No valid subscription line item found');
       }
 
       const expiryTime = lineItem.expiryTime ? new Date(lineItem.expiryTime) : null;
-      if (!expiryTime || expiryTime <= new Date()) {
-        throw new HttpsError('failed-precondition', 'サブスクリプションの有効期限が切れています');
+      const currentOfferPhase = (lineItem as typeof lineItem & {
+        offerPhase?: { freeTrial?: unknown };
+      }).offerPhase;
+      const hasAccess = [
+        'SUBSCRIPTION_STATE_ACTIVE',
+        'SUBSCRIPTION_STATE_IN_GRACE_PERIOD',
+        'SUBSCRIPTION_STATE_CANCELED',
+      ].includes(subscriptionState);
+
+      if (!expiryTime || expiryTime <= new Date() || !hasAccess) {
+        throw new HttpsError('failed-precondition', 'Google Play entitlement is not active');
       }
 
-      const isYearly = productId === 'yoake_yearly_2800';
-      await db.collection('users').doc(uid)
-        .collection('subscription').doc('main')
-        .set({
-          plan: isYearly ? 'yearly' : 'monthly',
-          status: 'active',
-          purchaseToken,
-          productId,
-          currentPeriodEndAt: admin.firestore.Timestamp.fromDate(expiryTime),
-          trialStartAt: null,
-          trialEndAt: null,
-          trialUsed: true,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      const isTrial = Boolean(currentOfferPhase?.freeTrial);
+      const startTime = sub.startTime ? new Date(sub.startTime) : new Date();
 
-      // isPremium フラグを users/{uid} ルートドキュメントに denormalize（バッチクエリ用）
-      await db.collection('users').doc(uid).set(
-        { isPremium: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
-        { merge: true }
-      );
+      await writeSubscriptionEntitlement({
+        uid,
+        platform: 'android',
+        productId,
+        purchaseToken,
+        status: isTrial ? 'trial' : 'active',
+        currentPeriodEndAt: isTrial ? null : expiryTime,
+        trialStartAt: isTrial ? startTime : null,
+        trialEndAt: isTrial ? expiryTime : null,
+      });
 
-      return { success: true, expiryTime: expiryTime.toISOString() };
+      return {
+        success: true,
+        status: isTrial ? 'trial' : 'active',
+        expiryTime: expiryTime.toISOString(),
+      };
     } catch (e: unknown) {
       if (e instanceof HttpsError) throw e;
       const msg = e instanceof Error ? e.message : String(e);
       console.error('validatePurchase error:', msg);
-      throw new HttpsError('internal', `購入検証エラー: ${msg}`);
+      throw new HttpsError('internal', `Purchase validation failed: ${msg}`);
     }
   },
 );
 
-// ============================================================
-// ⑤ トライアル開始（デバイスID重複チェック）
-// ============================================================
-
+// Legacy trial activation path
 export const activateTrial = onCall(
   { region: 'asia-northeast1' },
   async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', '認証が必要です');
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
     const uid = request.auth.uid;
     const { purchaseToken, productId, deviceId } = request.data as {
       purchaseToken: string;
       productId: string;
       deviceId: string;
     };
+
     if (!purchaseToken || !productId || !deviceId) {
       throw new HttpsError('invalid-argument', 'purchaseToken, productId, deviceId are required');
     }
 
-    // デバイスIDでトライアル重複チェック
     const trialRef = db.collection('trialUsage').doc(deviceId);
     const trialSnap = await trialRef.get();
     if (trialSnap.exists) {
-      throw new HttpsError(
-        'already-exists',
-        'このデバイスではすでにトライアルが使用されています',
-      );
+      throw new HttpsError('already-exists', 'Trial already used on this device');
     }
 
     try {
-      // Google Play で購入トークン検証
       const androidpublisher = await getAndroidPublisher();
       await androidpublisher.purchases.subscriptionsv2.get({
         packageName: PACKAGE_NAME,
         token: purchaseToken,
       });
 
-      // Firestore にトライアル利用記録（Admin SDK はルールをバイパス）
       const now = new Date();
       const trialEndAt = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
       const isYearly = productId === 'yoake_yearly_2800';
 
       await Promise.all([
-        // 使用済みデバイス記録
         trialRef.set({
           uid,
           productId,
           usedAt: admin.firestore.FieldValue.serverTimestamp(),
         }),
-        // サブスクリプション書き込み
         db.collection('users').doc(uid)
           .collection('subscription').doc('main')
           .set({
@@ -536,10 +829,9 @@ export const activateTrial = onCall(
             trialUsed: true,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           }),
-        // isPremium フラグを users/{uid} ルートドキュメントに denormalize（バッチクエリ用）
         db.collection('users').doc(uid).set(
           { isPremium: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
-          { merge: true }
+          { merge: true },
         ),
       ]);
 
@@ -548,14 +840,13 @@ export const activateTrial = onCall(
       if (e instanceof HttpsError) throw e;
       const msg = e instanceof Error ? e.message : String(e);
       console.error('activateTrial error:', msg);
-      throw new HttpsError('internal', `トライアル開始エラー: ${msg}`);
+      throw new HttpsError('internal', `Trial activation failed: ${msg}`);
     }
   },
 );
 
 // ============================================================
-// ⑥ 週次レポート自動生成（Scheduled Function）
-//    毎週月曜 07:00 JST に全プレミアムユーザー分を生成
+// 竭･ 騾ｱ谺｡繝ｬ繝昴・繝郁・蜍慕函謌撰ｼ・cheduled Function・・//    豈朱ｱ譛域屆 07:00 JST 縺ｫ蜈ｨ繝励Ξ繝溘い繝繝ｦ繝ｼ繧ｶ繝ｼ蛻・ｒ逕滓・
 // ============================================================
 
 export const weeklyReportScheduler = onSchedule(
@@ -572,3 +863,4 @@ export const weeklyReportScheduler = onSchedule(
     await runWeeklyReportBatch();
   },
 );
+

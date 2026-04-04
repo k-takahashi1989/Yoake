@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
+import Icon, { IconName } from '../../../components/common/Icon';
 
 interface Props {
   onNext: () => void;
@@ -15,66 +16,75 @@ interface Props {
 
 export default function WelcomeStep({ onNext }: Props) {
   const { t } = useTranslation();
+  const isEnglishUi = t('nav.aiChat') === 'AI Chat';
 
-  const FEATURES = [
-    // しろくまペルソナの紹介（先頭に追加）
-    { emoji: '🐻‍❄️', label: t('onboarding.welcome.feature0') },
-    { emoji: '🤖', label: t('onboarding.welcome.feature1') },
-    { emoji: '📊', label: t('onboarding.welcome.feature2') },
-    { emoji: '📔', label: t('onboarding.welcome.feature3') },
+  const features: Array<{ icon: IconName; label: string }> = [
+    { icon: 'speech-bubble', label: t('onboarding.welcome.feature0') },
+    { icon: 'sparkling', label: t('onboarding.welcome.feature1') },
+    { icon: 'data-analytics', label: t('onboarding.welcome.feature2') },
+    { icon: 'note', label: t('onboarding.welcome.feature3') },
   ];
 
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoY      = useRef(new Animated.Value(24)).current;
+  const logoY = useRef(new Animated.Value(24)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentY   = useRef(new Animated.Value(16)).current;
+  const contentY = useRef(new Animated.Value(16)).current;
   const featuresOpacity = useRef(new Animated.Value(0)).current;
-  const featuresY  = useRef(new Animated.Value(12)).current;
+  const featuresY = useRef(new Animated.Value(12)).current;
   const buttonOpacity = useRef(new Animated.Value(0)).current;
-  const buttonY    = useRef(new Animated.Value(10)).current;
+  const buttonY = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
     const reveal = (opacity: Animated.Value, y: Animated.Value, delay: number) =>
       Animated.parallel([
         Animated.timing(opacity, { toValue: 1, duration: 350, delay, useNativeDriver: true }),
-        Animated.timing(y,       { toValue: 0, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(y, {
+          toValue: 0,
+          duration: 400,
+          delay,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
       ]);
 
     Animated.parallel([
-      reveal(logoOpacity,     logoY,     0),
-      reveal(contentOpacity,  contentY,  120),
+      reveal(logoOpacity, logoY, 0),
+      reveal(contentOpacity, contentY, 120),
       reveal(featuresOpacity, featuresY, 260),
-      reveal(buttonOpacity,   buttonY,   400),
+      reveal(buttonOpacity, buttonY, 400),
     ]).start();
-  }, [
-    buttonOpacity,
-    buttonY,
-    contentOpacity,
-    contentY,
-    featuresOpacity,
-    featuresY,
-    logoOpacity,
-    logoY,
-  ]);
+  }, [buttonOpacity, buttonY, contentOpacity, contentY, featuresOpacity, featuresY, logoOpacity, logoY]);
 
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.logoBlock, { opacity: logoOpacity, transform: [{ translateY: logoY }] }]}>
-        <Text style={styles.logo}>🌅</Text>
+        <View style={styles.logoBadge}>
+          <Icon name="sparkling" size={34} color="#FFFFFF" />
+        </View>
         <Text style={styles.appName}>YOAKE</Text>
       </Animated.View>
 
       <Animated.View style={{ opacity: contentOpacity, transform: [{ translateY: contentY }] }}>
         <Text style={styles.tagline}>{t('onboarding.welcome.tagline')}</Text>
+        <View style={styles.promiseCard}>
+          <Text style={styles.promiseTitle}>
+            {isEnglishUi ? 'From zero to your first score in a few minutes' : '数分で、最初のスコアと次の改善が見える'}
+          </Text>
+          <Text style={styles.promiseBody}>
+            {isEnglishUi
+              ? 'Set a goal, connect health data or log manually, then start seeing what helps your sleep.'
+              : '目標設定と記録だけで、まず今日の状態が見えます。データが増えるほどAIの提案も具体的になります。'}
+          </Text>
+        </View>
       </Animated.View>
 
       <Animated.View style={[styles.features, { opacity: featuresOpacity, transform: [{ translateY: featuresY }] }]}>
-        {FEATURES.map(f => (
-          <View key={f.label} style={styles.featureRow}>
+        {features.map(feature => (
+          <View key={feature.label} style={styles.featureRow}>
             <View style={styles.featureIconWrap}>
-              <Text style={styles.featureEmoji}>{f.emoji}</Text>
+              <Icon name={feature.icon} size={18} color="#DCD8FF" />
             </View>
-            <Text style={styles.featureText}>{f.label}</Text>
+            <Text style={styles.featureText}>{feature.label}</Text>
           </View>
         ))}
       </Animated.View>
@@ -98,9 +108,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  logo: {
-    fontSize: 72,
-    marginBottom: 8,
+  logoBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: 'rgba(107, 92, 231, 0.26)',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   appName: {
     fontSize: 36,
@@ -114,7 +131,28 @@ const styles = StyleSheet.create({
     color: '#C8C8E8',
     textAlign: 'center',
     lineHeight: 28,
-    marginBottom: 32,
+    marginBottom: 18,
+  },
+  promiseCard: {
+    backgroundColor: 'rgba(107, 92, 231, 0.14)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.26)',
+  },
+  promiseTitle: {
+    fontSize: 13,
+    color: '#F4F1FF',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  promiseBody: {
+    fontSize: 12,
+    color: '#C8C8E8',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   features: {
     width: '100%',
@@ -137,9 +175,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-  },
-  featureEmoji: {
-    fontSize: 18,
   },
   featureText: {
     fontSize: 14,

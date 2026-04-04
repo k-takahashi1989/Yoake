@@ -6,12 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  ScrollView,
 } from 'react-native';
 import {
   initConnection,
   fetchProducts,
-  requestPurchase,
-  finishTransaction,
   purchaseUpdatedListener,
   purchaseErrorListener,
   Purchase,
@@ -19,12 +18,15 @@ import {
   Product,
   EventSubscription,
 } from 'react-native-iap';
-import functions from '@react-native-firebase/functions';
-import DeviceInfo from 'react-native-device-info';
-import { saveSubscription } from '../../../services/firebase';
 import { SUBSCRIPTION } from '../../../constants';
 import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
+import { useAuthStore } from '../../../stores/authStore';
+import {
+  finishAndValidateSubscriptionPurchase,
+  isNativeSubscriptionPurchaseSupported,
+  startSubscriptionPurchase,
+} from '../../../services/subscriptionService';
 
 interface Props {
   onComplete: () => void;
@@ -37,8 +39,10 @@ const PRODUCT_IDS = [
 
 export default function TrialStep({ onComplete }: Props) {
   const { t, i18n } = useTranslation();
+  const { refreshSubscription } = useAuthStore();
   const isJa = i18n.language === 'ja';
-  const isAndroid = Platform.OS === 'android';
+  const isIos = Platform.OS === 'ios';
+  const purchaseSupported = isNativeSubscriptionPurchaseSupported();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -51,7 +55,7 @@ export default function TrialStep({ onComplete }: Props) {
     let purchaseErrorSub: EventSubscription | null = null;
 
     const setup = async () => {
-      if (!isAndroid) {
+      if (!purchaseSupported) {
         setIsBillingAvailable(false);
         setIsLoading(false);
         return;
@@ -62,18 +66,9 @@ export default function TrialStep({ onComplete }: Props) {
         setIsBillingAvailable(true);
 
         purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
-          const token = (purchase as any).purchaseToken ?? (purchase as any).transactionId;
-          if (!token) return;
-
-          await finishTransaction({ purchase });
           try {
-            const deviceId = await DeviceInfo.getUniqueId();
-            const activateTrial = functions().httpsCallable('activateTrial');
-            await activateTrial({
-              purchaseToken: token,
-              productId: purchase.productId,
-              deviceId,
-            });
+            await finishAndValidateSubscriptionPurchase(purchase);
+            await refreshSubscription();
             setIsPurchasing(false);
             setPurchasingProductId(null);
             onComplete();
@@ -81,14 +76,11 @@ export default function TrialStep({ onComplete }: Props) {
             setIsPurchasing(false);
             setPurchasingProductId(null);
             const code = error?.code ?? '';
-            if (code === 'functions/already-exists') {
-              Alert.alert(
-                t('onboarding.trial.alreadyUsedTitle'),
-                t('onboarding.trial.alreadyUsedMessage'),
-              );
+            if (code === 'functions/failed-precondition') {
+              Alert.alert(t('common.error'), t('subscription.restoreError'));
             } else {
               Alert.alert(t('common.error'), t('onboarding.trial.errorMessage'));
-              console.error('activateTrial error:', error);
+              console.error('validatePurchase error:', error);
             }
           }
         });
@@ -118,7 +110,7 @@ export default function TrialStep({ onComplete }: Props) {
       purchaseUpdateSub?.remove();
       purchaseErrorSub?.remove();
     };
-  }, [isAndroid, onComplete, t]);
+  }, [onComplete, purchaseSupported, refreshSubscription, t]);
 
   const getProductId = (product: Product) => (product as any).productId ?? (product as any).id;
   const monthlyProduct = products.find(product => getProductId(product) === SUBSCRIPTION.PRODUCT_IDS.MONTHLY);
@@ -129,12 +121,12 @@ export default function TrialStep({ onComplete }: Props) {
       icon: 'PRO',
       title: isJa ? '睡眠記録を、次の改善につなげる' : 'Turn your logs into better sleep',
       description: isJa
-        ? `${SUBSCRIPTION.TRIAL_DAYS}日間の無料体験で、週次レポートとAIアドバイスをまとめて試せます。`
-        : `Start with a ${SUBSCRIPTION.TRIAL_DAYS}-day free trial and try weekly reports plus AI guidance.`,
-      billingUnavailable: !isAndroid
+        ? `${SUBSCRIPTION.TRIAL_DAYS}日間で「どこを直せば眠りが良くなるか」まで見えるようにします。`
+        : `Use the first ${SUBSCRIPTION.TRIAL_DAYS} days to learn what actually improves your sleep.`,
+      billingUnavailable: !purchaseSupported
         ? isJa
-          ? 'iOS課金はまだこのビルドで有効化していません。RevenueCat への移行後にプレミアム購入へ対応予定です。'
-          : 'iOS billing is not enabled in this build yet. Premium purchase will be available after the RevenueCat migration.'
+          ? 'このビルドではApp Store課金をまだ有効化していません。いったん無料で始めて、iOS公開ビルドでプレミアム解放に進めます。'
+          : 'App Store billing is not enabled in this build yet. You can start free now and unlock Premium in the iOS release build.'
         : isJa
           ? 'この環境では Google Play の課金を利用できません。Play ストア対応端末でお試しください。'
           : 'Google Play billing is not available in this environment. Please try on a Play Store-enabled device.',
@@ -144,46 +136,71 @@ export default function TrialStep({ onComplete }: Props) {
       perYear: isJa ? '/年' : '/year',
       recommended: isJa ? 'おすすめ' : 'Recommended',
       yearSavings: isJa ? '年額のほうがおトク' : 'Best value',
-      legal: !isAndroid
+      legal: !purchaseSupported
         ? isJa
-          ? 'iOS版の課金導線は現在準備中です。プレミアム購入・管理は RevenueCat 対応後に有効化する予定です。'
-          : 'The iOS billing flow is not enabled yet. Premium purchase and management will be enabled after the RevenueCat migration.'
+          ? 'プレミアム購入はストア公開ビルドで有効になります。無料で始めても、記録データはそのまま引き継げます。'
+          : 'Premium purchase will be enabled in the store release build. You can start free and keep your log data.'
         : isJa
           ? '課金は Google Play で管理されます。無料体験終了前にキャンセルしない場合は自動更新されます。'
           : 'Managed on Google Play. Cancel before the trial ends to avoid charges.',
-      skipLater: isJa ? 'まずは無料プランで使ってみる' : 'Keep using the free plan',
+      skipLater: isJa ? 'まずは無料で続ける' : 'Keep going with free',
       startLabel: isJa ? '始める' : 'Start',
       yearlyEquivalent: isJa
         ? `月あたり 約${Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString()}円`
         : `$${Math.round(SUBSCRIPTION.YEARLY_PRICE / 12).toLocaleString()}/mo equivalent`,
       featureList: isJa
         ? [
-            '週次レポートで睡眠の流れをまとめて確認',
-            'AIに相談して次の改善アクションを整理',
-            '行動とスコアの関係を振り返りやすくする',
-            '長めの履歴や過去レポートを見返せる',
-            '自分の生活に合わせて記録項目を調整できる',
+            '週次レポートで「今週の眠り方の癖」がひと目で分かる',
+            'AIが次に直すべき行動を1つに絞って提案する',
+            'スコアと習慣の関係を見て、効く行動だけ残せる',
+            '過去レポートを見返して改善の積み上がりを追える',
+            '自分の生活に合わせて記録項目を増やせる',
           ]
         : [
-            'See your weekly trend at a glance',
-            'Ask AI what to improve next',
-            'Understand which actions affect your score',
-            'Review longer history and past reports',
-            'Customize tracking items for your routine',
+            'Spot your weekly sleep pattern at a glance',
+            'Let AI narrow the next action to just one change',
+            'See which habits actually move your score',
+            'Review past reports and track progress over time',
+            'Add custom tracking items for your routine',
           ],
     }),
-    [isAndroid, isJa],
+    [isJa, purchaseSupported],
   );
 
+  const previewRows = useMemo(
+    () =>
+      isJa
+        ? [
+            { label: '今週の平均', value: '78点', note: '先週より +6点' },
+            { label: '見えてきた癖', value: '就寝が +48分遅れがち', note: '火・木で崩れやすい' },
+            { label: '次の一手', value: '23:30までに布団へ', note: 'まず1つだけでOK' },
+          ]
+        : [
+            { label: 'Weekly average', value: '78 pts', note: '+6 vs last week' },
+            { label: 'Pattern found', value: 'Bedtime drifts by 48 min', note: 'Mostly Tue and Thu' },
+            { label: 'Next move', value: 'Get in bed by 11:30 pm', note: 'One change is enough' },
+          ],
+    [isJa],
+  );
+
+  const billingUnavailableText = isIos
+    ? isJa
+      ? 'App Store の商品設定かサンドボックス接続がまだ整っていない可能性があります。StoreKit が使える実機で確認してください。'
+      : 'App Store products are not available in this environment yet. Please try on a StoreKit-enabled device or TestFlight build.'
+    : copy.billingUnavailable;
+
+  const legalText = isIos
+    ? isJa
+      ? '購読は App Store で管理されます。トライアル終了前に解約すれば請求は発生しません。'
+      : 'Subscriptions are managed on the App Store. Cancel before the trial ends to avoid charges.'
+    : copy.legal;
+
   const handleStartTrial = async (productId: string) => {
-    if (!isAndroid || !isBillingAvailable || isPurchasing) return;
+    if (!purchaseSupported || !isBillingAvailable || isPurchasing) return;
     setIsPurchasing(true);
     setPurchasingProductId(productId);
     try {
-      await requestPurchase({
-        request: { google: { skus: [productId] } },
-        type: 'subs',
-      });
+      await startSubscriptionPurchase(productId);
     } catch (error: any) {
       setIsPurchasing(false);
       setPurchasingProductId(null);
@@ -195,14 +212,6 @@ export default function TrialStep({ onComplete }: Props) {
   };
 
   const handleSkip = async () => {
-    await saveSubscription({
-      plan: 'free',
-      status: 'expired',
-      trialStartAt: null,
-      trialEndAt: null,
-      currentPeriodEndAt: null,
-      trialUsed: false,
-    });
     onComplete();
   };
 
@@ -210,10 +219,29 @@ export default function TrialStep({ onComplete }: Props) {
     product ? (product as any).displayPrice ?? `¥${fallback.toLocaleString()}` : `¥${fallback.toLocaleString()}`;
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.icon}>{copy.icon}</Text>
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.description}>{copy.description}</Text>
+
+      <View style={styles.previewCard}>
+        <Text style={styles.previewEyebrow}>
+          {isJa ? '7日で見えること' : 'What becomes visible in 7 days'}
+        </Text>
+        {previewRows.map(item => (
+          <View key={item.label} style={styles.previewRow}>
+            <View style={styles.previewLabelBlock}>
+              <Text style={styles.previewLabel}>{item.label}</Text>
+              <Text style={styles.previewNote}>{item.note}</Text>
+            </View>
+            <Text style={styles.previewValue}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
 
       <View style={styles.featureList}>
         {copy.featureList.map(feature => (
@@ -226,7 +254,7 @@ export default function TrialStep({ onComplete }: Props) {
 
       {!isBillingAvailable && !isLoading && (
         <View style={styles.billingUnavailable}>
-          <Text style={styles.billingUnavailableText}>{copy.billingUnavailable}</Text>
+          <Text style={styles.billingUnavailableText}>{billingUnavailableText}</Text>
         </View>
       )}
 
@@ -277,17 +305,22 @@ export default function TrialStep({ onComplete }: Props) {
         </View>
       ) : null}
 
-      <Text style={styles.legal}>{copy.legal}</Text>
+      <Text style={styles.legal}>{legalText}</Text>
 
       <ScalePressable style={styles.skipButton} onPress={handleSkip} disabled={isPurchasing}>
         <Text style={styles.skipText}>{copy.skipLater}</Text>
       </ScalePressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center' },
+  container: { flex: 1 },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingBottom: 24,
+  },
   icon: {
     fontSize: 16,
     textAlign: 'center',
@@ -309,6 +342,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 22,
+  },
+  previewCard: {
+    backgroundColor: 'rgba(107, 92, 231, 0.14)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.28)',
+  },
+  previewEyebrow: {
+    fontSize: 11,
+    color: '#CFC9FF',
+    fontWeight: '800',
+    letterSpacing: 0.7,
+    marginBottom: 10,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  previewLabelBlock: {
+    flex: 1,
+  },
+  previewLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  previewNote: {
+    color: '#AFA9D9',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  previewValue: {
+    color: '#F7F3FF',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'right',
+    maxWidth: 128,
   },
   featureList: {
     backgroundColor: '#2D2D44',

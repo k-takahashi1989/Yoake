@@ -9,6 +9,7 @@ import {
 import messaging from '@react-native-firebase/messaging';
 import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
+import Icon, { IconName } from '../../../components/common/Icon';
 
 interface Props {
   onNext: (granted: boolean) => void;
@@ -21,7 +22,6 @@ export default function NotificationStep({ onNext }: Props) {
   const requestPermission = async () => {
     setStatus('requesting');
     try {
-      // Android 13+ は POST_NOTIFICATIONS パーミッションが必要
       if (Platform.OS === 'android' && Platform.Version >= 33) {
         const androidResult = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
@@ -32,38 +32,53 @@ export default function NotificationStep({ onNext }: Props) {
         }
       }
 
-      // Firebase Messaging のパーミッション取得
       const authStatus = await messaging().requestPermission();
       const granted =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
       setStatus(granted ? 'granted' : 'denied');
-    } catch (e) {
-      console.error('通知許可エラー:', e);
+    } catch (error) {
+      console.error('Notification permission request failed:', error);
       setStatus('denied');
     }
   };
 
-  const notifications = [
-    { emoji: '🤖', label: t('onboarding.notification.notif1Label'), desc: t('onboarding.notification.notif1Desc') },
-    { emoji: '🌙', label: t('onboarding.notification.notif2Label'), desc: t('onboarding.notification.notif2Desc') },
-    { emoji: '📊', label: t('onboarding.notification.notif3Label'), desc: t('onboarding.notification.notif3Desc') },
+  const notifications: Array<{ icon: IconName; label: string; desc: string }> = [
+    {
+      icon: 'speech-bubble',
+      label: t('onboarding.notification.notif1Label'),
+      desc: t('onboarding.notification.notif1Desc'),
+    },
+    {
+      icon: 'bell',
+      label: t('onboarding.notification.notif2Label'),
+      desc: t('onboarding.notification.notif2Desc'),
+    },
+    {
+      icon: 'data-analytics',
+      label: t('onboarding.notification.notif3Label'),
+      desc: t('onboarding.notification.notif3Desc'),
+    },
   ];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>🔔</Text>
+      <View style={styles.iconWrap}>
+        <Icon name="bell" size={30} color="#FFFFFF" />
+      </View>
       <Text style={styles.title}>{t('onboarding.notification.title')}</Text>
       <Text style={styles.description}>{t('onboarding.notification.desc')}</Text>
 
       <View style={styles.notifList}>
-        {notifications.map(n => (
-          <View key={n.label} style={styles.notifRow}>
-            <Text style={styles.notifEmoji}>{n.emoji}</Text>
+        {notifications.map(item => (
+          <View key={item.label} style={styles.notifRow}>
+            <View style={styles.notifIconWrap}>
+              <Icon name={item.icon} size={16} color="#DCD8FF" />
+            </View>
             <View style={styles.notifContent}>
-              <Text style={styles.notifLabel}>{n.label}</Text>
-              <Text style={styles.notifDesc}>{n.desc}</Text>
+              <Text style={styles.notifLabel}>{item.label}</Text>
+              <Text style={styles.notifDesc}>{item.desc}</Text>
             </View>
           </View>
         ))}
@@ -77,9 +92,7 @@ export default function NotificationStep({ onNext }: Props) {
 
       {status === 'denied' && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>
-            {t('onboarding.notification.deniedBanner')}
-          </Text>
+          <Text style={styles.warningText}>{t('onboarding.notification.deniedBanner')}</Text>
         </View>
       )}
 
@@ -114,9 +127,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  icon: {
-    fontSize: 56,
-    textAlign: 'center',
+  iconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(107, 92, 231, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 92, 231, 0.32)',
     marginBottom: 16,
   },
   title: {
@@ -144,10 +164,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  notifEmoji: {
-    fontSize: 20,
-    marginRight: 12,
+  notifIconWrap: {
     width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: 'rgba(107, 92, 231, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
     marginTop: 1,
   },
   notifContent: { flex: 1 },
