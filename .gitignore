@@ -66,3 +66,8 @@ secrets/
 
 # Firebase service account keys (秘密鍵 - 絶対にコミット禁止)
 functions/*.json
+
+# ローカル一時ファイル
+.firebase/
+YoakeIosScaffold/
+temp_*.ps1
