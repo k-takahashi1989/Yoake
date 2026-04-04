@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   scoreBadgeText: { fontSize: 14, fontWeight: '700' },
   sourceRow: { marginTop: 4 },
-  sourceText: { fontSize: 12, color: '#666' },
+  sourceText: { fontSize: 12, color: '#9A9AB8' }, // WCAG AA対応: #666 → #9A9AB8
   card: {
     marginHorizontal: 16,
     backgroundColor: '#2D2D44',

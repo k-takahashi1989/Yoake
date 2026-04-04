@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1A1A2E' },
   scroll: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#888', fontSize: 16 },
+  emptyText: { color: '#9A9AB8', fontSize: 16 }, // WCAG AA対応: #888 → #9A9AB8
   header: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 24 },
-  dateLabel: { fontSize: 14, color: '#888', marginBottom: 8 },
+  dateLabel: { fontSize: 14, color: '#9A9AB8', marginBottom: 8 }, // WCAG AA対応: #888 → #9A9AB8
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   scoreValue: { fontSize: 64, fontWeight: 'bold', lineHeight: 72 },
   scoreUnit: { fontSize: 18, color: '#FFFFFF', marginBottom: 10 },
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   scoreBadgeText: { fontSize: 13, fontWeight: '700' },
-  sourceLabel: { fontSize: 12, color: '#666', marginTop: 4 },
+  sourceLabel: { fontSize: 12, color: '#9A9AB8', marginTop: 4 }, // WCAG AA対応: #666 → #9A9AB8
   card: {
     marginHorizontal: 16,
     backgroundColor: '#2D2D44',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 12 },
+  cardTitle: { fontSize: 13, color: '#9A9AB8', fontWeight: '600', marginBottom: 12 }, // WCAG AA対応: #888 → #9A9AB8
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   summaryCell: {
     backgroundColor: '#1A1A2E',
@@ -236,9 +236,9 @@ const styles = StyleSheet.create({
     minWidth: '30%',
     flex: 1,
   },
-  summaryCellLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
+  summaryCellLabel: { fontSize: 11, color: '#9A9AB8', marginBottom: 4 }, // WCAG AA対応: #888 → #9A9AB8
   summaryCellValue: { fontSize: 14, color: '#FFFFFF', fontWeight: '500' },
-  habitGroupLabel: { fontSize: 11, color: '#666', marginBottom: 8 },
+  habitGroupLabel: { fontSize: 11, color: '#9A9AB8', marginBottom: 8 }, // WCAG AA対応: #666 → #9A9AB8
   habitsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   habitChip: {
     flexDirection: 'row',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   habitChipChecked: { borderColor: '#6B5CE7', backgroundColor: '#6B5CE715' },
-  habitLabel: { fontSize: 12, color: '#888' },
+  habitLabel: { fontSize: 12, color: '#9A9AB8' }, // WCAG AA対応: #888 → #9A9AB8
   habitLabelChecked: { color: '#9C8FFF' },
   noHabitsText: { color: '#555', fontSize: 14 },
   memoText: { fontSize: 14, color: '#D0D0E8', lineHeight: 22 },

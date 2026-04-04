@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   subUnit: {
     fontSize: 11,
-    color: '#666',
+    color: '#9A9AB8', // WCAG AA対応: #666 → #9A9AB8
     marginTop: 2,
   },
   label: {

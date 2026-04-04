@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   addBtn: { paddingHorizontal: 8, paddingVertical: 4, minWidth: 60, alignItems: 'flex-end' },
   addText: { color: '#6B5CE7', fontSize: 15, fontWeight: '600' },
   headerSpacer: { width: 60 },
-  hint: { paddingHorizontal: 16, paddingVertical: 12, fontSize: 12, color: '#666', lineHeight: 18 },
+  hint: { paddingHorizontal: 16, paddingVertical: 12, fontSize: 12, color: '#9A9AB8', lineHeight: 18 }, // WCAG AA対応: #666 → #9A9AB8
   list: { paddingBottom: 24 },
   habitRow: {
     flexDirection: 'row',
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   habitInfo: { flex: 1 },
   habitLabel: { fontSize: 15, color: '#FFFFFF' },
-  habitDefault: { fontSize: 10, color: '#666', marginTop: 2 },
+  habitDefault: { fontSize: 10, color: '#9A9AB8', marginTop: 2 }, // WCAG AA対応: #666 → #9A9AB8
   toggleBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -248,10 +248,10 @@ const styles = StyleSheet.create({
     borderColor: '#444',
   },
   toggleBtnActive: { backgroundColor: '#6B5CE720', borderColor: '#6B5CE7' },
-  toggleText: { fontSize: 12, color: '#666', fontWeight: '600' },
+  toggleText: { fontSize: 12, color: '#9A9AB8', fontWeight: '600' }, // WCAG AA対応: #666 → #9A9AB8
   toggleTextActive: { color: '#9C8FFF' },
   deleteBtn: { paddingVertical: 6, paddingLeft: 8 },
-  deleteText: { color: '#666', fontSize: 12, fontWeight: '600' },
+  deleteText: { color: '#9A9AB8', fontSize: 12, fontWeight: '600' }, // WCAG AA対応: #666 → #9A9AB8
   addForm: { padding: 16, flex: 1 },
   formLabel: { fontSize: 13, color: '#9A9AB8', marginBottom: 10, marginTop: 16 },
   labelInput: {

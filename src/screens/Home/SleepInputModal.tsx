@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     borderColor: '#6B5CE740',
   },
   hcBannerText: { color: '#9C8FFF', fontSize: 13, fontWeight: '600' },
-  hcBannerSwitch: { color: '#666', fontSize: 12, textDecorationLine: 'underline' },
+  hcBannerSwitch: { color: '#9A9AB8', fontSize: 12, textDecorationLine: 'underline' }, // WCAG AA対応: #666 → #9A9AB8
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
   durationValue: { fontSize: 36, fontWeight: 'bold', color: '#6B5CE7' },
   durationLabel: { fontSize: 13, color: '#9A9AB8', marginTop: 4 },
