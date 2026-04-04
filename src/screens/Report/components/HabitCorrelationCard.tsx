@@ -270,7 +270,8 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: 18,
-    borderRadius: 999,
+    borderTopLeftRadius: 9,
+    borderTopRightRadius: 9,
   },
   iconSlot: {
     height: ICON_ZONE_HEIGHT,
