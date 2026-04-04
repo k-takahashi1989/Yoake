@@ -123,5 +123,5 @@ const styles = StyleSheet.create({
     borderTopColor: '#2D2D44',
     marginTop: 4,
   },
-  closeBtnText: { fontSize: 12, color: '#666' },
+  closeBtnText: { fontSize: 12, color: '#9A9AB8' }, // WCAG AA対応: #666 → #9A9AB8
 });

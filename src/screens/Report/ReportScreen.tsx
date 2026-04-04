@@ -13,7 +13,8 @@ import {
   ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addWeeks } from 'date-fns';
+import { safeToDate } from '../../utils/dateUtils';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { SLEEP_LOG_FETCH_LIMIT } from '../../constants';
@@ -40,10 +41,19 @@ import {
 } from '../../services/reviewService';
 
 // ============================================================
-// ヘルパー型
+// ヘルパー関数
 // ============================================================
 
-type Tab = 'weekly' | 'monthly';
+// 指定週オフセット（0=今週, -1=先週, -2=先々週）に該当するログを返す
+function getWeekLogs(logs: SleepLog[], weekOffset: 0 | -1 | -2 | -3): SleepLog[] {
+  const base = addWeeks(new Date(), weekOffset);
+  const start = startOfWeek(base, { weekStartsOn: 1 });
+  const end = endOfWeek(base, { weekStartsOn: 1 });
+  return logs.filter(log => {
+    const d = safeToDate(log.date);
+    return d >= start && d <= end;
+  });
+}
 
 // ============================================================
 // メイン画面
@@ -99,7 +109,8 @@ export default function ReportScreen() {
     return unsub;
   }, [bgTransX, bgTransY, navigation, scaleAnim]);
 
-  const [tab, setTab] = useState<Tab>('weekly');
+  // 0=今週, -1=先週, -2=先々週
+  const [selectedWeekOffset, setSelectedWeekOffset] = useState<0 | -1 | -2>(0);
   const [weeklyLogs, setWeeklyLogs] = useState<SleepLog[]>([]);
   const [monthlyLogs, setMonthlyLogs] = useState<SleepLog[]>([]);
   const [weeklyReport, setWeeklyReport] = useState<AiReport | null>(null);
@@ -110,8 +121,8 @@ export default function ReportScreen() {
 
   // NOTE: useMemo はペイウォール early return の前に置く（Rules of Hooks）
   const logs = useMemo(
-    () => (tab === 'weekly' ? weeklyLogs : monthlyLogs.slice(0, 30)),
-    [tab, weeklyLogs, monthlyLogs],
+    () => getWeekLogs(monthlyLogs, selectedWeekOffset),
+    [selectedWeekOffset, monthlyLogs],
   );
   const habitStats = useMemo(() => computeHabitStats(logs), [logs]);
 
@@ -249,10 +260,11 @@ export default function ReportScreen() {
   const bestScore = logs.length > 0 ? Math.max(...logs.map(l => l.score)) : 0;
   const worstScore = logs.length > 0 ? Math.min(...logs.map(l => l.score)) : 0;
 
-  // 前週（8〜14日前）の平均スコア（週次タブ用の前週比計算）
-  const previousPeriodLogs = tab === 'weekly'
-    ? monthlyLogs.slice(7, 14)
-    : monthlyLogs.slice(30, 60);
+  // 1週前の期間ログ（-3 は monthlyLogs に含まれない場合あり → length=0 になる場合は null 扱い）
+  const previousPeriodLogs = useMemo(
+    () => getWeekLogs(monthlyLogs, (selectedWeekOffset - 1) as -1 | -2 | -3),
+    [selectedWeekOffset, monthlyLogs],
+  );
   const previousPeriodAvgScore =
     previousPeriodLogs.length > 0
       ? Math.round(previousPeriodLogs.reduce((s, l) => s + l.score, 0) / previousPeriodLogs.length)
@@ -292,22 +304,27 @@ export default function ReportScreen() {
 
       {/* ボトムシート */}
       <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 8 }]}>
-        {/* ハンドル行：中央ハンドル ＋ タブ切り替え */}
+        {/* ハンドル行：中央ハンドル ＋ 週オフセット切り替え */}
         <View style={styles.handleRow}>
           <View style={styles.handle} />
           <View style={styles.tabRow}>
-            <TouchableOpacity
-              style={[styles.tabBtn, tab === 'weekly' && styles.tabBtnActive]}
-              onPress={() => setTab('weekly')}
-            >
-              <Text style={[styles.tabText, tab === 'weekly' && styles.tabTextActive]}>{t('report.weekly')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabBtn, tab === 'monthly' && styles.tabBtnActive]}
-              onPress={() => setTab('monthly')}
-            >
-              <Text style={[styles.tabText, tab === 'monthly' && styles.tabTextActive]}>{t('report.monthly')}</Text>
-            </TouchableOpacity>
+            {(([0, -1, -2] as const).map(offset => {
+              // 週ラベル（言語別）
+              const weekLabels: Record<number, string> = i18n.language === 'ja'
+                ? { 0: '今週', [-1]: '先週', [-2]: '先々週' }
+                : { 0: 'This week', [-1]: 'Last week', [-2]: '2 weeks ago' };
+              return (
+                <TouchableOpacity
+                  key={offset}
+                  style={[styles.tabBtn, selectedWeekOffset === offset && styles.tabBtnActive]}
+                  onPress={() => setSelectedWeekOffset(offset)}
+                >
+                  <Text style={[styles.tabText, selectedWeekOffset === offset && styles.tabTextActive]}>
+                    {weekLabels[offset]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }))}
           </View>
         </View>
 
@@ -322,14 +339,14 @@ export default function ReportScreen() {
             </View>
             <Text style={styles.emptyText}>{t('report.insufficientData')}</Text>
             <Text style={styles.emptySubText}>
-              {tab === 'weekly' ? t('report.insufficientDataSub_weekly') : t('report.insufficientDataSub_monthly')}
+              {t('report.insufficientDataSub_weekly')}
             </Text>
           </View>
         ) : (
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             {/* 統計サマリー（無料ユーザーにも実データを表示して価値を訴求） */}
             <SummaryHeroCard
-              tab={tab}
+              weekOffset={selectedWeekOffset}
               avgScore={avgScore}
               bestScore={bestScore}
               worstScore={worstScore}
@@ -342,8 +359,8 @@ export default function ReportScreen() {
               <>
                 {/* 有料: スコア推移グラフ（期間切り替え付き） */}
 
-                {/* 週次AIレポート（週次タブのみ） */}
-                {tab === 'weekly' && (
+                {/* 週次AIレポート（今週を表示中のみ） */}
+                {selectedWeekOffset === 0 && (
                   <WeeklyReportCard
                     weeklyReport={weeklyReport}
                     pastReports={pastReports}
@@ -411,7 +428,7 @@ function useCountUp(target: number, duration = 700, delay = 0): number {
 }
 
 function SummaryHeroCard({
-  tab,
+  weekOffset,
   avgScore,
   bestScore,
   worstScore,
@@ -419,7 +436,7 @@ function SummaryHeroCard({
   topPositiveHabit,
   topNegativeHabit,
 }: {
-  tab: Tab;
+  weekOffset: 0 | -1 | -2;
   avgScore: number;
   bestScore: number;
   worstScore: number;
@@ -430,14 +447,14 @@ function SummaryHeroCard({
   const { t } = useTranslation();
   const displayAvg = useCountUp(avgScore, 700, 0);
   const title = i18n.language === 'ja'
-    ? (tab === 'weekly' ? '今週のまとめ' : '今月のまとめ')
-    : (tab === 'weekly' ? 'This week at a glance' : 'This month at a glance');
+    ? (weekOffset === 0 ? '今週のまとめ' : weekOffset === -1 ? '先週のまとめ' : '先々週のまとめ')
+    : (weekOffset === 0 ? 'This week at a glance' : weekOffset === -1 ? 'Last week at a glance' : '2 weeks ago at a glance');
   const diffLabel = i18n.language === 'ja'
-    ? (tab === 'weekly' ? '前週比' : '前月比')
-    : (tab === 'weekly' ? 'vs last week' : 'vs last month');
+    ? (weekOffset === 0 ? '先週比' : '前週比')
+    : (weekOffset === 0 ? 'vs last week' : 'vs prev week');
   const insightLabel = i18n.language === 'ja'
-    ? '今週の影響が大きかった行動'
-    : (tab === 'weekly' ? 'Actions with the biggest impact this week' : 'Actions with the biggest impact this month');
+    ? (weekOffset === 0 ? '今週の影響が大きかった行動' : weekOffset === -1 ? '先週の影響が大きかった行動' : '先々週の影響が大きかった行動')
+    : (weekOffset === 0 ? 'Actions with the biggest impact this week' : weekOffset === -1 ? 'Actions with the biggest impact last week' : 'Actions with the biggest impact 2 weeks ago');
   const positiveDiff = topPositiveHabit ? topPositiveHabit.withAvg - topPositiveHabit.withoutAvg : null;
   const negativeDiff = topNegativeHabit ? topNegativeHabit.withAvg - topNegativeHabit.withoutAvg : null;
 
@@ -639,7 +656,7 @@ const styles = StyleSheet.create({
   },
   summaryEyebrow: { fontSize: 13, color: '#B7B5D6', fontWeight: '700' },
   summaryDiffWrap: { alignItems: 'flex-end', gap: 2 },
-  summaryDiffLabel: { fontSize: 10, color: '#8F8EA8' },
+  summaryDiffLabel: { fontSize: 10, color: '#9A9AB8' }, // WCAG AA対応: #8F8EA8 → #9A9AB8
   summaryDiffValue: { fontSize: 18, fontWeight: '800' },
   summaryDiffUp: { color: '#4CAF50' },
   summaryDiffDown: { color: '#FF7043' },
@@ -666,10 +683,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  miniStatLabel: { fontSize: 10, color: '#8F8EA8', marginBottom: 4 },
+  miniStatLabel: { fontSize: 10, color: '#9A9AB8', marginBottom: 4 }, // WCAG AA対応: #8F8EA8 → #9A9AB8
   miniStatValue: { fontSize: 16, fontWeight: '700' },
   summaryInsights: { marginTop: 14, gap: 8 },
-  summaryInsightsLabel: { fontSize: 11, color: '#8F8EA8', fontWeight: '600', marginBottom: 2 },
+  summaryInsightsLabel: { fontSize: 11, color: '#9A9AB8', fontWeight: '600', marginBottom: 2 }, // WCAG AA対応: #8F8EA8 → #9A9AB8
   insightChip: {
     flexDirection: 'row',
     alignItems: 'center',

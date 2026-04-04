@@ -379,7 +379,13 @@ export default function SleepInputModal({
                   <TimePickerRow
                     label={isJa ? '就寝時間' : t('common.bedTime')}
                     value={form.bedTime}
-                    onChange={nextDate => setForm(prev => ({ ...prev, bedTime: nextDate }))}
+                    onChange={nextDate => setForm(prev => {
+                      // 差が24h超になる場合（例: 前日23時→03時に変更して翌日09時との差が30hになるケース）は
+                      // bedTimeを1日進めて正しい睡眠時間に補正する
+                      const diffMs = prev.wakeTime.getTime() - nextDate.getTime();
+                      const corrected = diffMs > 24 * 60 * 60 * 1000 ? addDays(nextDate, 1) : nextDate;
+                      return { ...prev, bedTime: corrected };
+                    })}
                   />
                   <TimePickerRow
                     label={isJa ? '起床時間' : t('common.wakeTime')}
@@ -522,7 +528,7 @@ const styles = StyleSheet.create({
     borderColor: '#6B5CE740',
   },
   hcBannerText: { color: '#9C8FFF', fontSize: 13, fontWeight: '600' },
-  hcBannerSwitch: { color: '#666', fontSize: 12, textDecorationLine: 'underline' },
+  hcBannerSwitch: { color: '#9A9AB8', fontSize: 12, textDecorationLine: 'underline' }, // WCAG AA対応: #666 → #9A9AB8
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
   durationValue: { fontSize: 36, fontWeight: 'bold', color: '#6B5CE7' },
   durationLabel: { fontSize: 13, color: '#9A9AB8', marginTop: 4 },

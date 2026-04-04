@@ -200,6 +200,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 12,
     lineHeight: 18,
-    color: '#8E8EAA',
+    color: '#9A9AB8', // WCAG AA対応: #8E8EAA → #9A9AB8
   },
 });

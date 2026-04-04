@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   },
   periodChipText: {
     fontSize: 11,
-    color: '#747697',
+    color: '#9A9AB8', // WCAG AA対応: #747697 → #9A9AB8
   },
   periodChipTextActive: {
     color: '#DCD8FF',
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   axisLabel: {
-    color: '#747697',
+    color: '#9A9AB8', // WCAG AA対応: #747697 → #9A9AB8
     fontSize: 9,
   },
   chartEmpty: {
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   chartEmptyText: {
-    color: '#666A86',
+    color: '#9A9AB8', // WCAG AA対応: #666A86 → #9A9AB8
     fontSize: 13,
   },
   lockedChartWrapper: {

@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pastReportLabel: { fontSize: 13, color: '#D0D0E8', fontWeight: '600' },
-  pastReportChevron: { fontSize: 10, color: '#666' },
+  pastReportChevron: { fontSize: 10, color: '#9A9AB8' }, // WCAG AA対応: #666 → #9A9AB8
   pastReportContent: {
     fontSize: 13,
     color: '#B0B0C8',

@@ -192,12 +192,12 @@ const styles = StyleSheet.create({
   },
   unit: {
     fontSize: 14,
-    color: '#9E9E9E',
+    color: '#9A9AB8', // WCAG AA対応: #9E9E9E → #9A9AB8
     marginTop: -4,
   },
   subUnit: {
     fontSize: 11,
-    color: '#666',
+    color: '#9A9AB8', // WCAG AA対応: #666 → #9A9AB8
     marginTop: 2,
   },
   label: {

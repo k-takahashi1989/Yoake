@@ -24,7 +24,7 @@ export default function TimePickerRow({ label, value, onChange }: Props) {
           value={value}
           mode="time"
           is24Hour
-          display="spinner"
+          display="clock"
           onChange={(_, date) => {
             setShow(false);
             if (date) onChange(date);
