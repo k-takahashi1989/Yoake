@@ -379,7 +379,13 @@ export default function SleepInputModal({
                   <TimePickerRow
                     label={isJa ? '就寝時間' : t('common.bedTime')}
                     value={form.bedTime}
-                    onChange={nextDate => setForm(prev => ({ ...prev, bedTime: nextDate }))}
+                    onChange={nextDate => setForm(prev => {
+                      // 差が24h超になる場合（例: 前日23時→03時に変更して翌日09時との差が30hになるケース）は
+                      // bedTimeを1日進めて正しい睡眠時間に補正する
+                      const diffMs = prev.wakeTime.getTime() - nextDate.getTime();
+                      const corrected = diffMs > 24 * 60 * 60 * 1000 ? addDays(nextDate, 1) : nextDate;
+                      return { ...prev, bedTime: corrected };
+                    })}
                   />
                   <TimePickerRow
                     label={isJa ? '起床時間' : t('common.wakeTime')}
