@@ -14,7 +14,7 @@ interface Props {
 const BAR_ZONE_HEIGHT = 128;
 const ICON_ZONE_HEIGHT = 42;
 const PILL_ZONE_HEIGHT = 34;
-const GRID_VALUES = [100, 75, 50, 25];
+const ALL_GRID_VALUES = [100, 75, 50, 25];
 
 type ChartHabitStat = HabitStat & {
   diff: number;
@@ -59,16 +59,25 @@ function getDiffTone(diff: number) {
 
 export default function HabitCorrelationCard({ habitStats, avgScore }: Props) {
   const { t } = useTranslation();
-  const chartStats: ChartHabitStat[] = habitStats.slice(0, 6).map(stat => {
-    const diff = stat.withAvg - stat.withoutAvg;
-    return {
-      ...stat,
-      diff,
-      barHeight: Math.max(28, Math.round((stat.withAvg / 100) * BAR_ZONE_HEIGHT)),
-    };
-  });
+  const rawStats = habitStats.slice(0, 6).map(stat => ({
+    ...stat,
+    diff: stat.withAvg - stat.withoutAvg,
+  }));
 
-  const avgBottom = ICON_ZONE_HEIGHT + Math.round((avgScore / 100) * BAR_ZONE_HEIGHT);
+  // ベースラインを最小スコアの15点下に設定し、棒の高さの差を視覚的に拡大する
+  const minWithAvg = rawStats.length > 0 ? Math.min(...rawStats.map(s => s.withAvg)) : 0;
+  const baselineScore = Math.max(0, minWithAvg - 15);
+  const scoreRange = 100 - baselineScore;
+
+  const toBarHeight = (score: number) =>
+    Math.max(8, Math.round(((score - baselineScore) / scoreRange) * BAR_ZONE_HEIGHT));
+
+  const chartStats: ChartHabitStat[] = rawStats.map(stat => ({
+    ...stat,
+    barHeight: toBarHeight(stat.withAvg),
+  }));
+
+  const avgBottom = ICON_ZONE_HEIGHT + Math.round(((avgScore - baselineScore) / scoreRange) * BAR_ZONE_HEIGHT);
 
   return (
     <View style={styles.card}>
@@ -81,8 +90,8 @@ export default function HabitCorrelationCard({ habitStats, avgScore }: Props) {
 
           <View style={styles.chartFrame}>
             <View style={styles.chartSurface}>
-              {GRID_VALUES.map(value => {
-                const bottom = ICON_ZONE_HEIGHT + Math.round((value / 100) * BAR_ZONE_HEIGHT);
+              {ALL_GRID_VALUES.filter(v => v > baselineScore).map(value => {
+                const bottom = ICON_ZONE_HEIGHT + Math.round(((value - baselineScore) / scoreRange) * BAR_ZONE_HEIGHT);
                 return (
                   <View key={value} style={[styles.gridRow, { bottom }]}>
                     <Text style={styles.gridLabel}>{value}</Text>
@@ -212,7 +221,7 @@ const styles = StyleSheet.create({
   },
   averagePill: {
     position: 'absolute',
-    right: 0,
+    left: -38,
     top: -10,
     paddingHorizontal: 7,
     paddingVertical: 2,
