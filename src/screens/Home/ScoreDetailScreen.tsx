@@ -196,7 +196,19 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const isHC = log.source === 'HEALTH_CONNECT';
 
   // breakdown を再計算（表示用）
-  const { breakdown } = calculateScore(log, []);
+  // recentLogs なしで再計算するため consistencyBonus が 0 になるが、
+  // 保存済みの log.score との差分から実際に適用されたボーナス/ペナルティを復元する
+  const { breakdown: rawBreakdown } = calculateScore(log, []);
+  const baseScore =
+    rawBreakdown.sleepDuration +
+    rawBreakdown.bedTime +
+    rawBreakdown.deepSleep +
+    rawBreakdown.wakeFeeling +
+    rawBreakdown.continuity +
+    rawBreakdown.sleepOnset +
+    rawBreakdown.oversleepPenalty;
+  const inferredConsistencyBonus = log.score - baseScore;
+  const breakdown = { ...rawBreakdown, consistencyBonus: inferredConsistencyBonus, total: log.score };
 
   const dateLabel = format(safeToDate(date), 'M月d日（EEE）', { locale: getDateFnsLocale() });
   const bedStr = format(safeToDate(log.bedTime), 'HH:mm');
