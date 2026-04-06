@@ -23,8 +23,6 @@ import {
 } from '../../services/reviewService';
 import { MORNING_THEME } from '../../theme/morningTheme';
 
-const DEBT_PERIOD_KEY = '@yoake:sleep_debt_period';
-
 type ProfileNav = NativeStackNavigationProp<ProfileStackParamList>;
 
 export default function ProfileScreen() {
@@ -33,40 +31,7 @@ export default function ProfileScreen() {
   const [isSeedLoading, setIsSeedLoading] = useState(false);
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [debtPeriod, setDebtPeriod] = useState<'14' | '30' | 'month'>('14');
   const isJa = i18n.language === 'ja';
-
-  useEffect(() => {
-    AsyncStorage.getItem(DEBT_PERIOD_KEY).then(stored => {
-      if (stored === '14' || stored === '30' || stored === 'month') {
-        setDebtPeriod(stored);
-      }
-    }).catch(() => {});
-  }, []);
-
-  const periodLabels: Record<'14' | '30' | 'month', string> = {
-    '14': t('sleepDebt.period14'),
-    '30': t('sleepDebt.period30'),
-    'month': t('sleepDebt.periodMonth'),
-  };
-
-  const handleDebtPeriodChange = () => {
-    Alert.alert(
-      t('profile.debtPeriodTitle'),
-      undefined,
-      [
-        { text: t('sleepDebt.period14'),    onPress: () => saveDebtPeriod('14') },
-        { text: t('sleepDebt.period30'),    onPress: () => saveDebtPeriod('30') },
-        { text: t('sleepDebt.periodMonth'), onPress: () => saveDebtPeriod('month') },
-        { text: t('common.cancel'), style: 'cancel' },
-      ]
-    );
-  };
-
-  const saveDebtPeriod = async (p: '14' | '30' | 'month') => {
-    await AsyncStorage.setItem(DEBT_PERIOD_KEY, p);
-    setDebtPeriod(p);
-  };
 
   const planText =
     subscription?.status === 'trial'
@@ -201,11 +166,6 @@ export default function ProfileScreen() {
               iconName="data-analytics"
               label={t('profile.menuData')}
               onPress={() => navigation.navigate('DataManagement')}
-            />
-            <MenuRow
-              iconName="clock"
-              label={`${t('profile.debtPeriod')}: ${periodLabels[debtPeriod]}`}
-              onPress={handleDebtPeriodChange}
             />
             <MenuRow
               iconName="globe"

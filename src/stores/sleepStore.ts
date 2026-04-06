@@ -95,7 +95,7 @@ export const useSleepStore = create<SleepState>((set, get) => ({
 
     const { score } = calculateScore(logPartial as any, recentLogs);
     const sleepDebtMinutes = calculateSleepDebt(
-      recentLogs.slice(0, 13),
+      recentLogs.slice(0, 14),
       goal.targetHours,
     );
 
