@@ -19,6 +19,7 @@ import {
   LAST_SCORE_KEY,
 } from '../services/notificationService';
 import { generateLogInsight } from '../services/claudeApi';
+import { useAuthStore } from './authStore';
 import {
   queueScoreImprovementReviewMoment,
   queueStreakReviewMoment,
@@ -133,7 +134,7 @@ export const useSleepStore = create<SleepState>((set, get) => ({
       queueScoreImprovementReviewMoment(date, improvement, score).catch(() => {});
     }
 
-    if (options?.generateInsight) {
+    if (options?.generateInsight && useAuthStore.getState().isPremium) {
       const insightKey = `insight:${date}`;
       void (async () => {
         try {
