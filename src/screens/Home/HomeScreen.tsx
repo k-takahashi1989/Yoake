@@ -124,8 +124,6 @@ export default function HomeScreen() {
     });
   }, [navigation, overlayAnim, zoomAnim]);
 
-  const dateLabel = format(new Date(), 'M/d (EEE)', { locale: getDateFnsLocale() });
-
 
   useEffect(() => {
     Animated.loop(
@@ -574,14 +572,7 @@ export default function HomeScreen() {
 
       <View style={[styles.topZone, { paddingTop: insets.top + 8 }]}>
         {/* 蟾ｦ・壽律莉・+ 繧ｹ繝医Μ繝ｼ繧ｯ繝舌ャ繧ｸ */}
-        <View style={styles.dateColumn}>
-          <Text style={styles.dateText}>{dateLabel}</Text>
-          {false && streak >= 2 && (
-            <View style={styles.streakBadge}>
-              <Text style={styles.streakText}>{streakLabel}</Text>
-            </View>
-          )}
-        </View>
+        <View style={styles.dateColumn} />
 
         {/* 蜿ｳ・夂擅逵繧ｵ繝槭Μ繝ｼ邵ｦ荳ｦ縺ｳ */}
         <View style={styles.topRightColumn}>
