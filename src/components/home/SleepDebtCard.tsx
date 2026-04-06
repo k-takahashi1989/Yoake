@@ -1,13 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { startOfMonth, format } from 'date-fns';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { SleepLog } from '../../types';
 import { calculateSleepDebt } from '../../utils/scoreCalculator';
 import { useTranslation } from '../../i18n';
 import Icon from '../common/Icon';
 import BatteryIcon from '../common/BatteryIcon';
-
-type DebtPeriod = '14' | '30' | 'month';
 
 interface Props {
   recentLogs: SleepLog[];
@@ -18,13 +15,6 @@ interface Props {
 
 export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Props) {
   const { t } = useTranslation();
-  const [period, setPeriod] = useState<DebtPeriod>('14');
-
-  const periodLabels: Record<DebtPeriod, string> = {
-    '14': t('sleepDebt.period14'),
-    '30': t('sleepDebt.period30'),
-    'month': t('sleepDebt.periodMonth'),
-  };
 
   if (!isPremium) {
     return (
@@ -43,16 +33,7 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
     );
   }
 
-  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-
-  const filteredLogs =
-    period === '14'
-      ? recentLogs.slice(0, 14)
-      : period === '30'
-      ? recentLogs.slice(0, 30)
-      : recentLogs.filter(l => l.date >= monthStart);
-
-  const debtMinutes = calculateSleepDebt(filteredLogs, targetHours);
+  const debtMinutes = calculateSleepDebt(recentLogs.slice(0, 14), targetHours);
   const debtHours = Math.floor(debtMinutes / 60);
   const debtMins = debtMinutes % 60;
 
@@ -72,21 +53,6 @@ export default function SleepDebtCard({ recentLogs, targetHours, isPremium }: Pr
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('sleepDebt.title')}</Text>
-      </View>
-
-      {/* 期間チップ */}
-      <View style={styles.chipRow}>
-        {(['14', '30', 'month'] as DebtPeriod[]).map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[styles.chip, period === p && styles.chipActive]}
-            onPress={() => setPeriod(p)}
-          >
-            <Text style={[styles.chipText, period === p && styles.chipTextActive]}>
-              {periodLabels[p]}
-            </Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
       {/* 負債量テキストとバッテリーアイコンを横並びで表示 */}
@@ -134,31 +100,6 @@ const styles = StyleSheet.create({
   premiumText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '600',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 12,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#1A1A2E',
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-  chipActive: {
-    backgroundColor: '#6B5CE720',
-    borderColor: '#6B5CE7',
-  },
-  chipText: {
-    fontSize: 12,
-    color: '#9A9AB8',
-  },
-  chipTextActive: {
-    color: '#9C8FFF',
     fontWeight: '600',
   },
   debtRow: {

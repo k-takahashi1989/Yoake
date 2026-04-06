@@ -5,10 +5,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../types';
-import { getRecentSleepLogs } from '../../services/firebase';
+import { getRecentSleepLogs, getSleepLog, saveSleepLog, getGoal } from '../../services/firebase';
+import { isHCAvailable, hasHCSleepPermission, readSleepForDate } from '../../services/healthConnect';
+import { calculateScore, calculateSleepDebt } from '../../utils/scoreCalculator';
+import { SCORE_VERSION } from '../../constants';
 import { safeToDate } from '../../utils/dateUtils';
 import { useTranslation } from '../../i18n';
 import { MORNING_THEME } from '../../theme/morningTheme';
@@ -21,6 +24,7 @@ type Props = NativeStackScreenProps<ProfileStackParamList, 'DataManagement'>;
 export default function DataManagementScreen({ navigation: _navigation }: Props) {
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const isJa = t('common.cancel') === 'キャンセル';
 
   const handleClearChatHistory = () => {
@@ -39,6 +43,93 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
         },
       ],
     );
+  };
+
+  // ============================================================
+  // ヘルスコネクト過去データ取り込み
+  // ============================================================
+
+  const handleImportFromHC = async () => {
+    setIsImporting(true);
+
+    try {
+      const available = await isHCAvailable();
+      const hasPermission = available && await hasHCSleepPermission();
+      if (!hasPermission) {
+        Alert.alert(t('dataManagement.hcImportNoPermission'), t('dataManagement.hcImportNoPermissionDesc'));
+        return;
+      }
+
+      // 直近14日（今日除く）で未記録かつHCデータありの日を収集
+      type Candidate = { date: string; hcData: NonNullable<Awaited<ReturnType<typeof readSleepForDate>>> };
+      const candidates: Candidate[] = [];
+      for (let i = 1; i <= 14; i++) {
+        const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
+        const existing = await getSleepLog(date);
+        if (existing) continue;
+        const hcData = await readSleepForDate(date);
+        if (hcData) candidates.push({ date, hcData });
+      }
+
+      if (candidates.length === 0) {
+        Alert.alert(t('dataManagement.hcImportNone'), t('dataManagement.hcImportNoneDesc'));
+        return;
+      }
+
+      Alert.alert(
+        t('dataManagement.hcImportFound', { count: candidates.length }),
+        t('dataManagement.hcImportFoundDesc'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('dataManagement.hcImportConfirmBtn'),
+            onPress: async () => {
+              setIsImporting(true);
+              try {
+                const [recentLogs, goal] = await Promise.all([
+                  getRecentSleepLogs(30),
+                  getGoal(),
+                ]);
+                const targetHours = goal?.targetHours ?? 7.5;
+
+                for (const { date, hcData } of candidates) {
+                  const logPartial = {
+                    date,
+                    bedTime: hcData.bedTime as any,
+                    wakeTime: hcData.wakeTime as any,
+                    totalMinutes: hcData.totalMinutes,
+                    deepSleepMinutes: hcData.deepSleepMinutes,
+                    remMinutes: hcData.remMinutes,
+                    lightSleepMinutes: hcData.lightSleepMinutes,
+                    awakenings: hcData.awakenings,
+                    heartRateAvg: hcData.heartRateAvg,
+                    sleepOnset: 'NORMAL' as const,
+                    wakeFeeling: 'NORMAL' as const,
+                    habits: [],
+                    memo: null,
+                    source: 'HEALTH_CONNECT' as const,
+                    scoreVersion: SCORE_VERSION,
+                  };
+                  const { score } = calculateScore(logPartial, recentLogs);
+                  const sleepDebtMinutes = calculateSleepDebt(recentLogs.slice(0, 14), targetHours);
+                  await saveSleepLog({ ...logPartial, score, sleepDebtMinutes });
+                }
+
+                Alert.alert(t('dataManagement.hcImportDone', { count: candidates.length }));
+              } catch {
+                Alert.alert(t('common.error'), t('dataManagement.hcImportFailed'));
+              } finally {
+                setIsImporting(false);
+              }
+            },
+          },
+        ],
+      );
+    } catch {
+      Alert.alert(t('common.error'), t('dataManagement.hcImportFailed'));
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   // ============================================================
@@ -102,6 +193,22 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ヘルスコネクト過去データ取り込み */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('dataManagement.hcImportTitle')}</Text>
+          <Text style={styles.cardDesc}>{t('dataManagement.hcImportDesc')}</Text>
+          <TouchableOpacity
+            style={[styles.exportBtn, isImporting && styles.btnDisabled]}
+            onPress={handleImportFromHC}
+            disabled={isImporting}
+          >
+            {isImporting
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <Text style={styles.exportBtnText}>{t('dataManagement.hcImportBtn')}</Text>
+            }
+          </TouchableOpacity>
+        </View>
+
         {/* エクスポート */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('dataManagement.exportTitle')}</Text>

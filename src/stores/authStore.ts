@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSubscription, saveSubscription, getProfile, saveProfile, deleteAllUserData } from '../services/firebase';
 import { Subscription, UserProfile, AiPersonality, AgeGroup } from '../types';
@@ -174,12 +175,16 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   _devSetPremium: (value: boolean) => {
     if (!__DEV__) return;
+    // サーバー側 isPremiumUser() は currentPeriodEndAt > now を要求するため
+    // デバッグ用に1年後の日付を設定する
+    const oneYearLater = new Date();
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
     const nextSubscription: Subscription = {
       plan: value ? 'monthly' : 'free',
       status: value ? 'active' : 'expired',
       trialStartAt: null,
       trialEndAt: null,
-      currentPeriodEndAt: null,
+      currentPeriodEndAt: value ? firestore.Timestamp.fromDate(oneYearLater) : null,
       trialUsed: false,
     };
     set({ isPremium: value, subscription: nextSubscription });

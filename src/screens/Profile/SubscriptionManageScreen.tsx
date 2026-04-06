@@ -168,6 +168,12 @@ export default function SubscriptionManageScreen() {
         : isJa
           ? 'この環境では Google Play の課金を利用できません。Play ストア対応端末でお試しください。'
           : 'Google Play billing is not available in this environment. Please try on a Play Store-enabled device.',
+      comparisonTitle: isJa ? '機能比較' : 'Plan comparison',
+      colFree: isJa ? '無料' : 'Free',
+      colPremium: isJa ? 'プレミアム' : 'Premium',
+      premiumPlanNote: isJa
+        ? '週次レポート・AI相談・睡眠負債など、すべての機能が使えます。'
+        : 'All features unlocked — reports, AI guidance, sleep debt, and more.',
       monthlyPlan: isJa ? '月額プラン' : 'Monthly plan',
       yearlyPlan: isJa ? '年額プラン' : 'Yearly plan',
       recommended: isJa ? 'おすすめ' : 'Recommended',
@@ -195,30 +201,30 @@ export default function SubscriptionManageScreen() {
     [isJa],
   );
 
-  const freeFeatures = useMemo(
-    () =>
-      isJa
-        ? ['日々の睡眠記録', '今日のスコア確認', '記録の編集']
-        : ['Daily sleep logging', "Today's score view", 'Record editing'],
-    [isJa],
-  );
-
-  const premiumFeatures = useMemo(
+  const comparisonRows = useMemo(
     () =>
       isJa
         ? [
-            { label: '週次レポートで睡眠の流れをまとめて確認' },
-            { label: 'AIに相談して次の改善アクションを整理' },
-            { label: '行動とスコアの関係を振り返りやすくする' },
-            { label: '長めの履歴や過去レポートを見返せる' },
-            { label: '自分の生活に合わせて記録項目を調整できる' },
+            { label: '日々の睡眠記録',               free: true,  premium: true  },
+            { label: '今日のスコア確認',              free: true,  premium: true  },
+            { label: '記録の編集',                   free: true,  premium: true  },
+            { label: '週次レポート',                  free: false, premium: true  },
+            { label: 'AIへの相談・改善提案',           free: false, premium: true  },
+            { label: '行動とスコアの関係を振り返り',   free: false, premium: true  },
+            { label: '長めの履歴・過去レポート',       free: false, premium: true  },
+            { label: '睡眠負債の確認',                free: false, premium: true  },
+            { label: '記録項目のカスタマイズ',         free: false, premium: true  },
           ]
         : [
-            { label: 'Review your weekly trend at a glance' },
-            { label: 'Ask AI what to improve next' },
-            { label: 'Understand which actions affect your score' },
-            { label: 'Review longer history and past reports' },
-            { label: 'Customize tracking items for your routine' },
+            { label: 'Daily sleep logging',           free: true,  premium: true  },
+            { label: "Today's score",                 free: true,  premium: true  },
+            { label: 'Record editing',                free: true,  premium: true  },
+            { label: 'Weekly report',                 free: false, premium: true  },
+            { label: 'AI guidance',                   free: false, premium: true  },
+            { label: 'Habit–score insights',          free: false, premium: true  },
+            { label: 'Extended history & reports',    free: false, premium: true  },
+            { label: 'Sleep debt tracker',            free: false, premium: true  },
+            { label: 'Customize tracking items',      free: false, premium: true  },
           ],
     [isJa],
   );
@@ -296,9 +302,9 @@ export default function SubscriptionManageScreen() {
       : t('subscription.freeBadge');
 
   const planDetailText = isOnTrial && trialEnd
-    ? t('subscription.trialEnd', { date: trialEnd })
+    ? `${t('subscription.trialEnd', { date: trialEnd })}\n${copy.premiumPlanNote}`
     : isActive && periodEnd
-      ? t('subscription.nextBilling', { date: periodEnd })
+      ? `${t('subscription.nextBilling', { date: periodEnd })}\n${copy.premiumPlanNote}`
       : copy.freePlanNote;
 
   return (
@@ -332,21 +338,21 @@ export default function SubscriptionManageScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{copy.freeTitle}</Text>
-          {freeFeatures.map(item => (
-            <View key={item} style={styles.featureRow}>
-              <Text style={styles.featureBullet}>+</Text>
-              <Text style={styles.featureLabel}>{item}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{copy.premiumTitle}</Text>
-          {premiumFeatures.map(item => (
-            <View key={item.label} style={styles.featureRow}>
-              <Text style={styles.featureBullet}>+</Text>
-              <Text style={styles.featureLabel}>{item.label}</Text>
+          <Text style={styles.cardTitle}>{copy.comparisonTitle}</Text>
+          {/* ヘッダー行 */}
+          <View style={styles.matrixHeader}>
+            <View style={styles.matrixLabelCol} />
+            <Text style={styles.matrixColHead}>{copy.colFree}</Text>
+            <Text style={[styles.matrixColHead, styles.matrixColHeadPremium]}>{copy.colPremium}</Text>
+          </View>
+          {comparisonRows.map((row, i) => (
+            <View
+              key={row.label}
+              style={[styles.matrixRow, i % 2 === 1 && styles.matrixRowAlt]}
+            >
+              <Text style={styles.matrixLabel}>{row.label}</Text>
+              <Text style={styles.matrixCell}>{row.free ? '✓' : '—'}</Text>
+              <Text style={[styles.matrixCell, styles.matrixCellPremium]}>{row.premium ? '✓' : '—'}</Text>
             </View>
           ))}
         </View>
@@ -529,25 +535,46 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
-  featureRow: {
+  matrixHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A1A2E',
-    gap: 10,
+    borderBottomColor: '#3A3A55',
+    marginBottom: 2,
   },
-  featureBullet: {
-    fontSize: 14,
-    width: 16,
-    color: '#A99FFF',
+  matrixLabelCol: { flex: 1 },
+  matrixColHead: {
+    width: 48,
+    textAlign: 'center',
+    fontSize: 11,
     fontWeight: '700',
+    color: '#9A9AB8',
+    letterSpacing: 0.5,
   },
-  featureLabel: {
+  matrixColHeadPremium: { color: '#B5AEFF' },
+  matrixRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+  },
+  matrixRowAlt: { backgroundColor: 'rgba(255,255,255,0.03)' },
+  matrixLabel: {
     flex: 1,
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontSize: 13,
+    color: '#E0E0F0',
+    lineHeight: 18,
   },
+  matrixCell: {
+    width: 48,
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#555570',
+    fontWeight: '600',
+  },
+  matrixCellPremium: { color: '#9C8FFF' },
   upgradeCard: {
     margin: 16,
     marginBottom: 0,

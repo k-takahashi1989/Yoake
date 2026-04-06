@@ -196,7 +196,19 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const isHC = log.source === 'HEALTH_CONNECT';
 
   // breakdown を再計算（表示用）
-  const { breakdown } = calculateScore(log, []);
+  // recentLogs なしで再計算するため consistencyBonus が 0 になるが、
+  // 保存済みの log.score との差分から実際に適用されたボーナス/ペナルティを復元する
+  const { breakdown: rawBreakdown } = calculateScore(log, []);
+  const baseScore =
+    rawBreakdown.sleepDuration +
+    rawBreakdown.bedTime +
+    rawBreakdown.deepSleep +
+    rawBreakdown.wakeFeeling +
+    rawBreakdown.continuity +
+    rawBreakdown.sleepOnset +
+    rawBreakdown.oversleepPenalty;
+  const inferredConsistencyBonus = log.score - baseScore;
+  const breakdown = { ...rawBreakdown, consistencyBonus: inferredConsistencyBonus, total: log.score };
 
   const dateLabel = format(safeToDate(date), 'M月d日（EEE）', { locale: getDateFnsLocale() });
   const bedStr = format(safeToDate(log.bedTime), 'HH:mm');
@@ -292,30 +304,46 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
         {animatedCard(3, <SectionCard title={t('scoreDetail.scoreBreakdownTitle')}>
           <ScoreBar
             label={t('scoreDetail.durationLabel')}
+            description={t('scoreDetail.durationDesc')}
             score={breakdown.sleepDuration}
             maxScore={isHC ? 30 : 40}
             delay={0}
           />
           <ScoreBar
             label={t('scoreDetail.bedTimeLabel')}
+            description={t('scoreDetail.bedTimeDesc')}
             score={breakdown.bedTime}
             maxScore={isHC ? 20 : 25}
             delay={80}
           />
           {isHC && (
-            <ScoreBar label={t('scoreDetail.deepSleepLabel')} score={breakdown.deepSleep} maxScore={15} delay={160} />
+            <ScoreBar
+              label={t('scoreDetail.deepSleepLabel')}
+              description={t('scoreDetail.deepSleepDesc')}
+              score={breakdown.deepSleep}
+              maxScore={15}
+              delay={160}
+            />
           )}
           <ScoreBar
             label={t('scoreDetail.wakeFeelingLabel')}
+            description={t('scoreDetail.wakeFeelingDesc')}
             score={breakdown.wakeFeeling}
             maxScore={isHC ? 15 : 20}
             delay={isHC ? 240 : 160}
           />
           {isHC && (
-            <ScoreBar label={t('scoreDetail.continuityLabel')} score={breakdown.continuity} maxScore={10} delay={320} />
+            <ScoreBar
+              label={t('scoreDetail.continuityLabel')}
+              description={t('scoreDetail.continuityDesc')}
+              score={breakdown.continuity}
+              maxScore={10}
+              delay={320}
+            />
           )}
           <ScoreBar
             label={t('scoreDetail.sleepOnsetLabel')}
+            description={t('scoreDetail.sleepOnsetDesc')}
             score={breakdown.sleepOnset}
             maxScore={isHC ? 10 : 15}
             delay={isHC ? 400 : 240}
@@ -323,6 +351,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
           {breakdown.consistencyBonus !== 0 && (
             <ScoreBar
               label={t('scoreDetail.consistencyLabel')}
+              description={t('scoreDetail.consistencyDesc')}
               score={breakdown.consistencyBonus}
               maxScore={5}
               allowNegative
@@ -332,6 +361,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
           {breakdown.oversleepPenalty !== 0 && (
             <ScoreBar
               label={t('scoreDetail.oversleepLabel')}
+              description={t('scoreDetail.oversleepDesc')}
               score={breakdown.oversleepPenalty}
               maxScore={0}
               allowNegative
@@ -435,12 +465,14 @@ function DataRow({ label, value }: { label: string; value: string }) {
 
 function ScoreBar({
   label,
+  description,
   score,
   maxScore,
   allowNegative: _allowNegative = false,
   delay = 0,
 }: {
   label: string;
+  description?: string;
   score: number;
   maxScore: number;
   allowNegative?: boolean;
@@ -471,6 +503,7 @@ function ScoreBar({
     <View style={styles.scoreBarRow}>
       <View style={styles.scoreBarLeft}>
         <Text style={styles.scoreBarLabel}>{label}</Text>
+        {description ? <Text style={styles.scoreBarDesc}>{description}</Text> : null}
         <View style={styles.scoreBarTrack}>
           <Animated.View
             style={[
@@ -541,7 +574,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scoreBarLeft: { flex: 1 },
-  scoreBarLabel: { fontSize: 12, color: MORNING_THEME.textSecondary, marginBottom: 4 },
+  scoreBarLabel: { fontSize: 12, color: MORNING_THEME.textSecondary, marginBottom: 2 },
+  scoreBarDesc: { fontSize: 10, color: MORNING_THEME.textMuted, marginBottom: 4, lineHeight: 14 },
   scoreBarTrack: {
     height: 6,
     backgroundColor: MORNING_THEME.surfaceSoft,
