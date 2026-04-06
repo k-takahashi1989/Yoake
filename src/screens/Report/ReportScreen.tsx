@@ -112,7 +112,6 @@ export default function ReportScreen() {
 
   // 0=今週, -1=先週, -2=先々週
   const [selectedWeekOffset, setSelectedWeekOffset] = useState<0 | -1 | -2>(0);
-  const [weeklyLogs, setWeeklyLogs] = useState<SleepLog[]>([]);
   const [monthlyLogs, setMonthlyLogs] = useState<SleepLog[]>([]);
   const [weeklyReport, setWeeklyReport] = useState<AiReport | null>(null);
   const [pastReports, setPastReports] = useState<Array<{ key: string } & AiReport>>([]);
@@ -163,9 +162,11 @@ export default function ReportScreen() {
     past: Array<{ key: string } & AiReport>,
   ) => {
     const today = new Date();
-    const weekKey = format(today, "RRRR-'W'II");
+    // レポートは「先週（完結した週）」を対象にする
+    const lastWeekBase = addWeeks(today, -1);
+    const weekKey = format(lastWeekBase, "RRRR-'W'II");
 
-    // past[0] が今週のレポートなら再取得不要
+    // past[0] が先週のレポートなら再取得不要
     const cached = past[0]?.key === weekKey ? past[0] : await getAiReport(weekKey);
     if (cached) {
       setWeeklyReport(cached);
@@ -173,13 +174,14 @@ export default function ReportScreen() {
       return;
     }
 
-    // 月曜日 + 直近7日に3件以上あれば自動生成
-    if (today.getDay() === 1 && logs.slice(0, 7).length >= 3) {
+    // 月曜日（先週が完結した翌日）+ 先週のログが3件以上あれば自動生成
+    const lastWeekLogs = getWeekLogs(logs, -1);
+    if (today.getDay() === 1 && lastWeekLogs.length >= 3) {
       setIsLoadingReport(true);
       try {
         const goal = await getGoal();
         const report = await generateWeeklyReport(
-          logs.slice(0, 7),
+          lastWeekLogs,
           goal ?? { targetHours: 7.5, targetScore: 80, bedTimeTarget: null, updatedAt: null },
           buildStats(logs),
         );
@@ -204,14 +206,12 @@ export default function ReportScreen() {
           getPastWeeklyReports(8),
         ]);
         setMonthlyLogs(logs);
-        setWeeklyLogs(logs.slice(0, 7));
         setPastReports(past);
         await loadWeeklyReport(logs, past);
       } else {
-        // 無料ユーザー: スコアグラフ表示のため直近7件だけロード
+        // 無料ユーザー: スコアグラフ表示のため直近データだけロード
         const logs = await getRecentSleepLogs(SLEEP_LOG_FETCH_LIMIT.REPORT);
         setMonthlyLogs(logs);
-        setWeeklyLogs(logs.slice(0, 7));
       }
     } catch (e) {
       console.error('ReportScreen loadData error:', e);
@@ -231,9 +231,9 @@ export default function ReportScreen() {
   );
 
   const handleGenerateReport = async () => {
-    const today = new Date();
-    const weekKey = format(today, "RRRR-'W'II");
-    const targetLogs = weeklyLogs.length >= 1 ? weeklyLogs : monthlyLogs.slice(0, 7);
+    // 選択中の週（先週 or 先々週）のキーとログを使う
+    const weekKey = format(addWeeks(new Date(), selectedWeekOffset), "RRRR-'W'II");
+    const targetLogs = logs; // useMemo で selectedWeekOffset に対応済み
     if (targetLogs.length === 0) return;
     setIsLoadingReport(true);
     try {
@@ -360,14 +360,14 @@ export default function ReportScreen() {
               <>
                 {/* 有料: スコア推移グラフ（期間切り替え付き） */}
 
-                {/* 週次AIレポート（今週を表示中のみ） */}
-                {selectedWeekOffset === 0 && (
+                {/* 週次AIレポート（完結した週＝先週・先々週のみ表示。今週は途中経過のため非表示） */}
+                {selectedWeekOffset !== 0 && (
                   <WeeklyReportCard
                     weeklyReport={weeklyReport}
                     pastReports={pastReports}
                     isLoadingReport={isLoadingReport}
                     onGenerate={handleGenerateReport}
-                    currentWeekAvgScore={weeklyLogs.length > 0 ? avgScore : null}
+                    currentWeekAvgScore={logs.length > 0 ? avgScore : null}
                     previousWeekAvgScore={previousPeriodAvgScore}
                   />
                 )}
