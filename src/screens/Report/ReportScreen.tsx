@@ -110,8 +110,8 @@ export default function ReportScreen() {
     return unsub;
   }, [bgTransX, bgTransY, navigation, scaleAnim]);
 
-  // 0=今週, -1=先週, -2=先々週
-  const [selectedWeekOffset, setSelectedWeekOffset] = useState<0 | -1 | -2>(0);
+  // -1=先週, -2=先々週
+  const [selectedWeekOffset, setSelectedWeekOffset] = useState<-1 | -2>(-1);
   const [monthlyLogs, setMonthlyLogs] = useState<SleepLog[]>([]);
   const [weeklyReport, setWeeklyReport] = useState<AiReport | null>(null);
   const [pastReports, setPastReports] = useState<Array<{ key: string } & AiReport>>([]);
@@ -309,11 +309,10 @@ export default function ReportScreen() {
         <View style={styles.handleRow}>
           <View style={styles.handle} />
           <View style={styles.tabRow}>
-            {(([0, -1, -2] as const).map(offset => {
-              // 週ラベル（言語別）
+            {(([-1, -2] as const).map(offset => {
               const weekLabels: Record<number, string> = i18n.language === 'ja'
-                ? { 0: '今週', [-1]: '先週', [-2]: '先々週' }
-                : { 0: 'This week', [-1]: 'Last week', [-2]: '2 weeks ago' };
+                ? { [-1]: '先週', [-2]: '先々週' }
+                : { [-1]: 'Last week', [-2]: '2 weeks ago' };
               return (
                 <TouchableOpacity
                   key={offset}
