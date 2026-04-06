@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: MORNING_THEME.borderSoft,
   },
-  sectionTitle: { fontSize: 14, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 12 },
+  sectionTitle: { fontSize: 15, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 12 },
   memoInput: {
     color: MORNING_THEME.textPrimary,
     fontSize: 14,

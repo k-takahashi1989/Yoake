@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.borderStrong,
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: MORNING_THEME.goldStrong,
     fontWeight: '600',
     marginBottom: 12,
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   gridLabel: {
     width: 24,
     color: MORNING_THEME.textMuted,
-    fontSize: 9,
+    fontSize: 10,
   },
   gridLine: {
     flex: 1,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   diffPillText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.2,
   },

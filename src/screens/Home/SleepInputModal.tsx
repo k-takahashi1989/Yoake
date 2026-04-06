@@ -536,14 +536,14 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.goldBorder,
   },
   hcBannerText: { color: MORNING_THEME.goldStrong, fontSize: 13, fontWeight: '600' },
-  hcBannerSwitch: { color: MORNING_THEME.textMuted, fontSize: 12, textDecorationLine: 'underline' }, // WCAG AA対応: #666 → #9A9AB8
+  hcBannerSwitch: { color: MORNING_THEME.textMuted, fontSize: 12, textDecorationLine: 'underline', fontWeight: '600' }, // WCAG AA対応: #666 → #9A9AB8
   durationPreview: { alignItems: 'center', paddingVertical: 24 },
   durationValue: { fontSize: 36, fontWeight: 'bold', color: MORNING_THEME.goldStrong },
   durationLabel: { fontSize: 13, color: MORNING_THEME.textMuted, marginTop: 4 },
   stageRow: { flexDirection: 'row', justifyContent: 'space-around' },
   stageItem: { alignItems: 'center' },
   stageValue: { fontSize: 16, fontWeight: 'bold' },
-  stageLabel: { fontSize: 10, color: MORNING_THEME.textMuted, marginTop: 4 },
+  stageLabel: { fontSize: 12, color: MORNING_THEME.textMuted, marginTop: 4 },
   sectionCard: {
     marginHorizontal: 16,
     backgroundColor: MORNING_THEME.surfacePrimary,
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.borderSoft,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: MORNING_THEME.textMuted,
     fontWeight: '600',
     marginBottom: 12,

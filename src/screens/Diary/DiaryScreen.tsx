@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scoreValue: { fontSize: 20, fontFamily: 'KiwiMaru-Regular' },
-  scoreLabel: { fontSize: 10, fontWeight: '600' },
+  scoreLabel: { fontSize: 12, fontWeight: '600' },
   rowLeft: { flex: 1, gap: 4 },
   rowHeader: {
     flexDirection: 'row',
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
   },
   memoPreview: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'ZenKurenaido-Regular',
     color: MORNING_THEME.textMuted,
     fontStyle: 'italic',
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.successBorder,
   },
   todayChipText: {
-    fontSize: 9,
+    fontSize: 11,
     color: '#E9FFF4',
     fontWeight: '800',
     letterSpacing: 0.4,
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.borderCool,
   },
   habitOverflowText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: MORNING_THEME.textPrimary,
     letterSpacing: 0.2,

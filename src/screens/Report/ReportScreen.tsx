@@ -359,17 +359,15 @@ export default function ReportScreen() {
               <>
                 {/* 有料: スコア推移グラフ（期間切り替え付き） */}
 
-                {/* 週次AIレポート（完結した週＝先週・先々週のみ表示。今週は途中経過のため非表示） */}
-                {selectedWeekOffset !== 0 && (
-                  <WeeklyReportCard
-                    weeklyReport={weeklyReport}
-                    pastReports={pastReports}
-                    isLoadingReport={isLoadingReport}
-                    onGenerate={handleGenerateReport}
-                    currentWeekAvgScore={logs.length > 0 ? avgScore : null}
-                    previousWeekAvgScore={previousPeriodAvgScore}
-                  />
-                )}
+                {/* 週次AIレポート（selectedWeekOffset は -1 | -2 のみ。常に完結した週を表示） */}
+                <WeeklyReportCard
+                  weeklyReport={weeklyReport}
+                  pastReports={pastReports}
+                  isLoadingReport={isLoadingReport}
+                  onGenerate={handleGenerateReport}
+                  currentWeekAvgScore={logs.length > 0 ? avgScore : null}
+                  previousWeekAvgScore={previousPeriodAvgScore}
+                />
 
                 {/* 習慣別スコア影響 */}
                 <ScoreTrendCard monthlyLogs={monthlyLogs} chartWidth={chartWidth} />
@@ -621,7 +619,7 @@ const styles = StyleSheet.create({
   },
   tabBtn: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 18 },
   tabBtnActive: { backgroundColor: MORNING_THEME.gold },
-  tabText: { fontSize: 12, color: MORNING_THEME.textSecondary },
+  tabText: { fontSize: 12, color: MORNING_THEME.textSecondary, fontWeight: '600' },
   tabTextActive: { color: '#17263A', fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyIconWrap: {
@@ -656,7 +654,7 @@ const styles = StyleSheet.create({
   },
   summaryEyebrow: { fontSize: 13, color: MORNING_THEME.goldStrong, fontWeight: '700' },
   summaryDiffWrap: { alignItems: 'flex-end', gap: 2 },
-  summaryDiffLabel: { fontSize: 10, color: MORNING_THEME.textMuted },
+  summaryDiffLabel: { fontSize: 12, color: MORNING_THEME.textMuted },
   summaryDiffValue: { fontSize: 18, fontWeight: '800' },
   summaryDiffUp: { color: '#4CAF50' },
   summaryDiffDown: { color: '#FF7043' },
@@ -673,7 +671,7 @@ const styles = StyleSheet.create({
     color: MORNING_THEME.textPrimary,
     fontFamily: 'KiwiMaru-Regular',
   },
-  summaryMainCaption: { fontSize: 12, color: MORNING_THEME.textMuted, marginTop: 4 },
+  summaryMainCaption: { fontSize: 13, color: MORNING_THEME.textMuted, marginTop: 4 },
   summarySideStats: { flex: 1, gap: 8, justifyContent: 'center' },
   miniStat: {
     backgroundColor: MORNING_THEME.surfaceSoft,
@@ -683,10 +681,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: MORNING_THEME.borderSoft,
   },
-  miniStatLabel: { fontSize: 10, color: MORNING_THEME.textMuted, marginBottom: 4 },
+  miniStatLabel: { fontSize: 12, color: MORNING_THEME.textMuted, marginBottom: 4 },
   miniStatValue: { fontSize: 16, fontWeight: '700' },
   summaryInsights: { marginTop: 14, gap: 8 },
-  summaryInsightsLabel: { fontSize: 11, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 2 },
+  summaryInsightsLabel: { fontSize: 13, color: MORNING_THEME.textMuted, fontWeight: '600', marginBottom: 2 },
   insightChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -704,7 +702,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 152, 0, 0.10)',
     borderColor: 'rgba(255, 152, 0, 0.20)',
   },
-  insightChipText: { flex: 1, fontSize: 12, color: MORNING_THEME.textPrimary },
+  insightChipText: { flex: 1, fontSize: 13, color: MORNING_THEME.textPrimary },
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -722,6 +720,6 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.borderSoft,
   },
   statValue: { fontSize: 20, fontFamily: 'KiwiMaru-Regular', marginBottom: 4 },
-  statLabel: { fontSize: 10, color: MORNING_THEME.textSecondary },
+  statLabel: { fontSize: 12, color: MORNING_THEME.textSecondary },
   spacer: { height: 32 },
 });

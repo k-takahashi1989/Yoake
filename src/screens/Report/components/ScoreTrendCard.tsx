@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 15,
     color: MORNING_THEME.goldStrong,
     fontWeight: '600',
   },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.goldBorder,
   },
   periodChipText: {
-    fontSize: 11,
+    fontSize: 12,
     color: MORNING_THEME.textMuted,
   },
   periodChipTextActive: {
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   axisLabel: {
     color: MORNING_THEME.textMuted,
-    fontSize: 9,
+    fontSize: 10,
   },
   chartEmpty: {
     alignItems: 'center',

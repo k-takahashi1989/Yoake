@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   scoreValue: { fontSize: 80, fontFamily: 'KiwiMaru-Regular', color: MORNING_THEME.textPrimary, lineHeight: 96, includeFontPadding: false },
-  scoreUnit: { fontSize: 20, color: MORNING_THEME.textPrimary, marginBottom: 12 },
+  scoreUnit: { fontSize: 20, fontWeight: '600', color: MORNING_THEME.textPrimary, marginBottom: 12 },
   scoreBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -574,8 +574,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scoreBarLeft: { flex: 1 },
-  scoreBarLabel: { fontSize: 12, color: MORNING_THEME.textSecondary, marginBottom: 2 },
-  scoreBarDesc: { fontSize: 10, color: MORNING_THEME.textMuted, marginBottom: 4, lineHeight: 14 },
+  scoreBarLabel: { fontSize: 13, fontWeight: '500', color: MORNING_THEME.textSecondary, marginBottom: 2 },
+  scoreBarDesc: { fontSize: 11, color: MORNING_THEME.textMuted, marginBottom: 4, lineHeight: 16 },
   scoreBarTrack: {
     height: 6,
     backgroundColor: MORNING_THEME.surfaceSoft,
@@ -597,8 +597,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   habitChipChecked: { borderColor: MORNING_THEME.goldBorder, backgroundColor: MORNING_THEME.goldSurface },
-  habitLabel: { fontSize: 12, color: MORNING_THEME.textMuted },
-  habitLabelChecked: { color: MORNING_THEME.goldStrong },
+  habitLabel: { fontSize: 13, color: MORNING_THEME.textMuted },
+  habitLabelChecked: { color: MORNING_THEME.goldStrong, fontWeight: '600' },
   memoText: { fontSize: 14, color: MORNING_THEME.textSecondary, lineHeight: 22, fontFamily: 'ZenKurenaido-Regular' },
   lockedInsightCard: {
     borderRadius: 14,
@@ -608,8 +608,8 @@ const styles = StyleSheet.create({
     borderColor: MORNING_THEME.goldBorder,
   },
   lockedInsightLead: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 22,
     color: MORNING_THEME.textPrimary,
     marginBottom: 12,
   },
@@ -644,8 +644,8 @@ const styles = StyleSheet.create({
   },
   lockedInsightButtonText: {
     color: MORNING_THEME.goldText,
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   spacer: { height: 32 },
