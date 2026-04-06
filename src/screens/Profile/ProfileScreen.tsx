@@ -1,10 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking,
   ImageBackground,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -46,7 +45,6 @@ export default function ProfileScreen() {
     ? 'このままだと再インストールや機種変更時にデータを復旧できません。メールアドレスを登録すると、同じアカウントで睡眠記録を引き継げます。'
     : 'Without email protection, you cannot restore your data after reinstalling or changing devices. Link an email to keep your sleep records.';
   const protectButtonText = isJa ? 'メールアドレス登録' : 'Add Email Address';
-  const feedbackLabel = isJa ? '要望・不具合報告' : 'Feedback & Bug Reports';
   const signOutMessage = user?.isAnonymous
     ? t('profile.signOutMessage')
     : isJa
@@ -86,9 +84,7 @@ export default function ProfileScreen() {
         resizeMode="cover"
       />
       <View style={styles.bgOverlay} />
-      {/* 髀｡縺ｮ菴咲ｽｮ縺ｫ驥阪↑繧句承荳翫ヵ繝ｭ繝ｼ繝・ぅ繝ｳ繧ｰ繝ｦ繝ｼ繧ｶ繝ｼ繧ｫ繝ｼ繝・*/}
 
-      {/* 繝懊ヨ繝繧ｷ繝ｼ繝茨ｼ医Γ繝九Η繝ｼ荳隕ｧ・・*/}
       <View
         style={[
           styles.bottomSheet,
@@ -97,7 +93,10 @@ export default function ProfileScreen() {
       >
         <View style={styles.handle} />
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* 繧ｲ繧ｹ繝郁ｭｦ蜻翫ヰ繝翫・ */}
+          {/* ページタイトル */}
+          <Text style={styles.pageTitle}>{t('profile.title')}</Text>
+
+          {/* ゲスト警告バナー */}
           {user?.isAnonymous && (
             <View style={styles.guestWarning}>
               <Text style={styles.guestWarningText}>
@@ -106,7 +105,7 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {/* 繧｢繝・・繧ｰ繝ｬ繝ｼ繝会ｼ育┌譁吶Θ繝ｼ繧ｶ繝ｼ縺ｮ縺ｿ・・*/}
+          {/* アップグレードカード（無料ユーザーのみ） */}
           {!isPremium && (
             <TouchableOpacity
               style={styles.upgradeCard}
@@ -124,7 +123,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
 
-          {/* 繝｡繝九Η繝ｼ */}
+          {/* アカウントセクション */}
           <View style={styles.menuSection}>
             <AccountRow
               displayName={accountName}
@@ -150,8 +149,14 @@ export default function ProfileScreen() {
                 iconName="crown"
                 label={t('profile.menuSubscription')}
                 onPress={() => navigation.navigate('SubscriptionManage')}
+                last
               />
             )}
+          </View>
+
+          {/* 設定セクション */}
+          <Text style={styles.sectionHeader}>{t('profile.sectionSettings')}</Text>
+          <View style={styles.menuSection}>
             <MenuRow
               iconName="heart-beat"
               label={t('profile.menuHealthConnect')}
@@ -178,20 +183,26 @@ export default function ProfileScreen() {
                   { text: t('common.cancel'), style: 'cancel' },
                 ]);
               }}
+              last
             />
+          </View>
+
+          {/* サポートセクション */}
+          <Text style={styles.sectionHeader}>{t('profile.sectionSupport')}</Text>
+          <View style={styles.menuSection}>
             <MenuRow
               iconName="note"
-              label={t('home.guideButton')}
+              label={t('profile.menuHowToUse')}
               onPress={() => Linking.openURL(LINKS.HOW_TO_USE)}
             />
             <MenuRow
               iconName="sparkling"
-              label={isJa ? 'YOAKE をレビュー' : 'Rate YOAKE'}
+              label={t('profile.menuReview')}
               onPress={handleRateAppPress}
             />
             <MenuRow
               iconName="speech-bubble"
-              label={feedbackLabel}
+              label={t('profile.menuFeedback')}
               onPress={() => Linking.openURL(LINKS.FEEDBACK_FORM)}
             />
             <MenuRow
@@ -207,14 +218,14 @@ export default function ProfileScreen() {
             />
           </View>
 
-          {/* 繝ｭ繧ｰ繧｢繧ｦ繝・*/}
+          {/* ログアウト */}
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
             <Text style={styles.signOutText}>{t('profile.signOut')}</Text>
           </TouchableOpacity>
 
           <Text style={styles.version}>{t('profile.version', { version: pkg.version })}</Text>
 
-          {/* DEV 繧ｻ繧ｯ繧ｷ繝ｧ繝ｳ */}
+          {/* DEV セクション */}
           {__DEV__ && (
             <View style={styles.devSection}>
               <Text style={styles.devTitle}>DEBUG MENU</Text>
@@ -242,7 +253,6 @@ export default function ProfileScreen() {
                   setIsSeedLoading(true);
                   try {
                     await generateSeedData(90);
-                    // 繧ｷ繝ｼ繝牙ｾ後↓store繧呈峩譁ｰ縺励※繝帙・繝逕ｻ髱｢縺ｫ蜊ｳ蜿肴丐
                     await useSleepStore.getState().loadRecent(SLEEP_LOG_FETCH_LIMIT.HOME);
                     Alert.alert('成功', '90日分のシードデータを生成しました');
                   } catch (e: any) {
@@ -289,7 +299,7 @@ function MenuRow({
       activeOpacity={0.7}
     >
       <View style={styles.menuIconWrapper}>
-        <Icon name={iconName} size={20} color={iconColor ?? '#9C8FFF'} />
+        <Icon name={iconName} size={22} color={iconColor ?? '#9C8FFF'} />
       </View>
       <Text style={styles.menuLabel}>{label}</Text>
       {value != null && <Text style={styles.menuValue}>{value}</Text>}
@@ -345,35 +355,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: MORNING_THEME.overlay,
   },
-  // 蜿ｳ荳翫ヵ繝ｭ繝ｼ繝・ぅ繝ｳ繧ｰ繝ｦ繝ｼ繧ｶ繝ｼ繧ｫ繝ｼ繝会ｼ磯升縺ｮ菴咲ｽｮ縺ｫ驥阪・繧具ｼ・
-  mirrorCard: {
-    position: 'absolute',
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(13, 13, 30, 0.88)',
-    borderRadius: 16,
-    padding: 10,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(107, 92, 231, 0.35)',
-    zIndex: 10,
-    maxWidth: 180,
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#6B5CE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 17, fontWeight: 'bold', color: '#FFFFFF' },
-  userInfo: { flex: 1 },
-  userName: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', marginBottom: 2 },
-  planBadge: { fontSize: 11, color: '#C8C8E0' },
-  planBadgePremium: { color: '#FFD700' },
-  // 繝懊ヨ繝繧ｷ繝ｼ繝・
   bottomSheet: {
     position: 'absolute',
     top: 0,
@@ -391,19 +372,38 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 12,
   },
+  // ページタイトル
+  pageTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: MORNING_THEME.textPrimary,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  // セクション見出し
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: MORNING_THEME.textMuted,
+    marginHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
   guestWarning: {
     marginHorizontal: 16,
     marginTop: 10,
     backgroundColor: MORNING_THEME.goldSurface,
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: MORNING_THEME.goldBorder,
   },
   guestWarningText: {
     color: MORNING_THEME.goldStrong,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
   },
   upgradeCard: {
     margin: 16,
@@ -415,8 +415,8 @@ const styles = StyleSheet.create({
   upgradeCardText: { fontSize: 16, fontWeight: 'bold', color: '#17263A', marginBottom: 4 },
   upgradeCardSub: { fontSize: 13, color: '#32445A' },
   menuSection: {
-    margin: 16,
-    marginBottom: 0,
+    marginHorizontal: 16,
+    marginTop: 8,
     backgroundColor: MORNING_THEME.surfacePrimary,
     borderRadius: 16,
     overflow: 'hidden',
@@ -427,14 +427,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(107, 92, 231, 0.25)',
-    gap: 12,
+    borderBottomColor: MORNING_THEME.borderSoft,
+    gap: 14,
   },
   accountRow: {
     alignItems: 'flex-start',
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
   accountTextBlock: {
     flex: 1,
@@ -446,13 +446,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  accountSubtitle: { fontSize: 12, color: MORNING_THEME.textMuted },
-  accountHint: { fontSize: 12, color: MORNING_THEME.textMuted },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#6B5CE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
+  userName: { fontSize: 16, fontWeight: '600', color: MORNING_THEME.textPrimary, marginBottom: 2 },
+  planBadge: { fontSize: 12, color: '#C8C8E0' },
+  planBadgePremium: { color: '#FFD700' },
+  accountSubtitle: { fontSize: 13, color: MORNING_THEME.textMuted },
+  accountHint: { fontSize: 13, color: MORNING_THEME.textMuted },
   accountActions: {
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: MORNING_THEME.borderSoft,
   },
@@ -460,44 +472,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: MORNING_THEME.gold,
     borderRadius: 10,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   accountPrimaryActionText: {
     color: '#17263A',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
-  accountSecondaryAction: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: MORNING_THEME.borderCool,
-    backgroundColor: MORNING_THEME.blueSurface,
-  },
-  accountSecondaryActionText: {
-    color: MORNING_THEME.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
   menuRowLast: { borderBottomWidth: 0 },
-  menuIconWrapper: { width: 28, alignItems: 'center', justifyContent: 'center' },
-  menuLabel: { flex: 1, fontSize: 15, color: MORNING_THEME.textPrimary },
-  menuValue: { fontSize: 13, color: MORNING_THEME.textSecondary, marginRight: 4 },
-  menuArrow: { fontSize: 20, color: MORNING_THEME.textSecondary },
+  menuIconWrapper: { width: 30, alignItems: 'center', justifyContent: 'center' },
+  menuLabel: { flex: 1, fontSize: 17, color: MORNING_THEME.textPrimary },
+  menuValue: { fontSize: 14, color: MORNING_THEME.textSecondary, marginRight: 4 },
+  menuArrow: { fontSize: 22, color: MORNING_THEME.textSecondary },
   signOutBtn: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 24,
     marginBottom: 8,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: MORNING_THEME.dangerBorder,
     alignItems: 'center',
   },
-  signOutText: { color: MORNING_THEME.danger, fontSize: 15, fontWeight: '600' },
-  version: { textAlign: 'center', color: MORNING_THEME.textSecondary, fontSize: 12, marginBottom: 8 },
+  signOutText: { color: MORNING_THEME.danger, fontSize: 16, fontWeight: '600' },
+  version: { textAlign: 'center', color: MORNING_THEME.textSecondary, fontSize: 13, marginBottom: 8, marginTop: 4 },
   devSection: {
     margin: 16,
     marginTop: 4,
@@ -539,10 +538,3 @@ const styles = StyleSheet.create({
   devSeedBtnDisabled: { opacity: 0.5 },
   devSeedBtnText: { color: MORNING_THEME.textSecondary, fontSize: 13, fontWeight: '600' },
 });
-
-// ============================================================
-// AI諤ｧ譬ｼ驕ｸ謚槭・繝医Β繧ｷ繝ｼ繝医さ繝ｳ繝昴・繝阪Φ繝・
-
-
-
-

@@ -325,6 +325,11 @@ export const en = {
   'profile.signOutMessage': 'You will be signed out. This anonymous account cannot be recovered. Are you sure?',
   'profile.language': 'Language',
   'profile.selectLanguage': 'Select language',
+  'profile.sectionSettings': 'Settings',
+  'profile.sectionSupport': 'Support',
+  'profile.menuHowToUse': 'How to Use',
+  'profile.menuReview': 'Rate YOAKE',
+  'profile.menuFeedback': 'Feedback & Bug Reports',
   'profile.version': 'YOAKE v{{version}}',
   // ── editProfile ────────────────────────────────────────────
   'editProfile.nickname': 'Nickname (optional)',

@@ -325,6 +325,11 @@ export const ja = {
   'profile.signOutMessage': 'ログアウトします。匿名アカウントのため、再ログインはできません。本当によろしいですか？',
   'profile.language': '言語',
   'profile.selectLanguage': '言語を選択',
+  'profile.sectionSettings': '設定',
+  'profile.sectionSupport': 'サポート',
+  'profile.menuHowToUse': '使い方',
+  'profile.menuReview': 'YOAKE をレビュー',
+  'profile.menuFeedback': '要望・不具合報告',
   'profile.version': 'YOAKE v{{version}}',
   // ── editProfile ────────────────────────────────────────────
   'editProfile.nickname': 'ニックネーム（任意）',
