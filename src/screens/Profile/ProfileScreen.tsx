@@ -50,8 +50,8 @@ export default function ProfileScreen() {
   const signOutMessage = user?.isAnonymous
     ? t('profile.signOutMessage')
     : isJa
-    ? 'この端末からログアウトします。メールアドレスで再度ログインすれば、データを復旧できます。'
-    : 'You will be signed out on this device. You can restore your data by signing in again with your email.';
+    ? 'この端末からログアウトします。メールアドレスで再度ログインすれば、記録を引き継げます。'
+    : 'You will be signed out on this device. Sign in again with your email to restore your data.';
 
   const handleSignOut = () => {
     Alert.alert(t('profile.signOutTitle'), signOutMessage, [
