@@ -25,7 +25,13 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth, locked = false
     () => buildLineData(monthlyLogs, scorePeriod),
     [monthlyLogs, scorePeriod],
   );
-  const innerChartWidth = Math.max(chartWidth - 36, 220);
+  const DOT_RADIUS = 4;
+  const EDGE_PADDING = DOT_RADIUS + 8; // ドットが確実に収まる余白
+  const innerChartWidth = Math.max(chartWidth - 32, 220);
+  const pointSpacing =
+    lineData.length > 1
+      ? Math.floor((innerChartWidth - EDGE_PADDING * 2) / (lineData.length - 1))
+      : 50;
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -70,15 +76,15 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth, locked = false
             key={scorePeriod}
             data={lineData}
             width={innerChartWidth}
-            height={188}
+            height={200}
             scrollRef={chartScrollRef}
             color={MORNING_THEME.goldStrong}
-            thickness={3}
-            dataPointsColor={MORNING_THEME.textPrimary}
-            dataPointsRadius={3}
+            thickness={2.5}
+            dataPointsColor={MORNING_THEME.goldStrong}
+            dataPointsRadius={DOT_RADIUS}
             startFillColor={MORNING_THEME.goldStrong}
             endFillColor={MORNING_THEME.goldStrong}
-            startOpacity={0.24}
+            startOpacity={0.28}
             endOpacity={0.02}
             areaChart
             hideRules={false}
@@ -90,8 +96,9 @@ export default function ScoreTrendCard({ monthlyLogs, chartWidth, locked = false
             yAxisTextStyle={styles.axisLabel}
             noOfSections={4}
             maxValue={100}
-            initialSpacing={10}
-            endSpacing={10}
+            spacing={pointSpacing}
+            initialSpacing={EDGE_PADDING}
+            endSpacing={EDGE_PADDING}
             curved
           />
         ) : (

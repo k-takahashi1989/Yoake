@@ -66,7 +66,7 @@ export async function schedulePersonalizedReminder(
       id: NOTIF_ID,
       title: 'おはようございます',
       body,
-      android: { channelId: CHANNEL_ID, pressAction: { id: 'default' } },
+      android: { channelId: CHANNEL_ID, smallIcon: 'ic_stat_name', pressAction: { id: 'default' } },
     },
     trigger,
   );
@@ -100,6 +100,7 @@ export async function scheduleBedtimeReminder(
       body: 'ボタンを押すと、今の時刻が就寝時刻として記録されます。',
       android: {
         channelId: CHANNEL_ID,
+        smallIcon: 'ic_stat_name',
         pressAction: { id: 'default' },
         actions: [
           {
@@ -207,7 +208,7 @@ export async function notifyStreakMilestoneIfReached(streak: number): Promise<vo
   await notifee.displayNotification({
     title: message.title,
     body: message.body,
-    android: { channelId: CHANNEL_ID },
+    android: { channelId: CHANNEL_ID, smallIcon: 'ic_stat_name' },
   });
 
   await AsyncStorage.setItem(storageKey, '1');
