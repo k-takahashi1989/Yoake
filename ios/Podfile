@@ -8,9 +8,9 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-# Firebase iOS SDK v11+ は Swift 製のため、ObjC から Swift ヘッダーを参照するには
-# static frameworks が必要。use_frameworks! :linkage => :static を使用する。
-use_frameworks! :linkage => :static
+# Firebase iOS SDK v11+ (Swift 製) を ObjC から import するために必要。
+# gRPC-C++ の modulemap 問題は post_install で CLANG_ENABLE_MODULES = NO により回避する。
+use_modular_headers!
 
 target 'Yoake' do
   config = use_native_modules!
@@ -29,11 +29,14 @@ target 'Yoake' do
       # :ccache_enabled => true
     )
 
-    # use_frameworks! :linkage => :static 使用時、RNFBApp 等が React の非モジュラーヘッダーを
-    # framework 内から import するためのエラーを抑制する
+    # use_modular_headers! グローバル時に gRPC-C++ が依存する gRPC-Core の
+    # modulemap が見つからないエラーを防ぐため、gRPC 関連 pod の Clang modules を無効化する
+    grpc_pods = %w[gRPC-C++ gRPC-Core BoringSSL-GRPC abseil]
     installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |build_config|
-        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      if grpc_pods.include?(target.name)
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+        end
       end
     end
   end
