@@ -36,7 +36,7 @@ export interface UserGoal {
 
 export type SleepOnset = 'FAST' | 'SLIGHTLY_FAST' | 'NORMAL' | 'SLIGHTLY_SLOW' | 'SLOW';
 export type WakeFeeling = 'GOOD' | 'SLIGHTLY_GOOD' | 'NORMAL' | 'SLIGHTLY_BAD' | 'BAD';
-export type SleepSource = 'HEALTH_CONNECT' | 'MANUAL';
+export type SleepSource = 'HEALTH_CONNECT' | 'APPLE_HEALTH' | 'MANUAL';
 
 export interface HabitEntry {
   id: string;

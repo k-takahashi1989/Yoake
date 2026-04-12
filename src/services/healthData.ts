@@ -1,4 +1,5 @@
 import { Linking, Platform } from 'react-native';
+import type { SleepSource } from '../types';
 import {
   HCSleepData,
   hasHCSleepPermission,
@@ -6,6 +7,12 @@ import {
   readSleepForDate,
   requestHCPermissions,
 } from './healthConnect';
+import {
+  hasAppleHealthPermission,
+  isAppleHealthAvailable,
+  readAppleHealthSleepForDate,
+  requestAppleHealthPermissions,
+} from './appleHealth';
 
 export type HealthSleepData = HCSleepData;
 
@@ -15,12 +22,34 @@ export function getHealthDataPlatform(): HealthDataPlatform {
   return Platform.OS === 'ios' ? 'apple_health' : 'health_connect';
 }
 
+export function getNativeHealthSource(): Exclude<SleepSource, 'MANUAL'> {
+  return Platform.OS === 'ios' ? 'APPLE_HEALTH' : 'HEALTH_CONNECT';
+}
+
+export function isHealthDataSource(source: SleepSource): boolean {
+  return source === 'HEALTH_CONNECT' || source === 'APPLE_HEALTH';
+}
+
+export function getImportedHealthSourceLabelKey(
+  source: SleepSource,
+): 'common.hcSource' | 'common.appleHealthSource' {
+  if (source === 'APPLE_HEALTH') {
+    return 'common.appleHealthSource';
+  }
+
+  if (source === 'HEALTH_CONNECT' && Platform.OS === 'ios') {
+    return 'common.appleHealthSource';
+  }
+
+  return 'common.hcSource';
+}
+
 export async function isSleepDataAvailable(): Promise<boolean> {
   if (Platform.OS === 'android') {
     return isHCAvailable();
   }
 
-  return false;
+  return isAppleHealthAvailable();
 }
 
 export async function requestSleepDataPermissions(): Promise<boolean> {
@@ -28,7 +57,7 @@ export async function requestSleepDataPermissions(): Promise<boolean> {
     return requestHCPermissions();
   }
 
-  return false;
+  return requestAppleHealthPermissions();
 }
 
 export async function hasSleepDataPermission(): Promise<boolean> {
@@ -36,7 +65,7 @@ export async function hasSleepDataPermission(): Promise<boolean> {
     return hasHCSleepPermission();
   }
 
-  return false;
+  return hasAppleHealthPermission();
 }
 
 export async function readSleepDataForDate(date: string): Promise<HealthSleepData | null> {
@@ -44,7 +73,7 @@ export async function readSleepDataForDate(date: string): Promise<HealthSleepDat
     return readSleepForDate(date);
   }
 
-  return null;
+  return readAppleHealthSleepForDate(date);
 }
 
 export async function openHealthDataProviderApp(): Promise<boolean> {

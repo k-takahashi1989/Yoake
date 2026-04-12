@@ -15,6 +15,15 @@ export const BEDTIME_REMINDER_ACTION_ID = 'bedtime_start';
 export const WEEKLY_REPORT_CHANNEL_ID = 'yoake_weekly_report';
 export const PENDING_SLEEP_START_KEY = '@yoake:pending_sleep_start';
 const PENDING_SLEEP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const IOS_NOTIFICATION_DEFAULTS = {
+  sound: 'default' as const,
+  foregroundPresentationOptions: {
+    badge: true,
+    sound: true,
+    banner: true,
+    list: true,
+  },
+};
 
 export interface PendingSleepStart {
   bedTime: Date;
@@ -66,6 +75,7 @@ export async function schedulePersonalizedReminder(
       id: NOTIF_ID,
       title: 'おはようございます',
       body,
+      ios: IOS_NOTIFICATION_DEFAULTS,
       android: { channelId: CHANNEL_ID, smallIcon: 'ic_stat_name', pressAction: { id: 'default' } },
     },
     trigger,
@@ -98,6 +108,7 @@ export async function scheduleBedtimeReminder(
       id: BEDTIME_REMINDER_NOTIFICATION_ID,
       title: 'そろそろ就寝予定の時間です',
       body: 'ボタンを押すと、今の時刻が就寝時刻として記録されます。',
+      ios: IOS_NOTIFICATION_DEFAULTS,
       android: {
         channelId: CHANNEL_ID,
         smallIcon: 'ic_stat_name',
@@ -208,6 +219,7 @@ export async function notifyStreakMilestoneIfReached(streak: number): Promise<vo
   await notifee.displayNotification({
     title: message.title,
     body: message.body,
+    ios: IOS_NOTIFICATION_DEFAULTS,
     android: { channelId: CHANNEL_ID, smallIcon: 'ic_stat_name' },
   });
 

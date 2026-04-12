@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -26,7 +26,6 @@ export default function HealthConnectSettingsScreen() {
   const { t } = useTranslation();
   const isIos = Platform.OS === 'ios';
   const isEnglishUi = t('nav.aiChat') === 'AI Chat';
-
   const [status, setStatus] = useState<Status>('loading');
   const [isRequesting, setIsRequesting] = useState(false);
 
@@ -55,11 +54,13 @@ export default function HealthConnectSettingsScreen() {
   const handleRequest = async () => {
     setIsRequesting(true);
     try {
-      await requestSleepDataPermissions();
-      await checkStatus();
-      useSleepStore.getState().loadRecent();
+      const granted = await requestSleepDataPermissions();
+      setStatus(granted ? 'granted' : 'denied');
+      if (granted) {
+        await useSleepStore.getState().loadRecent();
+      }
     } catch {
-      // ignore
+      setStatus('denied');
     } finally {
       setIsRequesting(false);
     }
@@ -73,6 +74,9 @@ export default function HealthConnectSettingsScreen() {
     openHealthDataProviderStorePage().catch(() => undefined);
   };
 
+  const title = isIos
+    ? (isEnglishUi ? 'Apple Health status' : 'Apple Health 連携状況')
+    : t('healthConnect.statusTitle');
   const statusColor =
     status === 'granted'
       ? '#79E0B5'
@@ -80,43 +84,50 @@ export default function HealthConnectSettingsScreen() {
         ? '#F4B35D'
         : '#F16C6C';
 
-  const title = isIos
-    ? isEnglishUi
-      ? 'Apple Health status'
-      : 'Apple Health 連携状況'
-    : t('healthConnect.statusTitle');
   const statusText = isIos
-    ? isEnglishUi
-      ? 'Apple Health import is not wired yet'
-      : 'Apple Health 連携はまだ未実装です'
+    ? status === 'granted'
+      ? (isEnglishUi ? 'Apple Health connected' : 'Apple Health の読み取り準備ができました')
+      : status === 'denied'
+        ? (isEnglishUi ? 'Permission required' : '権限の許可が必要です')
+        : (isEnglishUi ? 'Apple Health unavailable on this device' : 'この端末では Apple Health を利用できません')
     : status === 'granted'
       ? t('healthConnect.statusGranted')
       : status === 'denied'
         ? t('healthConnect.statusDenied')
         : t('healthConnect.statusUnavailable');
+
   const statusSubText = isIos
-    ? isEnglishUi
-      ? 'This build has the iOS project, but HealthKit permission and sleep import still need native wiring.'
-      : 'iOS プロジェクトの土台はできていますが、HealthKit 権限と睡眠取り込みの native 実装がまだ必要です。'
+    ? status === 'granted'
+      ? (isEnglishUi
+          ? 'Sleep import can now fill bedtime, wake time, stages, and heart rate when Health data exists.'
+          : '睡眠データがある日は、就寝・起床・睡眠ステージ・心拍の自動入力に使えます。')
+      : status === 'denied'
+        ? (isEnglishUi
+            ? 'Allow Apple Health access to import sleep data from Apple Watch and the Health app.'
+            : 'Apple Watch やヘルスケアの睡眠データを取り込むには、Apple Health の権限許可が必要です。')
+        : (isEnglishUi
+            ? 'HealthKit is not available on this device or simulator.'
+            : 'HealthKit がこの端末またはシミュレータで利用できません。')
     : status === 'granted'
       ? t('healthConnect.statusSubGranted')
       : status === 'denied'
         ? t('healthConnect.statusSubDenied')
         : t('healthConnect.statusSubUnavailable');
+
   const descTitle = isIos
-    ? isEnglishUi
-      ? 'What remains on iOS'
-      : 'iOS で残っていること'
+    ? (isEnglishUi ? 'What Apple Health imports' : 'Apple Health で取り込める内容')
     : t('healthConnect.descTitle');
   const descText = isIos
-    ? isEnglishUi
-      ? 'Automatic import still needs Apple Health capability, usage descriptions, and the native bridge that reads sleep data.'
-      : '自動取り込みには、Apple Health capability、用途説明文、睡眠データを読む native ブリッジの追加がまだ必要です。'
+    ? (isEnglishUi
+        ? 'YOAKE reads sleep sessions, stage breakdown, and heart-rate samples from Apple Health, then uses them to prefill your daily log.'
+        : 'YOAKE は Apple Health から睡眠セッション、ステージ内訳、心拍サンプルを読み取り、日々の記録入力に反映します。')
     : t('healthConnect.desc');
+
+  const requestLabel = isIos
+    ? (isEnglishUi ? 'Connect Apple Health' : 'Apple Health を接続')
+    : t('healthConnect.requestPermission');
   const refreshLabel = isIos
-    ? isEnglishUi
-      ? 'Check again'
-      : 'もう一度確認する'
+    ? (isEnglishUi ? 'Check again' : 'もう一度確認する')
     : t('healthConnect.recheck');
 
   return (
@@ -145,7 +156,7 @@ export default function HealthConnectSettingsScreen() {
           <Text style={styles.descText}>{descText}</Text>
         </View>
 
-        {!isIos && status === 'denied' && (
+        {status === 'denied' && (
           <TouchableOpacity
             style={[styles.actionBtn, isRequesting && styles.actionBtnDisabled]}
             onPress={handleRequest}
@@ -154,7 +165,7 @@ export default function HealthConnectSettingsScreen() {
             {isRequesting ? (
               <ActivityIndicator color={MORNING_THEME.goldText} />
             ) : (
-              <Text style={styles.actionBtnText}>{t('healthConnect.requestPermission')}</Text>
+              <Text style={styles.actionBtnText}>{requestLabel}</Text>
             )}
           </TouchableOpacity>
         )}
@@ -165,21 +176,16 @@ export default function HealthConnectSettingsScreen() {
           </TouchableOpacity>
         )}
 
-        {isIos && (
+        {(isIos || status === 'granted') && (
           <TouchableOpacity style={styles.secondaryBtn} onPress={checkStatus}>
             <Text style={styles.secondaryBtnText}>{refreshLabel}</Text>
           </TouchableOpacity>
         )}
 
         {!isIos && status === 'granted' && (
-          <>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={handleRequest}>
-              <Text style={styles.secondaryBtnText}>{t('healthConnect.recheck')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={openProviderApp}>
-              <Text style={styles.secondaryBtnText}>{t('healthConnect.openApp')}</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={openProviderApp}>
+            <Text style={styles.secondaryBtnText}>{t('healthConnect.openApp')}</Text>
+          </TouchableOpacity>
         )}
 
         <View style={styles.bottomSpacer} />

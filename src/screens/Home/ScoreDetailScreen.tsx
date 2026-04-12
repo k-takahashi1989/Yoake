@@ -47,6 +47,10 @@ type SharedParamList = {
 };
 import { i18n, useTranslation } from '../../i18n';
 import { getAiReport, getSleepLog } from '../../services/firebase';
+import {
+  getImportedHealthSourceLabelKey,
+  isHealthDataSource,
+} from '../../services/healthData';
 import { getScoreInfo, calculateScore } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
 import { safeToDate, getDateFnsLocale } from '../../utils/dateUtils';
@@ -193,7 +197,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const scoreInfo = getScoreInfo(log.score);
   const scoreColor = SCORE_COLORS[scoreInfo.color];
   const bgColor = routeScoreColor ?? scoreColor;
-  const isHC = log.source === 'HEALTH_CONNECT';
+  const isHC = isHealthDataSource(log.source);
 
   // breakdown を再計算（表示用）
   // recentLogs なしで再計算するため consistencyBonus が 0 になるが、
@@ -269,7 +273,7 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
           </View>
           <View style={styles.sourceRow}>
             <Text style={styles.sourceText}>
-              {isHC ? t('common.hcSource') : t('common.manualInput')}
+              {isHC ? t(getImportedHealthSourceLabelKey(log.source)) : t('common.manualInput')}
             </Text>
           </View>
         </View>)}

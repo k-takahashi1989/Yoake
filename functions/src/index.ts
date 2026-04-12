@@ -324,13 +324,12 @@ async function writeSubscriptionEntitlement({
 
 // サーバー側週次レポート生成用システムプロンプト
 const SERVER_WEEKLY_SYSTEM_PROMPT = `あなたは「ヨアケ」という名前の睡眠コーチAIです。ユーザーの1週間の睡眠データを分析し、週次レポートを日本語で作成してください。
-以下の構成で出力してください（合計400〜600文字）：
+以下の構成で出力してください（合計300〜450文字）：
 📊 今週の総括（1文・今週のスコアと先週比に必ず触れる）
-✅ 良かった点（具体的な日や数値を含める）
-🔼 改善できる点（1点・改善方法と具体的な1ステップまで示す）
-📅 来週のアクション（1つ・就寝時間関連・目標/達成のパターンを活かす）
-ルール：・必ず上記の絵文字見出しを順番通り使う・数値を定量的に使う（スコア・時間・先週比）・メモを書いている日があれば内容をレポートに活かす
-・感傷的な表現は使わない・データが3日分しかない場合は冒頭で補足する`;
+✅ 良かった点（具体的な数値を1〜2点）
+🔼 改善できる点（1点のみ・具体的な1ステップで簡潔に）
+📅 来週のアクション（1つ・1文で）
+ルール：・必ず上記の絵文字見出しを順番通り使う・数値を定量的に使う（スコア・時間・先週比）・メモがあれば活かす・感傷的な表現は使わない・データが3日分未満の場合は冒頭で一言補足する・**太字**や\`コード\`などのMarkdown記法は一切使わない`;
 
 // 配列をsize個ずつのチャンクに分割する
 function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -583,7 +582,7 @@ export const claudeGenerateDaily = onCall(
       throw new HttpsError('invalid-argument', 'systemPrompt and userMessage are required');
     }
 
-    return callClaudeApi(systemPrompt, [{ role: 'user', content: userMessage }], 150);
+    return callClaudeApi(systemPrompt, [{ role: 'user', content: userMessage }], 400);
   },
 );
 
@@ -867,6 +866,61 @@ export const weeklyReportScheduler = onSchedule(
   },
   async () => {
     await runWeeklyReportBatch();
+  },
+);
+
+// ============================================================
+// DEV専用: プレミアム状態を強制設定（Admin SDK経由でFirestoreに直接書き込む）
+// 本番では環境変数 DEV_PREMIUM_ENABLED が未設定のため not-found を返す
+// ============================================================
+
+export const devSetPremium = onCall(
+  { region: 'asia-northeast1', secrets: ['DEV_PREMIUM_ENABLED'] },
+  async (request) => {
+    if (process.env.DEV_PREMIUM_ENABLED !== 'true') {
+      throw new HttpsError('not-found', 'Not available in production');
+    }
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+
+    const { premium } = request.data as { premium: boolean };
+
+    const userRef = db.collection('users').doc(uid);
+    const subRef = userRef.collection('subscription').doc('main');
+
+    if (premium) {
+      const oneYearLater = new Date();
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      await subRef.set({
+        plan: 'monthly',
+        status: 'active',
+        currentPeriodEndAt: admin.firestore.Timestamp.fromDate(oneYearLater),
+        trialEndAt: null,
+        trialStartAt: null,
+        trialUsed: false,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await userRef.set(
+        { isPremium: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+    } else {
+      await subRef.set({
+        plan: 'free',
+        status: 'expired',
+        currentPeriodEndAt: null,
+        trialEndAt: null,
+        trialStartAt: null,
+        trialUsed: false,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await userRef.set(
+        { isPremium: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+    }
+
+    return { success: true };
   },
 );
 

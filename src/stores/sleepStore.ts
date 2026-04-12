@@ -7,7 +7,7 @@ import {
   deleteSleepLog,
   saveAiReport,
 } from '../services/firebase';
-import { SleepLog, SleepInputForm, UserGoal } from '../types';
+import { SleepLog, SleepInputForm, UserGoal, SleepSource } from '../types';
 import { calculateScore, calculateSleepDebt } from '../utils/scoreCalculator';
 import { calculateStreak } from '../utils/streakCalculator';
 import { SCORE_VERSION } from '../constants';
@@ -35,7 +35,7 @@ interface SleepState {
   saveLog: (
     form: SleepInputForm,
     goal: UserGoal,
-    source: 'HEALTH_CONNECT' | 'MANUAL',
+    source: SleepSource,
     targetDate?: string,
     options?: { generateInsight?: boolean },
   ) => Promise<void>;

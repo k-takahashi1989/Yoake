@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Image, AppState } from 'react-native';
+import { View, StyleSheet, Image, AppState } from 'react-native'; // Image は HOME_BG_SOURCE の prefetch で使用
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
 import notifee, { EventType } from '@notifee/react-native';
 import messaging from '@react-native-firebase/messaging';
 import auth from '@react-native-firebase/auth';
@@ -17,6 +16,7 @@ import {
   ProfileStackParamList,
 } from '../types';
 import { useAuthStore } from '../stores/authStore';
+import SplashTransition from '../components/common/SplashTransition';
 import { useTranslation } from '../i18n';
 import AnimatedBackground, {
   AnimatedBackgroundHandle,
@@ -202,6 +202,7 @@ function MainTabs() {
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
+          lazy: false,
           // 各スクリーンのシーンコンテナを透明にして AnimatedBackground が透けて見えるようにする。
           // 個々のスクリーン側でも View の backgroundColor を transparent にすることで
           // 背景ズーム演出が活きる（既存スクリーンの background をそのまま使いたい場合は
@@ -221,15 +222,6 @@ function MainTabs() {
   );
 }
 
-function SplashScreen() {
-  return (
-    <View style={styles.splash}>
-      <Text style={styles.splashLogo}>🌅</Text>
-      <Text style={styles.splashTitle}>YOAKE</Text>
-      <ActivityIndicator color="#6B5CE7" style={{ marginTop: 32 }} />
-    </View>
-  );
-}
 
 // ============================================================
 // アプリナビゲーター
@@ -347,35 +339,27 @@ export default function AppNavigator() {
     };
   }, []);
 
-  if (!isInitialized) {
-    return <SplashScreen />;
-  }
-
   return (
-    <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {!hasCompletedOnboarding ? (
-          <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
-        ) : (
-          <>
-            <RootStack.Screen name="Main" component={MainTabs} />
-          </>
-        )}
-      </RootStack.Navigator>
-    </NavigationContainer>
+    <>
+      {isInitialized && (
+        <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
+          <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            {!hasCompletedOnboarding ? (
+              <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+            ) : (
+              <>
+                <RootStack.Screen name="Main" component={MainTabs} />
+              </>
+            )}
+          </RootStack.Navigator>
+        </NavigationContainer>
+      )}
+      <SplashTransition ready={isInitialized} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  splash: { flex: 1, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
-  splashLogo: { fontSize: 64 },
-  splashTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 8,
-    marginTop: 8,
-  },
   // MainTabs 用: 背景とタブナビゲーターを重ねるコンテナ
   mainContainer: {
     flex: 1,

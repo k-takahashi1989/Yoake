@@ -140,7 +140,7 @@ export function calculateScore(
   log: Omit<SleepLog, 'score' | 'sleepDebtMinutes' | 'createdAt' | 'updatedAt'>,
   recentLogs: SleepLog[] = [],
 ): { score: number; breakdown: ScoreBreakdown } {
-  const hasHealthConnect = log.source === 'HEALTH_CONNECT' &&
+  const hasHealthConnect = (log.source === 'HEALTH_CONNECT' || log.source === 'APPLE_HEALTH') &&
     log.deepSleepMinutes !== null;
 
   const bedTimeDate = safeToDate(log.bedTime);

@@ -1,15 +1,30 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator, Share, Linking,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format, subDays } from 'date-fns';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../types';
-import { getRecentSleepLogs, getSleepLog, saveSleepLog, getGoal } from '../../services/firebase';
-import { isHCAvailable, hasHCSleepPermission, readSleepForDate } from '../../services/healthConnect';
+import { getGoal, getRecentSleepLogs, getSleepLog, saveSleepLog } from '../../services/firebase';
+import {
+  getHealthDataPlatform,
+  getNativeHealthSource,
+  hasSleepDataPermission,
+  isSleepDataAvailable,
+  readSleepDataForDate,
+  requestSleepDataPermissions,
+} from '../../services/healthData';
 import { calculateScore, calculateSleepDebt } from '../../utils/scoreCalculator';
 import { SCORE_VERSION } from '../../constants';
 import { safeToDate } from '../../utils/dateUtils';
@@ -26,6 +41,18 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const isJa = t('common.cancel') === 'キャンセル';
+  const healthPlatform = getHealthDataPlatform();
+  const importTitle = healthPlatform === 'apple_health'
+    ? (isJa ? 'Apple Health から取り込む' : 'Import from Apple Health')
+    : t('dataManagement.hcImportTitle');
+  const importDesc = healthPlatform === 'apple_health'
+    ? (isJa
+        ? 'Apple Health の過去 14 日分の睡眠データから、未記録の日だけを取り込みます。'
+        : 'Import the last 14 days of Apple Health sleep data for dates that are still missing in YOAKE.')
+    : t('dataManagement.hcImportDesc');
+  const importButtonLabel = healthPlatform === 'apple_health'
+    ? (isJa ? 'Apple Health を取り込む' : 'Import Apple Health data')
+    : t('dataManagement.hcImportBtn');
 
   const handleClearChatHistory = () => {
     Alert.alert(
@@ -38,51 +65,92 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
           style: 'destructive',
           onPress: async () => {
             await AsyncStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
-            Alert.alert(t('dataManagement.chatHistoryClearedTitle'), t('dataManagement.chatHistoryClearedMessage'));
+            Alert.alert(
+              t('dataManagement.chatHistoryClearedTitle'),
+              t('dataManagement.chatHistoryClearedMessage'),
+            );
           },
         },
       ],
     );
   };
 
-  // ============================================================
-  // ヘルスコネクト過去データ取り込み
-  // ============================================================
-
-  const handleImportFromHC = async () => {
+  const handleImportFromHealthData = async () => {
     setIsImporting(true);
 
     try {
-      const available = await isHCAvailable();
-      const hasPermission = available && await hasHCSleepPermission();
-      if (!hasPermission) {
-        Alert.alert(t('dataManagement.hcImportNoPermission'), t('dataManagement.hcImportNoPermissionDesc'));
+      const available = await isSleepDataAvailable();
+      if (!available) {
+        Alert.alert(
+          isJa ? 'ヘルスデータを利用できません' : 'Health data unavailable',
+          healthPlatform === 'apple_health'
+            ? (isJa ? 'Apple Health を利用できる端末でお試しください。' : 'Try again on a device with Apple Health support.')
+            : t('dataManagement.hcImportNoPermissionDesc'),
+        );
         return;
       }
 
-      // 直近14日（今日除く）で未記録かつHCデータありの日を収集
-      type Candidate = { date: string; hcData: NonNullable<Awaited<ReturnType<typeof readSleepForDate>>> };
+      let hasPermission = await hasSleepDataPermission();
+      if (!hasPermission) {
+        hasPermission = await requestSleepDataPermissions();
+      }
+
+      if (!hasPermission) {
+        Alert.alert(
+          healthPlatform === 'apple_health'
+            ? (isJa ? 'Apple Health の権限が必要です' : 'Apple Health permission required')
+            : t('dataManagement.hcImportNoPermission'),
+          healthPlatform === 'apple_health'
+            ? (isJa
+                ? '睡眠データの読み取りを許可してから、もう一度お試しください。'
+                : 'Allow sleep-data access first, then try again.')
+            : t('dataManagement.hcImportNoPermissionDesc'),
+        );
+        return;
+      }
+
+      type Candidate = {
+        date: string;
+        data: NonNullable<Awaited<ReturnType<typeof readSleepDataForDate>>>;
+      };
+
       const candidates: Candidate[] = [];
       for (let i = 1; i <= 14; i++) {
         const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
         const existing = await getSleepLog(date);
         if (existing) continue;
-        const hcData = await readSleepForDate(date);
-        if (hcData) candidates.push({ date, hcData });
+
+        const data = await readSleepDataForDate(date);
+        if (data) {
+          candidates.push({ date, data });
+        }
       }
 
       if (candidates.length === 0) {
-        Alert.alert(t('dataManagement.hcImportNone'), t('dataManagement.hcImportNoneDesc'));
+        Alert.alert(
+          healthPlatform === 'apple_health'
+            ? (isJa ? '取り込めるデータがありません' : 'No Apple Health data found')
+            : t('dataManagement.hcImportNone'),
+          healthPlatform === 'apple_health'
+            ? (isJa ? '未記録の日に取り込める睡眠データが見つかりませんでした。' : 'No missing dates with Apple Health sleep data were found.')
+            : t('dataManagement.hcImportNoneDesc'),
+        );
         return;
       }
 
       Alert.alert(
-        t('dataManagement.hcImportFound', { count: candidates.length }),
-        t('dataManagement.hcImportFoundDesc'),
+        healthPlatform === 'apple_health'
+          ? (isJa ? `${candidates.length} 日分の Apple Health データが見つかりました` : `Found ${candidates.length} days of Apple Health data`)
+          : t('dataManagement.hcImportFound', { count: candidates.length }),
+        healthPlatform === 'apple_health'
+          ? (isJa ? '未記録の日だけを YOAKE に取り込みます。' : 'Only dates without an existing YOAKE log will be imported.')
+          : t('dataManagement.hcImportFoundDesc'),
         [
           { text: t('common.cancel'), style: 'cancel' },
           {
-            text: t('dataManagement.hcImportConfirmBtn'),
+            text: healthPlatform === 'apple_health'
+              ? (isJa ? '取り込む' : 'Import')
+              : t('dataManagement.hcImportConfirmBtn'),
             onPress: async () => {
               setIsImporting(true);
               try {
@@ -91,23 +159,24 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
                   getGoal(),
                 ]);
                 const targetHours = goal?.targetHours ?? 7.5;
+                const source = getNativeHealthSource();
 
-                for (const { date, hcData } of candidates) {
+                for (const { date, data } of candidates) {
                   const logPartial = {
                     date,
-                    bedTime: hcData.bedTime as any,
-                    wakeTime: hcData.wakeTime as any,
-                    totalMinutes: hcData.totalMinutes,
-                    deepSleepMinutes: hcData.deepSleepMinutes,
-                    remMinutes: hcData.remMinutes,
-                    lightSleepMinutes: hcData.lightSleepMinutes,
-                    awakenings: hcData.awakenings,
-                    heartRateAvg: hcData.heartRateAvg,
+                    bedTime: data.bedTime as any,
+                    wakeTime: data.wakeTime as any,
+                    totalMinutes: data.totalMinutes,
+                    deepSleepMinutes: data.deepSleepMinutes,
+                    remMinutes: data.remMinutes,
+                    lightSleepMinutes: data.lightSleepMinutes,
+                    awakenings: data.awakenings,
+                    heartRateAvg: data.heartRateAvg,
                     sleepOnset: 'NORMAL' as const,
                     wakeFeeling: 'NORMAL' as const,
                     habits: [],
                     memo: null,
-                    source: 'HEALTH_CONNECT' as const,
+                    source,
                     scoreVersion: SCORE_VERSION,
                   };
                   const { score } = calculateScore(logPartial, recentLogs);
@@ -115,9 +184,18 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
                   await saveSleepLog({ ...logPartial, score, sleepDebtMinutes });
                 }
 
-                Alert.alert(t('dataManagement.hcImportDone', { count: candidates.length }));
+                Alert.alert(
+                  healthPlatform === 'apple_health'
+                    ? (isJa ? `${candidates.length} 日分を取り込みました` : `Imported ${candidates.length} days`)
+                    : t('dataManagement.hcImportDone', { count: candidates.length }),
+                );
               } catch {
-                Alert.alert(t('common.error'), t('dataManagement.hcImportFailed'));
+                Alert.alert(
+                  t('common.error'),
+                  healthPlatform === 'apple_health'
+                    ? (isJa ? 'Apple Health データの取り込みに失敗しました。' : 'Failed to import Apple Health data.')
+                    : t('dataManagement.hcImportFailed'),
+                );
               } finally {
                 setIsImporting(false);
               }
@@ -126,15 +204,16 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
         ],
       );
     } catch {
-      Alert.alert(t('common.error'), t('dataManagement.hcImportFailed'));
+      Alert.alert(
+        t('common.error'),
+        healthPlatform === 'apple_health'
+          ? (isJa ? 'Apple Health データの取り込みに失敗しました。' : 'Failed to import Apple Health data.')
+          : t('dataManagement.hcImportFailed'),
+      );
     } finally {
       setIsImporting(false);
     }
   };
-
-  // ============================================================
-  // データエクスポート
-  // ============================================================
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -168,8 +247,8 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
         title: `YOAKE睡眠データ_${format(new Date(), 'yyyyMMdd')}`,
         message: json,
       });
-    } catch (e: any) {
-      if (e?.message !== 'User did not share') {
+    } catch (error: any) {
+      if (error?.message !== 'User did not share') {
         Alert.alert(t('dataManagement.exportBtn'), t('dataManagement.exportFailed'));
       }
     } finally {
@@ -193,23 +272,22 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* ヘルスコネクト過去データ取り込み */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('dataManagement.hcImportTitle')}</Text>
-          <Text style={styles.cardDesc}>{t('dataManagement.hcImportDesc')}</Text>
+          <Text style={styles.cardTitle}>{importTitle}</Text>
+          <Text style={styles.cardDesc}>{importDesc}</Text>
           <TouchableOpacity
             style={[styles.exportBtn, isImporting && styles.btnDisabled]}
-            onPress={handleImportFromHC}
+            onPress={handleImportFromHealthData}
             disabled={isImporting}
           >
-            {isImporting
-              ? <ActivityIndicator color="#FFF" size="small" />
-              : <Text style={styles.exportBtnText}>{t('dataManagement.hcImportBtn')}</Text>
-            }
+            {isImporting ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Text style={styles.exportBtnText}>{importButtonLabel}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* エクスポート */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('dataManagement.exportTitle')}</Text>
           <Text style={styles.cardDesc}>{t('dataManagement.exportDesc')}</Text>
@@ -218,14 +296,14 @@ export default function DataManagementScreen({ navigation: _navigation }: Props)
             onPress={handleExport}
             disabled={isExporting}
           >
-            {isExporting
-              ? <ActivityIndicator color="#FFF" size="small" />
-              : <Text style={styles.exportBtnText}>{t('dataManagement.exportBtn')}</Text>
-            }
+            {isExporting ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Text style={styles.exportBtnText}>{t('dataManagement.exportBtn')}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* AIチャット履歴 */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('dataManagement.chatHistoryTitle')}</Text>
           <Text style={styles.cardDesc}>{t('dataManagement.chatHistoryDesc')}</Text>

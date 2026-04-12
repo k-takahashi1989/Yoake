@@ -13,6 +13,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { DiaryStackParamList, SleepLog } from '../../types';
 import { getSleepLog } from '../../services/firebase';
+import {
+  getImportedHealthSourceLabelKey,
+  isHealthDataSource,
+} from '../../services/healthData';
 import { getScoreInfo } from '../../utils/scoreCalculator';
 import { SCORE_COLORS } from '../../constants';
 import { i18n, useTranslation } from '../../i18n';
@@ -91,7 +95,9 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
             </View>
           </View>
           <Text style={styles.sourceLabel}>
-            {log.source === 'HEALTH_CONNECT' ? t('common.hcSource') : t('common.manualInput')}
+            {isHealthDataSource(log.source)
+              ? t(getImportedHealthSourceLabelKey(log.source))
+              : t('common.manualInput')}
           </Text>
         </View>
 
@@ -113,7 +119,7 @@ export default function RecordDetailScreen({ route, navigation }: Props) {
             />
             <SummaryCell label={t('recordDetail.wakeFeeling')} value={wakeFeelingLabel} />
             <SummaryCell label={t('recordDetail.sleepOnset')} value={sleepOnsetLabel} />
-            {log.source === 'HEALTH_CONNECT' && log.deepSleepMinutes !== null && (
+            {isHealthDataSource(log.source) && log.deepSleepMinutes !== null && (
               <SummaryCell label={t('recordDetail.deepSleep')} value={`${log.deepSleepMinutes}${t('common.minutes')}`} />
             )}
           </View>

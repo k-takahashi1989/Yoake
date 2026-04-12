@@ -1,21 +1,35 @@
-import { Vibration, Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
+import { trigger } from 'react-native-haptic-feedback';
 
-/**
- * 触覚フィードバックユーティリティ。
- * Android は Vibration API で代替。
- * iOS は将来 react-native-haptic-feedback を導入した際にここを差し替える。
- */
+const HAPTIC_OPTIONS = {
+  enableVibrateFallback: true,
+  ignoreAndroidSystemSettings: false,
+};
+
+function runHaptic(type: Parameters<typeof trigger>[0], androidFallback?: number | number[]) {
+  try {
+    trigger(type, HAPTIC_OPTIONS);
+    return;
+  } catch {
+    if (androidFallback && Platform.OS === 'android') {
+      Vibration.vibrate(androidFallback);
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      Vibration.vibrate();
+    }
+  }
+}
+
 export const haptics = {
-  /** 軽いタップ感触（ボタン押下・送信など） */
   light: () => {
-    if (Platform.OS === 'android') Vibration.vibrate(8);
+    runHaptic('impactLight', 8);
   },
-  /** 成功フィードバック（保存完了・記録完了など） */
   success: () => {
-    if (Platform.OS === 'android') Vibration.vibrate([0, 12, 50, 8]);
+    runHaptic('notificationSuccess', [0, 12, 50, 8]);
   },
-  /** 警告フィードバック（エラー・制限到達など） */
   warning: () => {
-    if (Platform.OS === 'android') Vibration.vibrate([0, 20, 40, 20]);
+    runHaptic('notificationWarning', [0, 20, 40, 20]);
   },
 };

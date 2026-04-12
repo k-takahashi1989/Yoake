@@ -52,9 +52,6 @@ export default function DiaryScreen() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const bgTransX  = useRef(new Animated.Value(0)).current;
   const bgTransY  = useRef(new Animated.Value(0)).current;
-  // 初回だけ画像デコード待ちのためディレイを入れる
-  const isFirstFocus = useRef(true);
-
   // NB座標（タイトル配置・ズームターゲット共用）
   const NB_X = screenW * 0.70;
   const NB_Y = screenH * 0.70;
@@ -62,26 +59,21 @@ export default function DiaryScreen() {
   const toX = (NB_X - screenW / 2) * (1 - S);
   const toY = (NB_Y - screenH / 2) * (1 - S);
 
-  // フォーカス時：ズームイン
+  // フォーカス時：ズームイン + データ再読み込み（削除・編集後の反映）
   useFocusEffect(useCallback(() => {
+    loadRecent(30);
     scaleAnim.stopAnimation();
     bgTransX.stopAnimation();
     bgTransY.stopAnimation();
     scaleAnim.setValue(1);
     bgTransX.setValue(0);
     bgTransY.setValue(0);
-    // 初回は画像デコード完了を待つため少し遅らせる
-    const delay = isFirstFocus.current ? 120 : 0;
-    isFirstFocus.current = false;
-    const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(scaleAnim, { toValue: S,   duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(bgTransX,  { toValue: toX, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(bgTransY,  { toValue: toY, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]).start();
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [bgTransX, bgTransY, scaleAnim, toX, toY]));
+    Animated.parallel([
+      Animated.timing(scaleAnim, { toValue: S,   duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(bgTransX,  { toValue: toX, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(bgTransY,  { toValue: toY, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, [bgTransX, bgTransY, loadRecent, scaleAnim, toX, toY]));
 
   // ブラー時：ズームアウト（navigation.addListenerで確実に発火）
   useEffect(() => {
@@ -97,10 +89,6 @@ export default function DiaryScreen() {
     });
     return unsub;
   }, [bgTransX, bgTransY, navigation, scaleAnim]);
-
-  useEffect(() => {
-    loadRecent(30);
-  }, [loadRecent]);
 
   // プルトゥリフレッシュ処理
   const handleRefresh = useCallback(async () => {
@@ -238,13 +226,13 @@ export default function DiaryScreen() {
           mode="date"
           display="default"
           maximumDate={new Date()}
-          onChange={(_, selectedDate) => {
+          onChange={(event, selectedDate) => {
             setShowDatePicker(false);
-            if (selectedDate) {
-              const dateStr = format(selectedDate, 'yyyy-MM-dd');
-              setInputTargetDate(dateStr);
-              setShowSleepInput(true);
-            }
+            // キャンセル時（event.type === 'dismissed'）は何もしない
+            if (event.type !== 'set' || !selectedDate) return;
+            const dateStr = format(selectedDate, 'yyyy-MM-dd');
+            setInputTargetDate(dateStr);
+            setShowSleepInput(true);
           }}
         />
       )}

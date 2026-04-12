@@ -84,7 +84,8 @@ export default function RecordEditScreen({ route, navigation }: Props) {
         onPress: async () => {
           try {
             await deleteLog(date);
-            navigation.pop(2);
+            // スタックの深さによらず常にリスト画面まで戻る
+            navigation.popToTop();
           } catch {
             Alert.alert(t('recordEdit.deleteFailedTitle'), t('recordEdit.deleteFailedMessage'));
           }

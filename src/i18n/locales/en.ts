@@ -29,6 +29,7 @@ export const en = {
   'common.healthConnect': 'Health Connect',
   'common.manualInput': 'Manual entry',
   'common.hcSource': 'Health Connect',
+  'common.appleHealthSource': 'Apple Health',
   'common.wakeFeeling.good': 'Refreshed',
   'common.wakeFeeling.slightlyGood': 'Pretty good',
   'common.wakeFeeling.normal': 'Okay',

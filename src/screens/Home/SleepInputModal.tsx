@@ -21,7 +21,12 @@ import { useSleepStore } from '../../stores/sleepStore';
 import { useHabitStore } from '../../stores/habitStore';
 import TimePickerRow from '../../components/common/TimePickerRow';
 import HabitCheckRow from '../../components/diary/HabitCheckRow';
-import { hasSleepDataPermission, readSleepDataForDate } from '../../services/healthData';
+import {
+  getNativeHealthSource,
+  hasSleepDataPermission,
+  isHealthDataSource,
+  readSleepDataForDate,
+} from '../../services/healthData';
 import { safeToDate } from '../../utils/dateUtils';
 import {
   clearPendingSleepStart,
@@ -136,7 +141,7 @@ export default function SleepInputModal({
         awakenings: existingLog.awakenings,
         heartRateAvg: existingLog.heartRateAvg,
       });
-      setSourceMode(existingLog.source === 'HEALTH_CONNECT' ? 'hc' : 'manual');
+      setSourceMode(isHealthDataSource(existingLog.source) ? 'hc' : 'manual');
       return;
     }
 
@@ -225,7 +230,7 @@ export default function SleepInputModal({
     const correctedForm = { ...form, wakeTime: resolvedWakeTime };
     const saveTargetDate = targetDate ?? todayStr;
     setIsSaving(true);
-    const source = sourceMode === 'hc' ? 'HEALTH_CONNECT' : 'MANUAL';
+    const source = sourceMode === 'hc' ? getNativeHealthSource() : 'MANUAL';
 
     try {
       await saveLog(

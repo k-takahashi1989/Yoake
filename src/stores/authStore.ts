@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSubscription, saveSubscription, getProfile, saveProfile, deleteAllUserData } from '../services/firebase';
 import { Subscription, UserProfile, AiPersonality, AgeGroup } from '../types';
@@ -175,8 +176,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   _devSetPremium: (value: boolean) => {
     if (!__DEV__) return;
-    // サーバー側 isPremiumUser() は currentPeriodEndAt > now を要求するため
-    // デバッグ用に1年後の日付を設定する
+    // ローカル state を即時更新（UI反映用）
     const oneYearLater = new Date();
     oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
     const nextSubscription: Subscription = {
@@ -188,9 +188,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       trialUsed: false,
     };
     set({ isPremium: value, subscription: nextSubscription });
-    saveSubscription({
-      ...nextSubscription,
-    }).catch(e => console.warn('_devSetPremium failed:', e));
+    // Admin SDK 経由で Firestore に書き込む（クライアントのセキュリティルールをバイパス）
+    const fns = getFunctions(undefined, 'asia-northeast1');
+    httpsCallable(fns, 'devSetPremium')({ premium: value })
+      .catch(e => console.warn('devSetPremium cloud function failed:', e));
   },
 
   deleteAccount: async () => {

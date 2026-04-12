@@ -29,6 +29,7 @@ export const ja = {
   'common.healthConnect': 'Health Connect',
   'common.manualInput': '手動入力',
   'common.hcSource': 'Health Connect',
+  'common.appleHealthSource': 'Apple Health',
   'common.wakeFeeling.good': 'すっきり',
   'common.wakeFeeling.slightlyGood': 'ややすっきり',
   'common.wakeFeeling.normal': 'ふつう',

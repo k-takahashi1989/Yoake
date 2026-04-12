@@ -13,6 +13,7 @@ import {
   isSleepDataAvailable,
   openHealthDataProviderApp,
   openHealthDataProviderStorePage,
+  requestSleepDataPermissions,
 } from '../../../services/healthData';
 import { useTranslation } from '../../../i18n';
 import ScalePressable from '../../../components/common/ScalePressable';
@@ -46,9 +47,10 @@ export default function HealthConnectStep({ onNext }: Props) {
         setStatus(granted ? 'connected' : 'denied');
 
         if (granted) {
-          useSleepStore.getState().loadRecent();
+          await useSleepStore.getState().loadRecent();
         }
       }
+
       appStateRef.current = next;
     });
 
@@ -57,6 +59,7 @@ export default function HealthConnectStep({ onNext }: Props) {
 
   const handleConnect = async () => {
     setStatus('checking');
+
     try {
       const available = await isSleepDataAvailable();
       if (!available) {
@@ -64,11 +67,20 @@ export default function HealthConnectStep({ onNext }: Props) {
         return;
       }
 
-      waitingForReturn.current = true;
-      const opened = await openHealthDataProviderApp();
-      if (!opened) {
-        waitingForReturn.current = false;
-        setStatus('unavailable');
+      if (isAndroid) {
+        waitingForReturn.current = true;
+        const opened = await openHealthDataProviderApp();
+        if (!opened) {
+          waitingForReturn.current = false;
+          setStatus('unavailable');
+        }
+        return;
+      }
+
+      const granted = await requestSleepDataPermissions();
+      setStatus(granted ? 'connected' : 'denied');
+      if (granted) {
+        await useSleepStore.getState().loadRecent();
       }
     } catch {
       waitingForReturn.current = false;
@@ -76,71 +88,100 @@ export default function HealthConnectStep({ onNext }: Props) {
     }
   };
 
-  const handleOpenPlayStore = () => {
+  const handleOpenStore = () => {
     openHealthDataProviderStorePage().catch(() => undefined);
   };
 
-  const benefits = [
-    isAndroid
-      ? t('onboarding.healthConnect.benefit1')
-      : isEnglishUi
-        ? 'Prepare for Apple Health / Apple Watch sleep import'
-        : 'Apple Watch / ヘルスケア連携の受け皿を用意',
-    isAndroid
-      ? t('onboarding.healthConnect.benefit2')
-      : isEnglishUi
-        ? 'Start with manual logging and still get a score plus guidance'
-        : 'まずは手動入力でもスコアと改善提案を始められる',
-    isAndroid
-      ? t('onboarding.healthConnect.benefit3')
-      : isEnglishUi
-        ? 'AI guidance gets sharper as more data builds up'
-        : 'データが増えるほどAIの提案が具体的になる',
-    isAndroid
-      ? t('onboarding.healthConnect.benefit4')
-      : isEnglishUi
-        ? 'You can add health sync later without losing logs'
-        : 'あとから設定を追加しても記録はそのまま使える',
-  ];
+  const benefits = isAndroid
+    ? [
+        t('onboarding.healthConnect.benefit1'),
+        t('onboarding.healthConnect.benefit2'),
+        t('onboarding.healthConnect.benefit3'),
+        t('onboarding.healthConnect.benefit4'),
+      ]
+    : isEnglishUi
+      ? [
+          'Import sleep automatically from Apple Health and Apple Watch',
+          'Prefill bedtime, wake time, stages, and overnight heart rate',
+          'Get richer score details when stage data is available',
+          'You can still continue with manual logging at any time',
+        ]
+      : [
+          'Apple Health / Apple Watch の睡眠データを自動で取り込めます',
+          '就寝・起床・睡眠ステージ・夜間心拍を記録入力に反映できます',
+          'ステージがある日はスコア詳細もより正確になります',
+          'あとからでも手動入力に切り替えて続けられます',
+        ];
 
   const title = isAndroid
     ? t('onboarding.healthConnect.title')
     : isEnglishUi
-      ? 'Prepare your sleep data'
-      : '睡眠データの準備';
+      ? 'Connect Apple Health'
+      : 'Apple Health を接続';
   const description = isAndroid
     ? t('onboarding.healthConnect.desc')
     : isEnglishUi
-      ? 'You can start with manual logging in this build. In the iOS release build, Apple Health integration should make sleep capture more automatic.'
-      : 'このビルドでは手動入力から始められます。iOS公開ビルドではヘルスケア連携を有効化して、より自動で記録できるようにします。';
+      ? 'Allow Apple Health access so YOAKE can read your sleep data and prepare each daily log for you.'
+      : 'Apple Health の読み取りを許可すると、YOAKE が睡眠データを取り込み、日々の記録入力を楽にできます。';
   const previewTitle = isAndroid
     ? (isEnglishUi ? 'What you unlock right away' : '連携すると最初から見えること')
     : isEnglishUi
-      ? 'What you can see right away'
-      : '手動入力でも最初から見えること';
+      ? 'What Apple Health fills in'
+      : 'Apple Health で自動入力される内容';
   const previewRows = isAndroid
     ? [
         isEnglishUi
           ? { label: 'Bedtime / wake time', value: 'Auto import' }
-          : { label: '就寝・起床', value: '自動取得' },
+          : { label: '就寝 / 起床', value: '自動取り込み' },
         isEnglishUi
           ? { label: 'Deep / REM sleep', value: 'Stage details' }
-          : { label: '深睡眠 / REM', value: 'ステージ確認' },
+          : { label: '深い睡眠 / REM', value: 'ステージ詳細' },
         isEnglishUi
           ? { label: 'First value', value: "Today's score" }
-          : { label: '初回の価値', value: '今日のスコア' },
+          : { label: '最初の確認', value: '今日のスコア' },
       ]
     : [
         isEnglishUi
-          ? { label: "Today's status", value: 'Sleep score' }
-          : { label: '今日の状態', value: '睡眠スコア' },
+          ? { label: 'Bedtime / wake time', value: 'Prefilled' }
+          : { label: '就寝 / 起床', value: '自動入力' },
         isEnglishUi
-          ? { label: 'Next improvement', value: 'AI note' }
-          : { label: '次の改善', value: 'AIのひとこと' },
+          ? { label: 'Sleep stages', value: 'Deep / REM / Core' }
+          : { label: '睡眠ステージ', value: 'Deep / REM / Core' },
         isEnglishUi
-          ? { label: 'Reason to return', value: 'Weekly report' }
-          : { label: '続ける理由', value: '週次レポート' },
+          ? { label: 'Morning detail', value: 'Score + insight' }
+          : { label: '朝の確認', value: 'スコア + 気づき' },
       ];
+
+  const connectLabel = isAndroid
+    ? t('onboarding.healthConnect.connectBtn')
+    : isEnglishUi
+      ? 'Connect Apple Health'
+      : 'Apple Health を接続';
+  const waitingLabel = isAndroid
+    ? t('onboarding.healthConnect.waitingBtn')
+    : isEnglishUi
+      ? 'Waiting for permission...'
+      : '権限の確認中...';
+  const successText = isAndroid
+    ? t('onboarding.healthConnect.successBanner')
+    : isEnglishUi
+      ? 'Apple Health is connected.'
+      : 'Apple Health を接続しました。';
+  const deniedText = isAndroid
+    ? t('onboarding.healthConnect.deniedBanner')
+    : isEnglishUi
+      ? 'Permission was not granted yet. You can try again or continue with manual logging.'
+      : '権限はまだ許可されていません。もう一度試すか、手動入力で続けられます。';
+  const unavailableText = isAndroid
+    ? t('onboarding.healthConnect.unavailableBanner')
+    : isEnglishUi
+      ? 'Apple Health is not available on this device.'
+      : 'この端末では Apple Health を利用できません。';
+  const skipLabel = isAndroid
+    ? t('onboarding.healthConnect.skipBtn')
+    : isEnglishUi
+      ? 'Start with manual logging'
+      : '手動入力で始める';
 
   return (
     <View style={styles.container}>
@@ -161,7 +202,7 @@ export default function HealthConnectStep({ onNext }: Props) {
       </View>
 
       <View style={styles.benefitList}>
-        {benefits.map((benefit) => (
+        {benefits.map(benefit => (
           <View key={benefit} style={styles.benefitRow}>
             <View style={styles.checkDot} />
             <Text style={styles.benefitText}>{benefit}</Text>
@@ -171,28 +212,32 @@ export default function HealthConnectStep({ onNext }: Props) {
 
       {status === 'checking' && (
         <View style={styles.infoBanner}>
-          <Text style={styles.infoText}>{t('onboarding.healthConnect.checkingBanner')}</Text>
+          <Text style={styles.infoText}>
+            {isAndroid ? t('onboarding.healthConnect.checkingBanner') : waitingLabel}
+          </Text>
         </View>
       )}
 
       {status === 'connected' && (
         <View style={styles.successBanner}>
-          <Text style={styles.successText}>{t('onboarding.healthConnect.successBanner')}</Text>
+          <Text style={styles.successText}>{successText}</Text>
         </View>
       )}
 
       {status === 'denied' && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>{t('onboarding.healthConnect.deniedBanner')}</Text>
+          <Text style={styles.warningText}>{deniedText}</Text>
         </View>
       )}
 
       {status === 'unavailable' && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>{t('onboarding.healthConnect.unavailableBanner')}</Text>
-          <TouchableOpacity onPress={handleOpenPlayStore} style={styles.installButton}>
-            <Text style={styles.installButtonText}>{t('onboarding.healthConnect.installBtn')}</Text>
-          </TouchableOpacity>
+          <Text style={styles.warningText}>{unavailableText}</Text>
+          {isAndroid && (
+            <TouchableOpacity onPress={handleOpenStore} style={styles.installButton}>
+              <Text style={styles.installButtonText}>{t('onboarding.healthConnect.installBtn')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -201,7 +246,7 @@ export default function HealthConnectStep({ onNext }: Props) {
       </View>
 
       <View style={styles.buttonGroup}>
-        {isAndroid && status !== 'connected' && (
+        {status !== 'connected' && status !== 'unavailable' && (
           <ScalePressable
             style={[
               styles.button,
@@ -212,9 +257,7 @@ export default function HealthConnectStep({ onNext }: Props) {
             disabled={status === 'checking'}
           >
             <Text style={styles.buttonText}>
-              {status === 'checking'
-                ? t('onboarding.healthConnect.waitingBtn')
-                : t('onboarding.healthConnect.connectBtn')}
+              {status === 'checking' ? waitingLabel : connectLabel}
             </Text>
           </ScalePressable>
         )}
@@ -227,13 +270,7 @@ export default function HealthConnectStep({ onNext }: Props) {
           onPress={onNext}
         >
           <Text style={[styles.buttonText, status !== 'connected' && styles.buttonTextSecondary]}>
-            {status === 'connected'
-              ? t('onboarding.healthConnect.nextBtn')
-              : isAndroid
-                ? t('onboarding.healthConnect.skipBtn')
-                : isEnglishUi
-                  ? 'Start with manual logging'
-                  : '手動入力で始める'}
+            {status === 'connected' ? t('onboarding.healthConnect.nextBtn') : skipLabel}
           </Text>
         </ScalePressable>
       </View>

@@ -284,18 +284,175 @@ service cloud.firestore {
 
 ## 10. iOS 対応状況（EAS Build 対応中）
 
+> 監査日: 2026-04-12 / 実装反映日: 2026-04-12  
+> 現状は Android-first 設計だが、iOS 向けの主要な土台実装は反映済み。未完了なのは主に Apple/Firebase 側の設定と、Pod install 後の実機ビルド検証。
+
+### 機能別ステータス
+
 | 機能 | Android | iOS | 備考 |
 |---|---|---|---|
-| 睡眠記録（手動） | ✅ | 🚧 | ビルド確認待ち |
-| Health Connect | ✅ | ❌ | HealthKit実装が必要 |
-| スコア計算 | ✅ | 🚧 | ロジックは共通 |
-| AIひとこと | ✅ | 🚧 | Cloud Functions共通 |
-| 週次レポート | ✅ | 🚧 | Cloud Functions共通 |
-| AIチャット | ✅ | 🚧 | Cloud Functions共通 |
-| 通常アラーム | ✅ | ❌ | BGTaskScheduler対応必要 |
-| スマートアラーム | ✅ | ❌ | BGTaskScheduler + HealthKit |
-| Google Play Billing | ✅ | ❌ | Apple IAP対応必要 |
-| プッシュ通知 | ✅ | ❌ | APNs設定必要 |
+| 睡眠記録（手動） | ✅ | 🚧 | ビルド未検証 |
+| Apple Health 連携 | ✅ HC | 🚧 | `react-native-health` 導入済み。`src/services/appleHealth.ts` 実装済み。HealthKit entitlement 追加済み。`pod install` / 実機検証待ち |
+| スコア計算 | ✅ | 🚧 | ロジック共通。`APPLE_HEALTH` ソースをスコア計算対象に追加済み。実機データでの確認待ち |
+| AIひとこと | ✅ | 🚧 | Cloud Functions 共通。iOS 側ビルド未検証 |
+| 週次レポート | ✅ | 🚧 | Cloud Functions 共通。iOS 側ビルド未検証 |
+| AIチャット | ✅ | 🚧 | Cloud Functions 共通。iOS 側ビルド未検証 |
+| アラーム | ✅ | ❌ | BGTaskScheduler 対応が必要 |
+| 課金（IAP） | ✅ GP | 🚧 | `react-native-iap` は iOS 対応済み。App Store Connect 商品登録が必要 |
+| プッシュ通知（FCM） | ✅ | ❌ | APNs 設定・`GoogleService-Info.plist` が必要 |
+| ローカル通知（Notifee） | ✅ | 🚧 | `notificationService.ts` に `ios` オプション追加済み。通知許可 / 配信の実機検証待ち |
+| スプラッシュ（BootSplash） | ✅ | 🚧 | `AppDelegate.swift` に `RNBootSplash.initWithStoryboard("LaunchScreen")` を追加済み。iOS 起動検証待ち |
+| ハプティクス | ✅ | 🚧 | `react-native-haptic-feedback` 導入済み。`src/utils/haptics.ts` を置換済み。実機確認待ち |
+| レビュー誘導 | ✅ | ❌ | `STORE_LINKS.APP_STORE_ID` が `null`。App Store ID 設定が必要 |
+| SafeArea / ノッチ対応 | ✅ | ✅ | `react-native-safe-area-context` で対応済み |
+| KeyboardAvoidingView | ✅ | ✅ | iOS/Android で `behavior` を正しく分岐済み |
+
+---
+
+### ネイティブ設定の不足（ビルド必須）
+
+#### `ios/Yoake/AppDelegate.swift`
+反映済み:
+
+```swift
+import FirebaseCore
+import RNBootSplash
+
+if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+  FirebaseApp.configure()
+}
+
+override func customize(_ rootView: RCTRootView) {
+  RNBootSplash.initWithStoryboard("LaunchScreen", rootView: rootView)
+}
+```
+
+補足:
+- `GoogleService-Info.plist` が未配置でも起動時クラッシュを避けるため、Firebase 初期化は存在チェック付き
+- BootSplash は `LaunchScreen.storyboard` を使う構成
+- iOS 実機 / Simulator での起動確認は未実施
+
+#### `ios/Yoake/Info.plist`
+反映済み:
+
+```xml
+<!-- HealthKit -->
+<key>NSHealthShareUsageDescription</key>
+<string>睡眠データを取得して記録内容の自動入力に利用します。</string>
+<key>NSHealthUpdateUsageDescription</key>
+<string>睡眠データをApple Healthへ記録するために利用します。</string>
+```
+
+補足:
+- HealthKit の usage description は追加済み
+- Clinical Records は未使用のため未追加
+
+#### `GoogleService-Info.plist`
+Firebase iOS 設定ファイルが存在しない。Firebase Console からダウンロードして `ios/Yoake/` に配置する必要がある。`.gitignore` に追加済みなので、手動管理（EAS Secrets 等）が必要。
+
+#### `ios/Yoake/Yoake.entitlements`
+新規追加済み:
+
+```xml
+<key>com.apple.developer.healthkit</key>
+<true/>
+```
+
+補足:
+- `ios/Yoake.xcodeproj/project.pbxproj` に `CODE_SIGN_ENTITLEMENTS = Yoake/Yoake.entitlements;` を追加済み
+- Xcode 上で HealthKit Capability が正しく反映されるかは未検証
+
+---
+
+### Apple Health 実装状況
+
+反映済みの構成:
+
+```
+src/services/
+  healthConnect.ts   ← Android（実装済み）
+  appleHealth.ts     ← iOS 実装済み
+  healthData.ts      ← プラットフォーム振り分け済み
+```
+
+`appleHealth.ts` の実装内容:
+- `AppleHealthKit.isAvailable()` で利用可否確認
+- `AppleHealthKit.initHealthKit()` で `SleepAnalysis` / `HeartRate` 読み取り権限を要求
+- `AppleHealthKit.getSleepSamples()` で睡眠セッションを取得
+- `INBED` / `ASLEEP` / `CORE` / `DEEP` / `REM` を集計して `bedTime` / `wakeTime` / `deepSleepMinutes` / `remMinutes` / `lightSleepMinutes` / `awakenings` を算出
+- `AppleHealthKit.getHeartRateSamples()` で就寝中の平均心拍を算出
+- 手入力データは `HKWasUserEntered` を見て除外
+
+残タスク:
+- `ios/` で `pod install` 実行
+- 実機で HealthKit 許可ダイアログ・睡眠データ取得の確認
+- Apple Watch / ヘルスケアの実データでステージ集計の妥当性確認
+
+---
+
+### 対応優先順位
+
+| 優先度 | 作業 | 工数目安 |
+|---|---|---|
+| **必須** | `GoogleService-Info.plist` 追加 | 30分 |
+| **必須** | `pod install` 実行 + iOS ビルド確認 | 30〜60分 |
+| **必須** | Apple Health 実機検証（権限 / 睡眠サンプル / 心拍） | 0.5〜1日 |
+| 高 | APNs / FCM iOS 設定 | 1〜2時間 |
+| 高 | Notifee ローカル通知の実機検証 | 1時間 |
+| 中 | App Store Connect の IAP 商品登録 | 1〜2時間 |
+| 低 | `APP_STORE_ID` 設定 | 15分 |
+
+---
+
+### iOS 実機検証チェックリスト
+
+事前準備:
+- `ios/` で `pod install` 実行済み
+- `ios/Yoake/GoogleService-Info.plist` を配置済み
+- Apple Developer / Xcode 上で HealthKit Capability が有効
+- APNs / Push 関連を検証する場合は証明書・プロビジョニング・Firebase 設定を反映済み
+
+起動確認:
+- アプリが iPhone 実機でクラッシュせず起動する
+- LaunchScreen から React Native 画面へ自然に遷移する
+- `GoogleService-Info.plist` あり / なしの両ケースで起動時挙動が意図通り
+
+Apple Health:
+- オンボーディングの Apple Health 接続ボタンで許可ダイアログが出る
+- プロフィールの Health 設定画面から再確認できる
+- 許可後、当日または過去日の睡眠データが `SleepInputModal` に自動入力される
+- `bedTime` / `wakeTime` / `deepSleepMinutes` / `remMinutes` / `lightSleepMinutes` / `heartRateAvg` が妥当
+- 手入力の睡眠データが混ざらず、`HKWasUserEntered` 除外が効いている
+- ステージ未提供の日は manual スコア配点にフォールバックする
+
+スコア / 表示:
+- Apple Health 由来ログが `APPLE_HEALTH` として保存される
+- 詳細画面・スコア画面のソース表示が `Apple Health` になる
+- ステージありログで睡眠ステージカードが表示される
+- ステージなしログで UI が崩れない
+
+通知 / ハプティクス:
+- ローカル通知許可が iOS で取得できる
+- 朝通知・就寝通知が Notifee 経由で表示される
+- フォアグラウンド表示時に banner / list / sound が期待どおり
+- `haptics.light()` / `success()` / `warning()` が iPhone 実機で発火する
+
+Firebase / Push:
+- `GoogleService-Info.plist` ありで Firebase 初期化が通る
+- FCM トークン保存が iOS でも失敗しない
+- Push 通知タップで所定画面へ遷移する
+
+課金 / ストア:
+- `react-native-iap` の初期化が iOS でエラーにならない
+- App Store Connect 商品登録後に商品取得できる
+- `APP_STORE_ID` 設定後にレビュー導線が App Store へ遷移する
+
+未通過なら残すメモ:
+- 端末 / iOS バージョン
+- Apple Watch 連携の有無
+- Health アプリに存在した元データの種類
+- 再現手順
+- コンソールログ / スクリーンショット
 
 ---
 
@@ -303,7 +460,7 @@ service cloud.firestore {
 
 ### 共通
 - **ScalePressable** (`src/components/common/ScalePressable.tsx`) — 主要ボタンの共通コンポーネント。press時 scale 1→0.96（80ms）、release時 spring で 1 に戻る
-- **触覚フィードバック** (`src/utils/haptics.ts`) — `light` / `success` / `warning` の3種。Android: Vibration API
+- **触覚フィードバック** (`src/utils/haptics.ts`) — `light` / `success` / `warning` の3種。Android / iOS とも `react-native-haptic-feedback` を優先し、フォールバックで Vibration API を使用
 
 ### 発火タイミング
 | イベント | 種類 |
@@ -354,3 +511,7 @@ service cloud.firestore {
 | 2026-04-01 | B5 しろくまペルソナ導入: `ShirokumaIcon.tsx`（SVGアイコン・表情3種・groomアニメ）+ `ShirokumaBubble.tsx`（吹き出し複合コンポーネント）新規作成。HomeScreen の dreamBubble ゾーンを ShirokumaBubble に差し替え。`DAILY_SYSTEM_PROMPT` をしろくま口調に変更（既適用済）。WelcomeStep に feature0 追加。i18n キー `shirokuma.name` / `aiAdviceCard.title` 更新。 |
 | 2026-04-02 | `weeklyReportScheduler` 追加: 毎週月曜 07:00 JST に全プレミアムユーザーの週次レポートをサーバー側で自動生成・FCM通知送信。`functions/src/index.ts` に `onSchedule` import・`SERVER_WEEKLY_SYSTEM_PROMPT` / `chunkArray` / `getISOWeekKey` / `buildServerWeeklyUserMessage` / `sendWeeklyReportNotification` / `processUserWeeklyReport` / `runWeeklyReportBatch` を追加。 |
 | 2026-04-02 | `validatePurchase` / `activateTrial` に `users/{uid}.isPremium = true` の denormalization を追加。`weeklyReportScheduler` のバッチクエリ（`isPremium == true` フィルタ）で利用。 |
+| 2026-04-11 | バグ修正: 就寝リマインダー「今から寝ます」ボタン押下後にHomeScreen `useFocusEffect` で `getPendingSleepStart()` を確認し、pending があれば SleepInputModal を自動表示するよう修正（HomeScreen.tsx）。 |
+| 2026-04-11 | バグ修正: DiaryScreen の日付ピッカーキャンセル時も画面遷移してしまう問題を修正。`onChange` で `event.type !== 'set'` をチェックするよう変更（DiaryScreen.tsx）。 |
+| 2026-04-11 | バグ修正: RecordEditScreen の削除後 `navigation.pop(2)` をスタック深度依存の固定値から `navigation.popToTop()` に変更。4画面深（DiaryList→ScoreDetail→RecordDetail→RecordEdit）でも正しくリスト画面に戻るよう修正（RecordEditScreen.tsx）。 |
+| 2026-04-12 | § 10. iOS対応状況 を全面更新。監査結果に基づき機能別ステータス・ネイティブ設定の不足・Apple Health 実装計画・対応優先順位を追記。 |
