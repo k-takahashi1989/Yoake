@@ -1,1 +1,17 @@
 package-lock.json
+
+# Android ビルド成果物
+android/app/build/
+android/app/.cxx/
+android/build/
+android/.gradle/
+android/captures/
+
+# iOS ビルド成果物
+ios/build/
+ios/Pods/
+ios/DerivedData/
+
+# その他
+.gradle/
+*.log
