@@ -2694,31 +2694,31 @@
   dependencies:
     invariant "^2.2.4"
 
-"@react-native-firebase/app@^23.8.8":
-  version "23.8.8"
-  resolved "https://registry.npmjs.org/@react-native-firebase/app/-/app-23.8.8.tgz"
+"@react-native-firebase/app@^24.0.0":
+  version "24.0.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/app/-/app-24.0.0.tgz#b9400ac3c13617811b0375d1335d24edeec986bf"
   dependencies:
     firebase "12.10.0"
 
-"@react-native-firebase/auth@^23.8.8":
-  version "23.8.8"
-  resolved "https://registry.npmjs.org/@react-native-firebase/auth/-/auth-23.8.8.tgz"
+"@react-native-firebase/auth@^24.0.0":
+  version "24.0.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/auth/-/auth-24.0.0.tgz#fe48932592d0205a0d8323f356f8479e34a102e0"
   dependencies:
     plist "^3.1.0"
 
-"@react-native-firebase/firestore@^23.8.8":
-  version "23.8.8"
-  resolved "https://registry.npmjs.org/@react-native-firebase/firestore/-/firestore-23.8.8.tgz"
+"@react-native-firebase/firestore@^24.0.0":
+  version "24.0.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/firestore/-/firestore-24.0.0.tgz#a673dd5b532868a1ab8af7791a53e1dc8f275e3b"
   dependencies:
     react-native-url-polyfill "3.0.0"
 
-"@react-native-firebase/functions@^23.8.8":
-  version "23.8.8"
-  resolved "https://registry.npmjs.org/@react-native-firebase/functions/-/functions-23.8.8.tgz"
+"@react-native-firebase/functions@^24.0.0":
+  version "24.0.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/functions/-/functions-24.0.0.tgz#804a8fba269bb2ddff24d1147b05418747071889"
 
-"@react-native-firebase/messaging@^23.8.8":
-  version "23.8.8"
-  resolved "https://registry.npmjs.org/@react-native-firebase/messaging/-/messaging-23.8.8.tgz"
+"@react-native-firebase/messaging@^24.0.0":
+  version "24.0.0"
+  resolved "https://registry.yarnpkg.com/@react-native-firebase/messaging/-/messaging-24.0.0.tgz#185cd1d9f343fd6a2f077de05def34977fe63103"
 
 "@react-native/assets-registry@0.84.1":
   version "0.84.1"

@@ -8,9 +8,11 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-# Firebase iOS SDK v11+ (Swift 製) を ObjC から import するために必要。
-# gRPC-C++ の modulemap 問題は post_install で CLANG_ENABLE_MODULES = NO により回避する。
-use_modular_headers!
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
 
 target 'Yoake' do
   config = use_native_modules!
@@ -28,17 +30,5 @@ target 'Yoake' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
-
-    # use_modular_headers! グローバル時に gRPC-C++ の auto-generated module map が
-    # gRPC-Core.modulemap を参照してビルドが失敗するのを防ぐ。
-    # CLANG_ENABLE_MODULES = NO は _stdio.h のパースを壊すため使わず、
-    # DEFINES_MODULE = NO でモジュール定義の自動生成だけを抑制する。
-    installer.pods_project.targets.each do |target|
-      if target.name == 'gRPC-C++'
-        target.build_configurations.each do |build_config|
-          build_config.build_settings['DEFINES_MODULE'] = 'NO'
-        end
-      end
-    end
   end
 end
