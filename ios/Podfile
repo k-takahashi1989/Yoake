@@ -28,5 +28,13 @@ target 'Yoake' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # use_frameworks! :linkage => :static 使用時、RNFBApp 等が React の非モジュラーヘッダーを
+    # framework 内から import するためのエラーを抑制する
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
   end
 end
