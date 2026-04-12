@@ -21,6 +21,7 @@ target 'Yoake' do
   # (グローバルに use_modular_headers! を使うと gRPC-C++ が壊れるため個別指定)
   pod 'GoogleUtilities', :modular_headers => true
   pod 'RecaptchaInterop', :modular_headers => true
+  pod 'FirebaseAuth', :modular_headers => true
   pod 'FirebaseAuthInterop', :modular_headers => true
   pod 'FirebaseAppCheckInterop', :modular_headers => true
   pod 'FirebaseMessagingInterop', :modular_headers => true
