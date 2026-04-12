@@ -4,7 +4,11 @@
     "appVersionSource": "local"
   },
   "build": {
+    "base": {
+      "node": "22.11.0"
+    },
     "development": {
+      "extends": "base",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
@@ -14,6 +18,7 @@
       }
     },
     "preview": {
+      "extends": "base",
       "android": {
         "buildType": "apk"
       },
@@ -22,6 +27,7 @@
       }
     },
     "production": {
+      "extends": "base",
       "android": {
         "buildType": "app-bundle"
       },
