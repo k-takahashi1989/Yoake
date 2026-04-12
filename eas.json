@@ -14,8 +14,7 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "ios": {
-        "simulator": true,
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "simulator": true
       }
     },
     "preview": {
@@ -24,8 +23,7 @@
         "buildType": "apk"
       },
       "ios": {
-        "distribution": "internal",
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "distribution": "internal"
       }
     },
     "production": {
@@ -34,8 +32,7 @@
         "buildType": "app-bundle"
       },
       "ios": {
-        "distribution": "store",
-        "image": "macos-sonoma-14.6-xcode-16.0"
+        "distribution": "store"
       }
     }
   },
