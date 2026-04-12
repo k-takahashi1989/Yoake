@@ -5,10 +5,7 @@
   },
   "build": {
     "base": {
-      "node": "22.13.0",
-      "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.3"
-      }
+      "node": "22.13.0"
     },
     "development": {
       "extends": "base",
@@ -17,7 +14,8 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "image": "macos-sequoia-15.2-xcode-16.2"
       }
     },
     "preview": {
@@ -26,7 +24,8 @@
         "buildType": "apk"
       },
       "ios": {
-        "distribution": "internal"
+        "distribution": "internal",
+        "image": "macos-sequoia-15.2-xcode-16.2"
       }
     },
     "production": {
@@ -35,7 +34,8 @@
         "buildType": "app-bundle"
       },
       "ios": {
-        "distribution": "store"
+        "distribution": "store",
+        "image": "macos-sequoia-15.2-xcode-16.2"
       }
     }
   },

@@ -29,13 +29,14 @@ target 'Yoake' do
       # :ccache_enabled => true
     )
 
-    # use_modular_headers! グローバル時に gRPC-C++ が依存する gRPC-Core の
-    # modulemap が見つからないエラーを防ぐため、gRPC 関連 pod の Clang modules を無効化する
-    grpc_pods = %w[gRPC-C++ gRPC-Core BoringSSL-GRPC abseil]
+    # use_modular_headers! グローバル時に gRPC-C++ の auto-generated module map が
+    # gRPC-Core.modulemap を参照してビルドが失敗するのを防ぐ。
+    # CLANG_ENABLE_MODULES = NO は _stdio.h のパースを壊すため使わず、
+    # DEFINES_MODULE = NO でモジュール定義の自動生成だけを抑制する。
     installer.pods_project.targets.each do |target|
-      if grpc_pods.include?(target.name)
+      if target.name == 'gRPC-C++'
         target.build_configurations.each do |build_config|
-          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+          build_config.build_settings['DEFINES_MODULE'] = 'NO'
         end
       end
     end
