@@ -8,24 +8,12 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# Firebase iOS SDK v11+ は Swift 製のため、ObjC から Swift ヘッダーを参照するには
+# static frameworks が必要。use_frameworks! :linkage => :static を使用する。
+use_frameworks! :linkage => :static
 
 target 'Yoake' do
   config = use_native_modules!
-
-  # Firebase Swift pods が static library として import できるよう modular headers を個別指定
-  # (グローバルに use_modular_headers! を使うと gRPC-C++ が壊れるため個別指定)
-  pod 'GoogleUtilities', :modular_headers => true
-  pod 'RecaptchaInterop', :modular_headers => true
-  pod 'FirebaseAuth', :modular_headers => true
-  pod 'FirebaseAuthInterop', :modular_headers => true
-  pod 'FirebaseAppCheckInterop', :modular_headers => true
-  pod 'FirebaseMessagingInterop', :modular_headers => true
-  pod 'FirebaseFirestoreInternal', :modular_headers => true
 
   use_react_native!(
     :path => config[:reactNativePath],
