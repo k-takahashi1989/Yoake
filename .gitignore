@@ -1,0 +1,23 @@
+# IDE
+.idea/
+.vscode/
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.json
+.claude/
+
+# Crash dumps
+*.stackdump
+*.dmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
