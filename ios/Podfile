@@ -8,24 +8,11 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-use_modular_headers!
-
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
-
 target 'Yoake' do
-  config = use_native_modules!
+  use_frameworks! :linkage => :static
+  $RNFirebaseAsStaticFramework = true
 
-  # use_modular_headers! グローバル時に CocoaPods が gRPC-C++ の module map 内で
-  # gRPC-Core.modulemap を参照するパスを生成するが、このファイルは存在しない。
-  # gRPC 関連 pod を明示的に除外することで参照自体を生成させない。
-  pod 'gRPC-Core', :modular_headers => false
-  pod 'gRPC-C++', :modular_headers => false
-  pod 'BoringSSL-GRPC', :modular_headers => false
-  pod 'abseil', :modular_headers => false
+  config = use_native_modules!
 
   use_react_native!(
     :path => config[:reactNativePath],
