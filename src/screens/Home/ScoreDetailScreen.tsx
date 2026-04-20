@@ -70,7 +70,8 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
   const [aiComment, setAiComment] = useState<string | null>(null);
   const [isLoadingAiComment, setIsLoadingAiComment] = useState(false);
   const isAnimatingBack = useRef(false);
-  const gradientAnim = useRef(new Animated.Value(0)).current;
+  // Home のオーバーレイ（scoreColor）から繋がるよう、初期値 1 でマウント直後に即表示する
+  const gradientAnim = useRef(new Animated.Value(1)).current;
   // stagger: header=0, card0..N
   const STAGGER_COUNT = 5;
   const staggerAnims = useRef(
@@ -143,16 +144,6 @@ export default function ScoreDetailScreen({ route, navigation }: Props) {
       loadAiComment();
     }, [loadAiComment, reloadLog])
   );
-
-  // A: gradient fade-in on mount
-  useEffect(() => {
-    Animated.timing(gradientAnim, {
-      toValue: 1,
-      duration: 700,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
-  }, [gradientAnim]);
 
   // B: staggered content fade-in after data loads
   useEffect(() => {

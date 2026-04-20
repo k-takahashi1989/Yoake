@@ -31,8 +31,8 @@ export function computeHabitStats(logs: SleepLog[]): HabitStat[] {
 
   const result: HabitStat[] = [];
   for (const [id, data] of map.entries()) {
-    const total = data.withScores.length + data.withoutScores.length;
-    if (total < 3) continue;
+    // 実行・未実行の各グループで最低3件ないと統計的な差として意味を持たないため除外
+    if (data.withScores.length < 3 || data.withoutScores.length < 3) continue;
     const avg = (arr: number[]) =>
       arr.length > 0
         ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length)

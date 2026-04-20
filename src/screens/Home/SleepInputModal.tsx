@@ -30,6 +30,7 @@ import {
 import { safeToDate } from '../../utils/dateUtils';
 import {
   clearPendingSleepStart,
+  getExpectedLogDateForPending,
   getPendingSleepStart,
 } from '../../services/notificationService';
 import ScalePressable from '../../components/common/ScalePressable';
@@ -113,9 +114,7 @@ export default function SleepInputModal({
   const getPendingBedTimeForTarget = async (date: string) => {
     const pending = await getPendingSleepStart();
     if (!pending) return null;
-
-    const nextDay = format(addDays(pending.bedTime, 1), 'yyyy-MM-dd');
-    return nextDay === date ? pending.bedTime : null;
+    return getExpectedLogDateForPending(pending) === date ? pending.bedTime : null;
   };
 
   useEffect(() => {
@@ -480,7 +479,8 @@ function StageItem({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  // モーダル開閉時に背景画像のデコード前の一瞬に白が見えるのを防ぐためベース色を敷く
+  container: { flex: 1, backgroundColor: MORNING_THEME.root },
   bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: MORNING_THEME.overlay },
   safeArea: { flex: 1, backgroundColor: 'transparent' },
   header: {
