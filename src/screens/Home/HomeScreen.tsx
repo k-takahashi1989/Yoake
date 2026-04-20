@@ -31,7 +31,10 @@ import Icon from '../../components/common/Icon';
 import ScalePressable from '../../components/common/ScalePressable';
 import { haptics } from '../../utils/haptics';
 import { promptForReviewIfEligible } from '../../services/reviewService';
-import { getPendingSleepStart } from '../../services/notificationService';
+import {
+  getExpectedLogDateForPending,
+  getPendingSleepStart,
+} from '../../services/notificationService';
 
 type HomeNav = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -299,9 +302,15 @@ export default function HomeScreen() {
       const checkPendingSleepStart = async () => {
         const pending = await getPendingSleepStart();
         if (!pending) return;
+
+        // 押下時刻から想定される起床日（ログ日）を求め、未来（まだ寝ていない）ならスキップ。
+        // 過去／今日なら適切な targetDate でモーダルを開く。
+        const expectedLogDate = getExpectedLogDateForPending(pending);
+        if (expectedLogDate > today) return;
+
         const currentGoal = goal ?? (await getGoal());
         setGoal(currentGoal);
-        setModalTargetDate(undefined);
+        setModalTargetDate(expectedLogDate === today ? undefined : expectedLogDate);
         setShowInputModal(true);
       };
       void checkPendingSleepStart();

@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from './src/stores/authStore';
 import AppNavigator from './src/navigation';
 import { initI18n } from './src/i18n';
+import ErrorBoundary from './src/components/common/ErrorBoundary';
 
 const styles = {
   loadingContainer: {
@@ -39,9 +40,11 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
-      <AppNavigator />
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+        <AppNavigator />
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

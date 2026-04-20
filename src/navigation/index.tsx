@@ -22,6 +22,7 @@ import AnimatedBackground, {
   AnimatedBackgroundHandle,
 } from '../components/common/AnimatedBackground';
 import CustomTabBar from '../components/common/CustomTabBar';
+import { MORNING_THEME } from '../theme/morningTheme';
 
 import HomeScreen from '../screens/Home/HomeScreen';
 import ScoreDetailScreen from '../screens/Home/ScoreDetailScreen';
@@ -69,6 +70,8 @@ const HEADER_OPTS = {
   headerTintColor: '#FFFFFF' as const,
   headerTitleStyle: { fontWeight: '600' as const },
   headerShadowVisible: false,
+  // ネイティブスタックのシーン背景が既定で白になり、遷移時に白フラッシュが見えるため統一
+  contentStyle: { backgroundColor: MORNING_THEME.root },
 };
 
 const HOME_BG_SOURCE = require('../assets/images/bg_home.png');

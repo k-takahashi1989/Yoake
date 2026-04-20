@@ -5,6 +5,7 @@ import notifee, {
   TriggerType,
 } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { addDays, format } from 'date-fns';
 
 export const NOTIF_STORAGE_KEY = '@yoake:notification_settings';
 export const LAST_SCORE_KEY = '@yoake:last_score';
@@ -177,6 +178,14 @@ export async function getPendingSleepStart(): Promise<PendingSleepStart | null> 
 
 export async function clearPendingSleepStart(): Promise<void> {
   await AsyncStorage.removeItem(PENDING_SLEEP_START_KEY);
+}
+
+// 「今から寝ます」で保存された就寝時刻が、どの日付のログ（＝起床日）に対応するかを返す。
+// 深夜帯（0:00〜5:59）に押した場合は当日のログ、それ以外（夕方〜深夜0時前）は翌日のログ。
+export function getExpectedLogDateForPending(pending: PendingSleepStart): string {
+  const reference =
+    pending.bedTime.getHours() < 6 ? pending.bedTime : addDays(pending.bedTime, 1);
+  return format(reference, 'yyyy-MM-dd');
 }
 
 const STREAK_MILESTONES = [3, 7, 14, 30];
