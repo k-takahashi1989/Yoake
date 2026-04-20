@@ -95,6 +95,17 @@ require('@react-native-firebase/messaging').default().setBackgroundMessageHandle
   },
 );
 
+// 未捕捉の JS 例外を Crashlytics に送信（React レンダリング外の例外を捕捉）
+const crashlytics = require('@react-native-firebase/crashlytics').default;
+const prevHandler = global.ErrorUtils.getGlobalHandler();
+global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+  crashlytics().recordError(error);
+  if (isFatal) {
+    crashlytics().log(`Fatal JS error: ${error?.message ?? String(error)}`);
+  }
+  prevHandler?.(error, isFatal);
+});
+
 // AppRegistry は同期的に登録する必要がある（非同期の中で呼ぶとクラッシュする）
 // i18n の初期化は App コンポーネント内で行う
 AppRegistry.registerComponent(appName, () => App);
