@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSubscription, saveSubscription, getProfile, saveProfile, deleteAllUserData } from '../services/firebase';
 import { Subscription, UserProfile, AiPersonality, AgeGroup } from '../types';
 import { registerFcmToken, deleteFcmToken } from '../services/fcmService';
+import { safeToDate } from '../utils/dateUtils';
 
 const ONBOARDING_KEY = '@yoake:onboarding_completed';
 
@@ -21,7 +22,7 @@ function hasSubscriptionAccess(subscription: Subscription | null): boolean {
       : subscription.currentPeriodEndAt ?? subscription.trialEndAt;
 
   if (!endAt) return false;
-  return endAt.toDate() > new Date();
+  return safeToDate(endAt) > new Date();
 }
 
 interface AuthState {
